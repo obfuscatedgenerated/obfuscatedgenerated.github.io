@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "noEmitOnError": true,
+    "removeComments": true,
+    "sourceMap": true,
+    "target": "es2019",
+    "outDir": "public/script",
+    "typeRoots": [
+      "./declarations",
+      "./node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ],
+    "moduleResolution": "node",
+    "allowJs": true,
+  },
+  "exclude": [
+    "node_modules",
+    "public/script",
+    "webpack.config.js"
+  ]
+}

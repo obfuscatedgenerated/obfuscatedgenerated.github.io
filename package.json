@@ -1,0 +1,45 @@
+{
+  "name": "ogsys",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "build": "tsc --build",
+    "bundle": "webpack",
+    "watch-bundle": "webpack --watch --mode=development",
+    "watch": "tsc --watch",
+    "dev": "concurrently \"npm:start\" \"npm:watch\"",
+    "dev-bundle": "concurrently \"npm:start\" \"npm:watch-bundle\"",
+    "clean": "rimraf public/src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obfuscatedgenerated/ogsys.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/obfuscatedgenerated/ogsys/issues"
+  },
+  "homepage": "https://github.com/obfuscatedgenerated/ogsys#readme",
+  "dependencies": {
+    "express": "^4.18.1",
+    "xterm": "^4.19.0",
+    "xterm-addon-fit": "^0.5.0",
+    "xterm-addon-web-links": "^0.6.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.3.0",
+    "css-loader": "^6.7.1",
+    "extra-watch-webpack-plugin": "^1.0.3",
+    "handlebars": "^4.7.7",
+    "rimraf": "^3.0.2",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.3.1",
+    "typescript": "^4.7.4",
+    "webpack": "^5.73.0",
+    "webpack-cli": "^4.10.0"
+  }
+}

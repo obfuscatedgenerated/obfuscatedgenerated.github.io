@@ -1,0 +1,10 @@
+exclude:
+  - _config.yml
+  - .gitignore
+  - CNAME
+  - package.json
+  - package-lock.json
+  - server.js
+  - /src/
+  - tsconfig.json
+  - webpack.config.js
