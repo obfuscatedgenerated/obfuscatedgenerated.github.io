@@ -40,7 +40,9 @@ let process_line = (line: string): void => {
             term.writeln("\x1B[1;3;32mexit\x1B[0m - Exit the terminal.");
             break;
         case "clear":
-            term.clear();
+            setTimeout(() => {
+                term.clear();
+            }, 1); // doesn't clear the input line without this
             break;
         case "exit":
             term.writeln("\x1B[1;3;31mExiting...\x1B[0m");
