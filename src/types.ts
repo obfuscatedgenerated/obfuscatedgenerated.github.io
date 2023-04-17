@@ -12,7 +12,8 @@ export interface ProgramMainData {
     term: WrappedTerminal,
     args: string[],
     ANSI: ANSIDict,
-    registry: ProgramRegistry
+    NEWLINE: string,
+    registry: ProgramRegistry,
 }
 
 export type ProgramMain = (data: ProgramMainData) => number;

@@ -3,7 +3,7 @@ import type { Program } from "../types";
 export default {
     name: "clear",
     description: "Clears the screen, and/or the scrollback.",
-    usage_suffix: " [-h] [-s | -so]",
+    usage_suffix: "[-h] [-s | -so]",
     flags: {
         "-h": "Show this help message.",
         "-s": "Clear the screen and the scrollback.",

@@ -3,7 +3,7 @@ import type { Program } from "../types";
 export default {
     name: "shutdown",
     description: "Stops the OS.",
-    usage_suffix: " [-h] [-r]",
+    usage_suffix: "[-h] [-r]",
     flags: {
         "-h": "Show this help message.",
         "-r": "Reboot the terminal."

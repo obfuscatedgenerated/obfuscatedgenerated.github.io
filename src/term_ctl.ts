@@ -108,7 +108,6 @@ export class WrappedTerminal extends Terminal {
     execute = (line: string): void => {
         // remove leading and trailing whitespace and split the line into an array of words
         let sub = line.trim().split(" ");
-        console.log(sub);
 
         // the first word is the command, the rest are arguments
         let command = sub[0];
@@ -128,6 +127,7 @@ export class WrappedTerminal extends Terminal {
             term: this,
             args,
             ANSI,
+            NEWLINE,
             registry: this.registry
         });
     }
