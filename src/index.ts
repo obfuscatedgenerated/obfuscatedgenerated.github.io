@@ -37,7 +37,7 @@ let process_line = (line: string): void => {
     switch (command) {
         case "help":
             if (args.length === 0) {
-                term.writeln("\x1B[1;3;32mhelp\x1B[0m - This help menu. Use \x1B[1;3;32mhelp [command]\x1B[0m for more info on a command.");
+                term.writeln("\x1B[1;3;32mhelp\x1B[0m - List programs or get help for a specific program.");
                 term.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
                 term.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
             } else {
