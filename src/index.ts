@@ -37,15 +37,15 @@ let process_line = (line: string): void => {
         case "help":
             term.writeln("\x1B[1;3;32mhelp\x1B[0m - This help menu.");
             term.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
-            term.writeln("\x1B[1;3;32mexit\x1B[0m - Exit the terminal.");
+            term.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
             break;
         case "clear":
             setTimeout(() => {
                 term.clear();
             }, 1); // doesn't clear the input line without this
             break;
-        case "exit":
-            term.writeln("\x1B[1;3;31mExiting...\x1B[0m");
+        case "shutdown":
+            term.writeln("\x1B[1;3;31mShutting down...\x1B[0m");
             window.location.assign("/");
             break;
         default:
