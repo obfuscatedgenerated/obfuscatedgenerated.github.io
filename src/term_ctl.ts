@@ -105,7 +105,7 @@ export class WrappedTerminal extends Terminal {
         this.insert_preline();
     }
 
-    process_line = (line: string): void => {
+    execute = (line: string): void => {
         // remove leading and trailing whitespace and split the line into an array of words
         let sub = line.trim().split(" ");
         console.log(sub);
@@ -137,7 +137,7 @@ export class WrappedTerminal extends Terminal {
         if (e.key === "\r") {
             this.write(NEWLINE);
             this.history.push(this.current_line);
-            this.process_line(this.current_line);
+            this.execute(this.current_line);
             this.next_line();
         } else if (e.domEvent.code === "Backspace") {
             if (this.current_line.length > 0) {
