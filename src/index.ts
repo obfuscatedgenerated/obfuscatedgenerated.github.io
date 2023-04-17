@@ -28,7 +28,10 @@ let history: string[] = [];
 let current_line: string = "";
 
 let process_line = (line: string): void => {
-    let sub = line.trimStart().split(" ");
+    // remove leading and trailing whitespace and split the line into an array of words
+    let sub = line.trim().split(" ");
+
+    // the first word is the command, the rest are arguments
     let command = sub[0];
     let args = sub.slice(1);
 
@@ -39,6 +42,8 @@ let process_line = (line: string): void => {
                 term.writeln("\x1B[1;3;32mhelp\x1B[0m - List programs or get help for a specific program.");
                 term.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
                 term.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
+                term.writeln("\x1B[1;3;32mls\x1B[0m - List files in the current directory.");
+                term.writeln("\x1B[1;3;32mcd\x1B[0m - Change the current directory.");
             } else {
                 switch (args[0]) {
                     case "help":
@@ -55,7 +60,7 @@ let process_line = (line: string): void => {
                         term.writeln("  -r  Reboot the terminal.");
                         break;
                     default:
-                        term.writeln("\x1B[1;3;31mUnknown command.\x1B[0m");
+                        term.writeln(`\x1B[1;3;31mCould not resolve help for ${args[0]}.\x1B[0m`);
                 }
             }
             break;
