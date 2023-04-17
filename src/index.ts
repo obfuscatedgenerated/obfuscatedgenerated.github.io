@@ -26,6 +26,7 @@ term.write("$ ");
 
 let history: string[] = [];
 let current_line: string = "";
+let current_index = 0;
 
 let process_line = (line: string): void => {
     // remove leading and trailing whitespace and split the line into an array of words
@@ -91,19 +92,44 @@ let process_line = (line: string): void => {
 }
 
 term.onKey((e) => {
-    term.write(e.key);
     if (e.key === "\r") {
-        term.write("\n");
+        term.write("\r\n");
         history.push(current_line);
         process_line(current_line);
         current_line = "";
+        current_index = 0;
         term.write("$ ");
     } else if (e.domEvent.code === "Backspace") {
         if (current_line.length > 0) {
             current_line = current_line.slice(0, -1);
             term.write("\b \b");
         }
+    } else if (e.domEvent.code === "ArrowUp") {
+        if (history.length > 0) {
+            term.write("\b \b".repeat(current_line.length));
+            current_line = history[history.length - 1];
+            term.write(current_line);
+        }
+    } else if (e.domEvent.code === "ArrowDown") {
+        if (history.length > 0) {
+            term.write("\b \b".repeat(current_line.length));
+            current_line = "";
+            current_index = 0;
+            term.write(current_line);
+        }
+    } else if (e.domEvent.code === "ArrowLeft") {
+        if (current_index > 0) {
+            term.write("\b");
+            current_index--;
+        }
+    } else if (e.domEvent.code === "ArrowRight") {
+        if (current_index < current_line.length) {
+            term.write(current_line[current_index]);
+            current_index++;
+        }
     } else {
         current_line += e.key;
+        term.write(e.key);
+        current_index++;
     }
 });
