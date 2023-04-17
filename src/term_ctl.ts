@@ -64,6 +64,8 @@ interface IxTermKeyEvent {
     domEvent: KeyboardEvent;
 }
 
+// TODO: virtual directories and CWD handling
+
 export class WrappedTerminal extends Terminal {
     history: string[] = [];
     current_line = "";
