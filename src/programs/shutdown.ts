@@ -3,8 +3,9 @@ import type { Program } from "../types";
 export default {
     name: "shutdown",
     description: "Stops the OS.",
-    usage_suffix: " [-r]",
+    usage_suffix: " [-h] [-r]",
     flags: {
+        "-h": "Show this help message.",
         "-r": "Reboot the terminal."
     },
     main: (data) => {
@@ -28,6 +29,9 @@ export default {
                 setTimeout(() => {
                     window.location.reload();
                 }, 1000);
+                break;
+            case "-h":
+                term.execute("help shutdown");
                 break;
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);

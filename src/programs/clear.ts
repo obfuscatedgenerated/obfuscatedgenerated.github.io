@@ -3,8 +3,9 @@ import type { Program } from "../types";
 export default {
     name: "clear",
     description: "Clears the screen, and/or the scrollback.",
-    usage_suffix: " [-s | -so]",
+    usage_suffix: " [-h] [-s | -so]",
     flags: {
+        "-h": "Show this help message.",
         "-s": "Clear the screen and the scrollback.",
         "-so": "Only clear the scrollback."
     },
@@ -31,6 +32,9 @@ export default {
             case "-so":
                 term.clear_history();
                 term.writeln(`${STYLE.bold + FG.gray}Scrollback cleared.${STYLE.reset_all}`);
+                break;
+            case "-h":
+                term.execute("help clear");
                 break;
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);
