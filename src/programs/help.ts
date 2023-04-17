@@ -17,20 +17,20 @@ export default {
             // get all program names
             const programs = Object.keys(data.registry.programs);
 
-            // add usage suffix to each program name
-            const programs_with_usage = programs.map((program) => {
-                return `${program} ${data.registry.programs[program].usage_suffix}`;
+            // add usage suffix and styling to each program name
+            const programs_fmt = programs.map((program) => {
+                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${data.registry.programs[program].usage_suffix}`;
             });
 
             // sort the programs alphabetically (usually already sorted alphabetically by Object.keys, but not guaranteed)
-            programs_with_usage.sort();
+            programs_fmt.sort();
 
             // get the maximum length of a column
             const max_allowable_length = Math.floor(term.cols / 2) - 1;
             
             // split the programs into 2 columns
-            const column1 = programs_with_usage.filter((_, i) => i % 2 === 0);
-            const column2 = programs_with_usage.filter((_, i) => i % 2 === 1);
+            const column1 = programs_fmt.filter((_, i) => i % 2 === 0);
+            const column2 = programs_fmt.filter((_, i) => i % 2 === 1);
 
             // pad the programs in each column to the maximum length
             const column1_formatted = column1.map((program) => {
