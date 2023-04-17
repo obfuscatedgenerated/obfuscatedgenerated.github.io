@@ -19,6 +19,7 @@
   "exclude": [
     "node_modules",
     "public/script",
-    "webpack.config.js"
+    "webpack.config.js",
+    "server.js"
   ]
 }

@@ -18,10 +18,10 @@ term.focus();
 
 const newLine = "\r\n";
 
-term.writeln("┌─ Welcome to \x1B[1;3;31mOllieOS..\x1B[0m ──────────────┐");
-term.writeln("│  \x1B[35;1mType \x1B[1;3;32mhelp\x1B[0m\x1B[35;1m for a list of commands.\x1B[0m │");
-term.writeln("│      \x1b[36m»»---------------------►\x1B[0m      │");
-term.writeln("└────────────────────────────────────┘");
+term.writeln("┌─ Welcome to \x1B[1;3;31mOllieOS...\x1B[0m ──────────────┐");
+term.writeln("│  \x1B[35;1mType \x1B[1;3;32mhelp\x1B[0m\x1B[35;1m for a list of commands.\x1B[0m   │");
+term.writeln("│       \x1b[36m»»---------------------►\x1B[0m       │");
+term.writeln("└──────────────────────────────────────┘");
 term.write(newLine);
 term.write("$ ");
 
@@ -33,11 +33,32 @@ let process_line = (line: string): void => {
     let command = sub[0];
     let args = sub.slice(1);
 
+    // TODO: import this info from a directory of commands and help pages
     switch (command) {
         case "help":
-            term.writeln("\x1B[1;3;32mhelp\x1B[0m - This help menu.");
-            term.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
-            term.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
+            if (args.length === 0) {
+                term.writeln("\x1B[1;3;32mhelp\x1B[0m - This help menu. Use \x1B[1;3;32mhelp [command]\x1B[0m for more info on a command.");
+                term.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
+                term.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
+            } else {
+                switch (args[0]) {
+                    case "help":
+                        term.writeln("Usage: \x1B[1;3;32mhelp\x1B[0m [command]");
+                        term.writeln("Displays a list of commands or help for a specific command.");
+                        break;
+                    case "clear":
+                        term.writeln("Usage: \x1B[1;3;32mclear\x1B[0m");
+                        term.writeln("Clears the terminal.");
+                        break;
+                    case "shutdown":
+                        term.writeln("Usage: \x1B[1;3;32mshutdown\x1B[0m [-r]");
+                        term.writeln("Exits the terminal.");
+                        term.writeln("  -r  Reboot the terminal.");
+                        break;
+                    default:
+                        term.writeln("\x1B[1;3;31mUnknown command.\x1B[0m");
+                }
+            }
             break;
         case "clear":
             setTimeout(() => {
@@ -46,7 +67,18 @@ let process_line = (line: string): void => {
             break;
         case "shutdown":
             term.writeln("\x1B[1;3;31mShutting down...\x1B[0m");
-            window.location.assign("/");
+
+            setTimeout(() => {
+                term.dispose();
+            }, 1000);
+
+            if (args.length > 0) {
+                if (args[0] === "-r") {
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                }
+            }
             break;
         default:
             term.writeln("\x1B[1;3;31mUnknown command.\x1B[0m");
