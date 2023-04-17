@@ -20,7 +20,6 @@ const newLine = "\r\n";
 
 term.writeln("┌─ Welcome to \x1B[1;3;31mOllieOS...\x1B[0m ──────────────┐");
 term.writeln("│  \x1B[35;1mType \x1B[1;3;32mhelp\x1B[0m\x1B[35;1m for a list of commands.\x1B[0m   │");
-term.writeln("│       \x1b[36m»»---------------------►\x1B[0m       │");
 term.writeln("└──────────────────────────────────────┘");
 term.write(newLine);
 term.write("$ ");
