@@ -1,6 +1,63 @@
 import { Terminal } from "xterm";
+import { ProgramRegistry } from "./prog_registry";
 
 const NEWLINE = "\r\n";
+
+const FG = {
+    reset: "\x1B[39m",
+    red: "\x1B[31m",
+    green: "\x1B[32m",
+    yellow: "\x1B[33m",
+    blue: "\x1B[34m",
+    magenta: "\x1B[35m",
+    cyan: "\x1B[36m",
+    white: "\x1B[37m",
+    gray: "\x1B[90m"
+};
+
+const BG = {
+    reset: "\x1B[49m",
+    red: "\x1B[41m",
+    green: "\x1B[42m",
+    yellow: "\x1B[44m",
+    blue: "\x1B[44m",
+    magenta: "\x1B[45m",
+    cyan: "\x1B[46m",
+    white: "\x1B[47m",
+    gray: "\x1B[100m"
+}
+
+const STYLE = {
+    reset_all: "\x1B[0m",
+    bold: "\x1B[1m",
+    no_bold: "\x1B[21m",
+    dim: "\x1B[2m",
+    no_dim: "\x1B[22m",
+    italic: "\x1B[3m",
+    no_italic: "\x1B[23m",
+    underline: "\x1B[4m",
+    no_underline: "\x1B[24m",
+    inverse: "\x1B[7m",
+    no_inverse: "\x1B[27m",
+    hidden: "\x1B[8m",
+    no_hidden: "\x1B[28m",
+    strikethrough: "\x1B[9m",
+    no_strikethrough: "\x1B[29m",
+    negative: "\x1B[7m",
+    positive: "\x1B[27m"
+}
+
+const PREFABS = {
+    program_name: FG.cyan + STYLE.italic + STYLE.bold,
+    error: FG.red + STYLE.bold,
+}
+
+const ANSI = {
+    FG,
+    BG,
+    STYLE,
+    PREFABS
+}
 
 interface IxTermKeyEvent {
     key: string;
@@ -11,6 +68,16 @@ export class WrappedTerminal extends Terminal {
     history: string[] = [];
     current_line = "";
     current_index = 0;
+
+    registry: ProgramRegistry;
+
+    get_registry(): ProgramRegistry {
+        return this.registry;
+    }
+
+    clear_history(): void {
+        this.history = [];
+    }
 
     reset_current_vars(): void {
         this.current_line = "";
@@ -32,76 +99,41 @@ export class WrappedTerminal extends Terminal {
 
 
     splash(): void {
-        this.writeln("┌─ Welcome to \x1B[1;3;31mOllieOS...\x1B[0m ──────────────┐");
-        this.writeln("│  \x1B[35;1mType \x1B[1;3;32mhelp\x1B[0m\x1B[35;1m for a list of commands.\x1B[0m   │");
-        this.writeln("└──────────────────────────────────────┘");
+        this.writeln(`┌─ Welcome to ${STYLE.italic + STYLE.bold + FG.magenta}OllieOS...${STYLE.reset_all} ──────────────┐`);
+        this.writeln(`│  ${STYLE.bold + FG.blue}Type ${PREFABS.program_name}help${STYLE.no_italic + FG.blue} for a list of commands.${STYLE.reset_all}   │`);
+        this.writeln(`└──────────────────────────────────────┘`);
         this.insert_preline();
     }
 
     process_line = (line: string): void => {
         // remove leading and trailing whitespace and split the line into an array of words
         let sub = line.trim().split(" ");
+        console.log(sub);
 
         // the first word is the command, the rest are arguments
         let command = sub[0];
         let args = sub.slice(1);
 
-        // TODO: import this info from a directory of commands and help pages
-        switch (command) {
-            case "help":
-                if (args.length === 0) {
-                    this.writeln("\x1B[1;3;32mhelp\x1B[0m - List programs or get help for a specific program.");
-                    this.writeln("\x1B[1;3;32mclear\x1B[0m - Clear the terminal.");
-                    this.writeln("\x1B[1;3;32mshutdown\x1B[0m - Exit the terminal.");
-                    this.writeln("\x1B[1;3;32mls\x1B[0m - List files in the current directory.");
-                    this.writeln("\x1B[1;3;32mcd\x1B[0m - Change the current directory.");
-                } else {
-                    switch (args[0]) {
-                        case "help":
-                            this.writeln("Usage: \x1B[1;3;32mhelp\x1B[0m [command]");
-                            this.writeln("Displays a list of commands or help for a specific command.");
-                            break;
-                        case "clear":
-                            this.writeln("Usage: \x1B[1;3;32mclear\x1B[0m");
-                            this.writeln("Clears the terminal.");
-                            break;
-                        case "shutdown":
-                            this.writeln("Usage: \x1B[1;3;32mshutdown\x1B[0m [-r]");
-                            this.writeln("Exits the terminal.");
-                            this.writeln("  -r  Reboot the terminal.");
-                            break;
-                        default:
-                            this.writeln(`\x1B[1;3;31mCould not resolve help for ${args[0]}.\x1B[0m`);
-                    }
-                }
-                break;
-            case "clear":
-                setTimeout(() => {
-                    this.clear();
-                }, 1); // doesn't clear the input line without this
-                break;
-            case "shutdown":
-                this.writeln("\x1B[1;3;31mShutting down...\x1B[0m");
+        // search for the command in the registry
+        let program = this.registry.getProgram(command);
 
-                setTimeout(() => {
-                    this.dispose();
-                }, 1000);
-
-                if (args.length > 0) {
-                    if (args[0] === "-r") {
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1500);
-                    }
-                }
-                break;
-            default:
-                this.writeln("\x1B[1;3;31mUnknown command.\x1B[0m");
-                break;
+        // if the command is not found, print an error message
+        if (program === undefined) {
+            this.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            return;
         }
+
+        // if the command is found, run it
+        program.main({
+            term: this,
+            args,
+            ANSI,
+            registry: this.registry
+        });
     }
 
     key_event_handler = (e: IxTermKeyEvent): void => {
+        // TODO: cleanup with dedicated functions for handling each key
         if (e.key === "\r") {
             this.write(NEWLINE);
             this.history.push(this.current_line);
@@ -142,8 +174,11 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    constructor() {
+    constructor(registry?: ProgramRegistry) {
         super();
+
+        this.registry = registry || new ProgramRegistry();
+
         this.onKey(this.key_event_handler);
         this.splash();
     }
