@@ -2,11 +2,11 @@ import type { Program } from "../types";
 
 export default {
     name: "clear",
-    description: "Clears the screen, and/or the history/scrollback.",
-    usage_suffix: " [-h | -ho]",
+    description: "Clears the screen, and/or the scrollback.",
+    usage_suffix: " [-s | -so]",
     flags: {
-        "-h": "Additionally clear the history/scrollback.",
-        "-ho": "Only clear the history/scrollback."
+        "-s": "Clear the screen and the scrollback.",
+        "-so": "Only clear the scrollback."
     },
     main: (data) => {
         // extract from data to make code less verbose
@@ -21,16 +21,16 @@ export default {
                     term.clear();
                 }, 1); // delay needed to clear the command's line
                 break;
-            case "-h":
+            case "-s":
                 setTimeout(() => {
                     term.clear();
                 }, 1); // doesn't clear the input line without this
 
                 term.clear_history();
                 break;
-            case "-ho":
+            case "-so":
                 term.clear_history();
-                term.writeln("History cleared.");
+                term.writeln(`${STYLE.bold + FG.gray}Scrollback cleared.${STYLE.reset_all}`);
                 break;
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);

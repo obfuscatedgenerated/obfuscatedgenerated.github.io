@@ -1,10 +1,17 @@
 import type { WrappedTerminal } from "./term_ctl";
 import type { ProgramRegistry } from "./prog_registry";
 
+export interface ANSIDict {
+    FG: { [key: string]: string },
+    BG: { [key: string]: string },
+    STYLE: { [key: string]: string },
+    PREFABS: { [key: string]: string }
+}
+
 export interface ProgramMainData {
     term: WrappedTerminal,
     args: string[],
-    ANSI: { [key: string]: { [key: string]: {} } },
+    ANSI: ANSIDict,
     registry: ProgramRegistry
 }
 
