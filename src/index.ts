@@ -56,13 +56,13 @@ let process_line = (line: string): void => {
 
 term.onKey((e) => {
     term.write(e.key);
-    if (e.key == "\r") {
+    if (e.key === "\r") {
         term.write("\n");
         history.push(current_line);
         process_line(current_line);
         current_line = "";
         term.write("$ ");
-    } else if (e.domEvent.code == "Backspace") {
+    } else if (e.domEvent.code === "Backspace") {
         if (current_line.length > 0) {
             current_line = current_line.slice(0, -1);
             term.write("\b \b");
