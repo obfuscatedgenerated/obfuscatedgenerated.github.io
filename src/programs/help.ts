@@ -14,6 +14,10 @@ export default {
         
         // if no arguments are given, list all programs in 2 columns, depending on the terminal's columns
         if (args.length === 0) {
+            // write header
+            term.writeln(`For help on a specific command, type ${PREFABS.program_name}help${STYLE.reset_all} [command].`)
+            term.write(NEWLINE);
+
             // get all program names
             const programs = Object.keys(data.registry.programs);
 
