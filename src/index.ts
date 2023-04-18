@@ -14,7 +14,9 @@ for (const prog of Object.values(programs)) {
 }
 
 // create a terminal using the registry
-const term = new WrappedTerminal(prog_reg);
+const term = new WrappedTerminal(prog_reg, {
+    screenReaderMode: true,
+});
 
 // load addons
 const fit = new FitAddon();

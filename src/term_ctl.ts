@@ -1,4 +1,4 @@
-import { Terminal } from "xterm";
+import { ITerminalOptions, Terminal } from "xterm";
 
 import { ProgramRegistry } from "./prog_registry";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
@@ -258,8 +258,8 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    constructor(registry?: ProgramRegistry, register_builtin_handlers = true) {
-        super();
+    constructor(registry?: ProgramRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+        super(xterm_opts);
 
         this._registry = registry || new ProgramRegistry();
 
