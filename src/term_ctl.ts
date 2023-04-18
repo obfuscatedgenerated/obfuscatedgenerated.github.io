@@ -69,23 +69,29 @@ interface IxTermKeyEvent {
 // TODO: virtual directories and CWD handling
 
 export class WrappedTerminal extends Terminal {
-    history: string[] = [];
-    current_line = "";
-    current_index = 0;
+    _history: string[] = [];
+    _current_line = "";
+    _current_index = 0;
+    _current_history_index = 0;
 
-    registry: ProgramRegistry;
+    _registry: ProgramRegistry;
 
     get_registry(): ProgramRegistry {
-        return this.registry;
+        return this._registry;
     }
 
     clear_history(): void {
-        this.history = [];
+        this._history = [];
+        this._current_history_index = 0;
     }
 
-    reset_current_vars(): void {
-        this.current_line = "";
-        this.current_index = 0;
+    reset_current_vars(reset_history_index = false): void {
+        this._current_line = "";
+        this._current_index = 0;
+
+        if (reset_history_index) {
+            this._current_history_index = 0;
+        }
     }
 
     insert_preline(newline = true): void {
@@ -120,7 +126,7 @@ export class WrappedTerminal extends Terminal {
         const args = sub.slice(1);
 
         // search for the command in the registry
-        const program = this.registry.getProgram(command);
+        const program = this._registry.getProgram(command);
 
         // if the command is not found, print an error message
         if (program === undefined) {
@@ -129,13 +135,16 @@ export class WrappedTerminal extends Terminal {
         }
 
         // if the command is found, run it
-        program.main({
+        const exit_code = program.main({
             term: this,
             args,
             ANSI,
             NEWLINE,
-            registry: this.registry
+            registry: this._registry
         });
+
+        // set the history index to 0
+        this._current_history_index = 0;
     }
 
     key_event_handler = (e: IxTermKeyEvent): void => {
@@ -143,42 +152,75 @@ export class WrappedTerminal extends Terminal {
         // TODO: ability to redirect keystrokes to running programs
         if (e.key === "\r") {
             this.write(NEWLINE);
-            this.history.push(this.current_line);
-            this.execute(this.current_line);
+            this._history.push(this._current_line);
+            this.execute(this._current_line);
             this.next_line();
         } else if (e.domEvent.code === "Backspace") {
-            if (this.current_line.length > 0) {
-                this.current_line = this.current_line.slice(0, -1);
+            if (this._current_line.length > 0) {
+                this._current_line = this._current_line.slice(0, -1);
                 this.write("\b \b");
-                this.current_index--;
+                this._current_index--;
             }
         } else if (e.domEvent.code === "ArrowUp") {
-            if (history.length > 0) {
-                this.write("\b \b".repeat(this.current_line.length));
-                this.current_line = history[history.length - 1];
-                this.write(this.current_line);
+            if (this._history.length > 0 && this._current_history_index < this._history.length) {
+                // bring cursor to end of line
+                this.write(" ".repeat(this._current_line.length - this._current_index));
+
+                // clear current line (and move cursor back to start)
+                this.write("\b \b".repeat(this._current_line.length));
+
+                // increment history index and get command
+                const command = this._history[this._history.length - this._current_history_index++];
+
+                // write command
+                this.write("\r");
+                this.write("$ ");
+                this.write(command);
+
+                // update current line and index
+                this._current_line = command;
+                this._current_index = command.length;
             }
         } else if (e.domEvent.code === "ArrowDown") {
-            if (history.length > 0) {
-                this.write("\b \b".repeat(this.current_line.length));
-                this.reset_current_vars();
-                this.write(this.current_line);
+            if (history.length > 0 && this._current_history_index > 0) {
+                // bring cursor to end of line
+                this.write(" ".repeat(this._current_line.length - this._current_index));
+
+                // clear current line (and move cursor back to start)
+                this.write("\b \b".repeat(this._current_line.length));
+
+                // decrement history index and get command
+                let command = this._history[this._history.length - this._current_history_index--];
+
+                // if we're at the end of the history, clear the line
+                if (this._current_history_index === 0) {
+                    command = "";
+                }
+
+                // write command
+                this.write("\r");
+                this.write("$ ");
+                this.write(command);
+
+                // update current line and index
+                this._current_line = command;
+                this._current_index = command.length;
             }
         } else if (e.domEvent.code === "ArrowLeft") {
-            if (this.current_index > 0) {
+            if (this._current_index > 0) {
                 this.write("\b");
-                this.current_index--;
+                this._current_index--;
             }
         } else if (e.domEvent.code === "ArrowRight") {
-            if (this.current_index < this.current_line.length) {
-                this.write(this.current_line[this.current_index]);
-                this.current_index++;
+            if (this._current_index < this._current_line.length) {
+                this.write(this._current_line[this._current_index]);
+                this._current_index++;
             }
-        // check for printable characters by testing with a regex
+            // check for printable characters by testing with a regex
         } else if (e.key.match(NON_PRINTABLE_REGEX) === null) {
-            this.current_line += e.key;
+            this._current_line += e.key;
             this.write(e.key);
-            this.current_index++;
+            this._current_index++;
         } else {
             console.warn("Ignored key event:", e);
             // TODO: handle more special keys and sequences
@@ -188,7 +230,7 @@ export class WrappedTerminal extends Terminal {
     constructor(registry?: ProgramRegistry) {
         super();
 
-        this.registry = registry || new ProgramRegistry();
+        this._registry = registry || new ProgramRegistry();
 
         this.onKey(this.key_event_handler);
         this.splash();
