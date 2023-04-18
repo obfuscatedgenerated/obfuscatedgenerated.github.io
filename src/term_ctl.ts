@@ -118,6 +118,11 @@ export class WrappedTerminal extends Terminal {
     execute = (line: string): void => {
         // TODO: screen multiplexing
 
+        if (line.length === 0) {
+            // if the line is empty, just move to the next line (additional check if called from external source)
+            return;
+        }
+
         // remove leading and trailing whitespace and split the line into an array of words
         const sub = line.trim().split(" ");
 
@@ -147,10 +152,16 @@ export class WrappedTerminal extends Terminal {
         this._current_history_index = 0;
     }
 
-    key_event_handler = (e: IxTermKeyEvent): void => {
+    _key_event_handler = (e: IxTermKeyEvent): void => {
         // TODO: cleanup with dedicated functions for handling each key
         // TODO: ability to redirect keystrokes to running programs
         if (e.key === "\r") {
+            if (this._current_line.length === 0) {
+                // if the line is empty, just move to the next line
+                this.next_line();
+                return;
+            }
+
             this.write(NEWLINE);
             this._history.push(this._current_line);
             this.execute(this._current_line);
@@ -170,7 +181,7 @@ export class WrappedTerminal extends Terminal {
                 this.write("\b \b".repeat(this._current_line.length));
 
                 // increment history index and get command
-                const command = this._history[this._history.length - this._current_history_index++];
+                const command = this._history[this._history.length - ++this._current_history_index];
 
                 // write command
                 this.write("\r");
@@ -190,7 +201,7 @@ export class WrappedTerminal extends Terminal {
                 this.write("\b \b".repeat(this._current_line.length));
 
                 // decrement history index and get command
-                let command = this._history[this._history.length - this._current_history_index--];
+                let command = this._history[this._history.length - --this._current_history_index];
 
                 // if we're at the end of the history, clear the line
                 if (this._current_history_index === 0) {
@@ -232,7 +243,7 @@ export class WrappedTerminal extends Terminal {
 
         this._registry = registry || new ProgramRegistry();
 
-        this.onKey(this.key_event_handler);
+        this.onKey(this._key_event_handler);
         this.splash();
     }
 }
