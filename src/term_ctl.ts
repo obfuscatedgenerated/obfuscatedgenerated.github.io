@@ -167,9 +167,24 @@ export class WrappedTerminal extends Terminal {
             this.execute(this._current_line);
             this.next_line();
         } else if (e.domEvent.code === "Backspace") {
-            if (this._current_line.length > 0) {
-                this._current_line = this._current_line.slice(0, -1);
-                this.write("\b \b");
+            if (this._current_line.length > 0 && this._current_index > 0) {
+                // get everything before the cursor
+                const before = this._current_line.slice(0, this._current_index - 1);
+
+                // get everything after the cursor
+                const after = this._current_line.slice(this._current_index);
+
+                // update current line
+                this._current_line = before + after;
+
+                // move cursor back one
+                this.write("\b");
+
+                // overwrite with after content and a space (remove last character)
+                this.write(after + " ");
+
+                // move cursor back to original position
+                this.write("\b".repeat(after.length + 1));
                 this._current_index--;
             }
         } else if (e.domEvent.code === "ArrowUp") {
