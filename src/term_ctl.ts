@@ -70,9 +70,12 @@ interface IxTermKeyEvent {
 
 export class WrappedTerminal extends Terminal {
     _history: string[] = [];
+
     _current_line = "";
     _current_index = 0;
     _current_history_index = 0;
+
+    _preline = "$ ";
 
     _registry: ProgramRegistry;
 
@@ -99,7 +102,11 @@ export class WrappedTerminal extends Terminal {
             this.write(NEWLINE);
         }
 
-        this.write("$ ");
+        this.write(this._preline);
+    }
+
+    set_preline(preline: string): void {
+        this._preline = preline;
     }
 
     next_line(): void {
@@ -191,8 +198,6 @@ export class WrappedTerminal extends Terminal {
                 const command = this._history[this._history.length - ++this._current_history_index];
 
                 // write command
-                this.write("\r");
-                this.write("$ ");
                 this.write(command);
 
                 // update current line and index
@@ -216,8 +221,6 @@ export class WrappedTerminal extends Terminal {
                 }
 
                 // write command
-                this.write("\r");
-                this.write("$ ");
                 this.write(command);
 
                 // update current line and index
