@@ -54,7 +54,7 @@ const PREFABS = {
     error: FG.red + STYLE.bold,
 }
 
-const ANSI = {
+export const ANSI = {
     FG,
     BG,
     STYLE,
@@ -104,14 +104,6 @@ export class WrappedTerminal extends Terminal {
 
     next_line(): void {
         this.reset_current_vars();
-        this.insert_preline();
-    }
-
-
-    splash(): void {
-        this.writeln(`┌─ Welcome to ${STYLE.italic + STYLE.bold + FG.magenta}OllieOS...${STYLE.reset_all} ──────────────┐`);
-        this.writeln(`│  ${STYLE.bold + FG.blue}Type ${PREFABS.program_name}help${STYLE.no_italic + FG.blue} for a list of commands.${STYLE.reset_all}   │`);
-        this.writeln("└──────────────────────────────────────┘");
         this.insert_preline();
     }
 
@@ -259,6 +251,5 @@ export class WrappedTerminal extends Terminal {
         this._registry = registry || new ProgramRegistry();
 
         this.onKey(this._key_event_handler);
-        this.splash();
     }
 }

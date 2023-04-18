@@ -1,4 +1,4 @@
-import { WrappedTerminal } from "./term_ctl";
+import { ANSI, WrappedTerminal } from "./term_ctl";
 import "xterm/css/xterm.css";
 
 import { FitAddon } from "xterm-addon-fit";
@@ -28,3 +28,9 @@ fit.fit();
 
 // focus the terminal
 term.focus();
+
+// draw splash screen
+term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ──────────────┐`);
+term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}   │`);
+term.writeln("└──────────────────────────────────────┘");
+term.insert_preline();
