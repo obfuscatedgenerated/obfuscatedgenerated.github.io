@@ -1,9 +1,10 @@
 /* eslint-env node */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-import path from "path";
-import hb from "handlebars";
-import fs from "fs";
-import ExtraWatchWebpackPlugin from "extra-watch-webpack-plugin";
+const path = require("path");
+const hb = require("handlebars");
+const fs = require("fs");
+const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
 
 function hb_build() {
     console.log("Compiling index");
