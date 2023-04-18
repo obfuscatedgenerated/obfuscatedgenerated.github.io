@@ -1,3 +1,4 @@
+import { ANSI } from "../term_ctl";
 import type { Program } from "../types";
 
 export default {
@@ -10,7 +11,7 @@ export default {
     },
     main: (data) => {
         // extract from data to make code less verbose
-        const { ANSI, args, term } = data;
+        const { args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
