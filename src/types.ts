@@ -4,6 +4,7 @@ import type { ProgramRegistry } from "./prog_registry";
 export interface ProgramMainData {
     term: WrappedTerminal,
     args: string[],
+    unsubbed_args: string[],
     registry: ProgramRegistry,
 }
 

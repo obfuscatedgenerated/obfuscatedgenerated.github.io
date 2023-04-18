@@ -17,6 +17,7 @@ export default {
         if (args.length === 0) {
             // write header
             term.writeln(`For help on a specific command, type ${PREFABS.program_name}help${STYLE.reset_all} [command].`)
+            term.writeln(`The exit code of the most recently executed program is stored in the ${PREFABS.variable_name}$?${STYLE.reset_all} variable.`)
             term.write(NEWLINE);
 
             // get all program names

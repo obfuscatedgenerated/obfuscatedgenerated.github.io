@@ -56,6 +56,7 @@ const STYLE = {
 const PREFABS = {
     program_name: FG.cyan + STYLE.italic + STYLE.bold,
     error: FG.red + STYLE.bold,
+    variable_name: FG.yellow + STYLE.bold,
 }
 
 export const ANSI = {
@@ -80,9 +81,18 @@ export class WrappedTerminal extends Terminal {
 
     _registry: ProgramRegistry;
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
+    _vars: { [key: string]: string } = {};
 
     get_registry(): ProgramRegistry {
         return this._registry;
+    }
+
+    get_variable(name: string): string {
+        return this._vars[name];
+    }
+
+    set_variable(name: string, value: string): void {
+        this._vars[name] = value;
     }
 
     clear_history(): void {
@@ -131,6 +141,22 @@ export class WrappedTerminal extends Terminal {
         const command = sub[0];
         const args = sub.slice(1);
 
+        const unsubbed_args = args.slice();
+
+        // substitute args with variables
+        for (const arg_idx in args) {
+            const arg = args[arg_idx];
+
+            if (arg.startsWith("$")) {
+                const var_name = arg.slice(1);
+                const var_value = this.get_variable(var_name);
+
+                if (var_value) {
+                    args[arg_idx] = var_value;
+                }
+            }
+        }
+
         // search for the command in the registry
         const program = this._registry.getProgram(command);
 
@@ -144,8 +170,12 @@ export class WrappedTerminal extends Terminal {
         const exit_code = program.main({
             term: this,
             args,
+            unsubbed_args,
             registry: this._registry
         });
+
+        // set the exit code
+        this.set_variable("?", exit_code.toString());
 
         // set the history index to 0
         this._current_history_index = 0;
