@@ -109,6 +109,8 @@ export class WrappedTerminal extends Terminal {
     }
 
     execute = (line: string): void => {
+        // TODO: screen multiplexing
+
         // remove leading and trailing whitespace and split the line into an array of words
         let sub = line.trim().split(" ");
 
@@ -137,6 +139,7 @@ export class WrappedTerminal extends Terminal {
 
     key_event_handler = (e: IxTermKeyEvent): void => {
         // TODO: cleanup with dedicated functions for handling each key
+        // TODO: ability to redirect keystrokes to running programs
         if (e.key === "\r") {
             this.write(NEWLINE);
             this.history.push(this.current_line);
