@@ -16,3 +16,15 @@ export interface Program {
     flags: { [key: string]: string }, // { flag: flag_description }
     main: ProgramMain
 }
+
+
+export interface KeyEvent {
+    key: string;
+    domEvent: KeyboardEvent;
+}
+
+export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void;
+export interface RegisteredKeyEventIdentifier {
+    key?: string;
+    domEventCode?: string;
+}
