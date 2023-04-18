@@ -12,7 +12,8 @@
     "watch": "tsc --watch",
     "dev": "concurrently \"npm:start\" \"npm:watch\"",
     "dev-bundle": "concurrently \"npm:start\" \"npm:watch-bundle\"",
-    "clean": "rimraf public/src"
+    "clean": "rimraf public/src",
+    "publish": "npm run clean && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE}\" -m \"update page\""
   },
   "repository": {
     "type": "git",

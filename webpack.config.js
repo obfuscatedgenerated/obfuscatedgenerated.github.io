@@ -3,8 +3,6 @@ const hb = require('handlebars');
 const fs = require('fs');
 const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
 
-// TODO: improve this and other setup files to standard of current website (including publish command)
-
 function hb_build() {
   console.log("Compiling index");
   let index_template = fs.readFileSync("./src/index.handlebars", "utf8");

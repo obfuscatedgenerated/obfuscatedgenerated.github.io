@@ -1,2 +1,4 @@
 .dccache
 /node_modules/
+index.html
+/public/script/
