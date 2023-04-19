@@ -4,7 +4,7 @@ import type { Program } from "../types";
 export default {
     name: "clear",
     description: "Clears the screen, and/or the scrollback.",
-    usage_suffix: "[-h] [-s | -so]",
+    usage_suffix: "[-h | -s | -so]",
     flags: {
         "-h": "Show this help message.",
         "-s": "Clear the screen and the scrollback.",
@@ -36,7 +36,7 @@ export default {
                 break;
             case "-h":
                 term.execute("help clear");
-                break;
+                return 0;
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);
                 return 1;
