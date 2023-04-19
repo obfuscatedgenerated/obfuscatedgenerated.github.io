@@ -211,6 +211,7 @@ export abstract class FileSystem {
     }
 }
 
+// TODO: may get laggy with large files and many files or dirs
 // NOTE: not using implements (TS) so the real methods can be used
 export class LocalStorageFS extends FileSystem {
     make_dir(path: string): void {
