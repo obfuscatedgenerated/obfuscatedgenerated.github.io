@@ -1,6 +1,10 @@
 import type { KeyEventHandler } from "./types";
-import { NEWLINE } from "./term_ctl";
+import { NEWLINE, ANSI } from "./term_ctl";
 import type { WrappedTerminal } from "./term_ctl";
+
+import { FileSystem, FSEventType } from "./filesystem";
+
+//const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
 
 // enter
 export const execute_next_line: KeyEventHandler = (_e, term) => {
@@ -152,4 +156,26 @@ export const register_builtin_key_handlers = (term: WrappedTerminal) => {
             block: true,
         }
     );
+}
+
+// on set cwd
+export const change_prompt = (path: string, fs: FileSystem, term: WrappedTerminal) => {
+    const { PREFABS, STYLE } = ANSI;
+
+    if (path === fs.get_home()) {
+        path = "~";
+    }
+
+    // build result e.g. ~$ 
+    const new_prompt = `${PREFABS.dir_name}${path}${STYLE.reset_all}`;
+    term.set_prompt(new_prompt);
+}
+
+
+export const register_builtin_fs_handlers = (term: WrappedTerminal) => {
+    const fs = term.get_fs();
+
+    fs.register_callback(FSEventType.SET_CWD, (data: string): void => {
+        change_prompt(data, fs, term);
+    });
 }

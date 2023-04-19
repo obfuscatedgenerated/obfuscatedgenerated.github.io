@@ -19,12 +19,14 @@ export enum FSEventType {
     GETTING_CWD,
     SET_HOME,
     GETTING_HOME,
+    SET_ROOT,
+    GETTING_ROOT,
 
     CHECKING_EXISTS,
     CHECKING_DIR_EXISTS,
 }
 
-export type FSEventHandler = (data: string) => void;
+export type FSEventHandler = (data: string, fs: FileSystem) => void;
 
 export abstract class FileSystem {
     _initialised = false;
@@ -32,12 +34,13 @@ export abstract class FileSystem {
     _cache: { [path: string]: string } = {};
     _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
-    _home = "/";
+    _root = "/";
+    _home = "/home";
     _cwd = this._home;
 
 
     
-    register_callback(event_type: FSEventType, callback: (data: string) => string): () => void {
+    register_callback(event_type: FSEventType, callback: FSEventHandler): () => void {
         // if there are no callbacks for this event type, create an empty array
         if (!this._callbacks.has(event_type)) {
             this._callbacks.set(event_type, []);
@@ -55,7 +58,7 @@ export abstract class FileSystem {
     _call_callbacks(event_type: FSEventType, data: string): void {
         // call all callbacks
         for (const callback of this._callbacks.get(event_type) ?? []) {
-            callback(data);
+            callback(data, this);
         }
     }
 
@@ -124,6 +127,16 @@ export abstract class FileSystem {
     set_home(path: string): void {
         this._home = path;
         this._call_callbacks(FSEventType.SET_HOME, path);
+    }
+
+    get_root(): string {
+        this._call_callbacks(FSEventType.GETTING_ROOT, this._root);
+        return this._root;
+    }
+
+    set_root(path: string): void {
+        this._root = path;
+        this._call_callbacks(FSEventType.SET_ROOT, path);
     }
     
 
@@ -295,7 +308,8 @@ export class LocalStorageFS extends FileSystem {
     constructor() {
         super();
 
-        // initialise home directory
+        // initialise root and home directory
+        this.make_dir(this._root);
         this.make_dir(this._home);
 
         this._initialised = true;

@@ -4,7 +4,7 @@ import { ProgramRegistry } from "./prog_registry";
 import type { FileSystem } from "./filesystem";
 
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
-import { register_builtin_key_handlers } from "./event_handlers";
+import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */
@@ -82,7 +82,8 @@ export class WrappedTerminal extends Terminal {
     _current_index = 0;
     _current_history_index = 0;
 
-    _preline = "$ ";
+    _preline = "";
+    _prompt_suffix = "$ ";
 
     _registry: ProgramRegistry;
     _fs: FileSystem;
@@ -137,8 +138,21 @@ export class WrappedTerminal extends Terminal {
         this.write(this._preline);
     }
 
+    // raw access to the preline vs setting just the prompt and having the suffix added
     set_preline(preline: string): void {
         this._preline = preline;
+    }
+
+    set_prompt(prompt: string): void {
+        this.set_preline(prompt + this._prompt_suffix);
+    }
+
+    get_prompt_suffix(): string {
+        return this._prompt_suffix;
+    }
+
+    set_prompt_suffix(suffix: string): void {
+        this._prompt_suffix = suffix;
     }
 
 
@@ -313,8 +327,12 @@ export class WrappedTerminal extends Terminal {
 
         if (register_builtin_handlers) {
             register_builtin_key_handlers(this);
+            register_builtin_fs_handlers(this);
         }
 
         this.onKey(this._handle_key_event);
+        
+        // set prompt to initial cwd
+        change_prompt(fs.get_cwd(), fs, this);
     }
 }
