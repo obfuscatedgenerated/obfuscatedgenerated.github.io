@@ -41,3 +41,11 @@ term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.
 term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}   │`);
 term.writeln("└──────────────────────────────────────┘");
 term.insert_preline();
+
+
+// disable F1 help
+window.addEventListener("keydown",function (e) {
+    if (e.code === "F1") {
+        e.preventDefault();
+    }
+});

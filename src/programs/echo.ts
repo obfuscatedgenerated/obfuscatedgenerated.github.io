@@ -1,4 +1,4 @@
-import type { Program } from "../types";
+import type { SyncProgram } from "../types";
 
 export default {
     name: "echo",
@@ -14,4 +14,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} as SyncProgram;

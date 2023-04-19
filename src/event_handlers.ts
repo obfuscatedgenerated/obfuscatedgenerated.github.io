@@ -7,7 +7,7 @@ import { FileSystem, FSEventType } from "./filesystem";
 //const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
 
 // enter
-export const execute_next_line: KeyEventHandler = (_e, term) => {
+export const execute_next_line: KeyEventHandler = async (_e, term) => {
     if (term._current_line.length === 0) {
         // if the line is empty, just move to the next line
         term.next_line();
@@ -16,7 +16,7 @@ export const execute_next_line: KeyEventHandler = (_e, term) => {
 
     term.write(NEWLINE);
     term._history.push(term._current_line);
-    term.execute(term._current_line);
+    await term.execute(term._current_line);
     term.next_line();
 }
 

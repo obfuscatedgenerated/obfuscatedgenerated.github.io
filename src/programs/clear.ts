@@ -1,5 +1,5 @@
 import { ANSI } from "../term_ctl";
-import type { Program } from "../types";
+import type { SyncProgram } from "../types";
 
 export default {
     name: "clear",
@@ -44,4 +44,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} as SyncProgram;

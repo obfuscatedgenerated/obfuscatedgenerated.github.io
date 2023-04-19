@@ -9,13 +9,21 @@ export interface ProgramMainData {
 }
 
 export type ProgramMain = (data: ProgramMainData) => number;
+export type AsyncProgramMain = (data: ProgramMainData) => Promise<number>;
 
 export interface Program {
     name: string,
     description: string,
     usage_suffix: string,
     flags: { [key: string]: string }, // { flag: flag_description }
-    main: ProgramMain
+}
+
+export interface SyncProgram extends Program {
+    main: ProgramMain,
+}
+
+export interface AsyncProgram extends Program {
+    async_main: AsyncProgramMain,
 }
 
 
@@ -24,7 +32,7 @@ export interface KeyEvent {
     domEvent: KeyboardEvent;
 }
 
-export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void;
+export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void | Promise<void>;
 export interface RegisteredKeyEventIdentifier {
     key?: string;
     domEventCode?: string;

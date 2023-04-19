@@ -1,9 +1,9 @@
-import { ITerminalOptions, Terminal } from "xterm";
+import { IDisposable, ITerminalOptions, Terminal } from "xterm";
 
 import { ProgramRegistry } from "./prog_registry";
 import type { FileSystem } from "./filesystem";
 
-import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
+import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, SyncProgram, AsyncProgram } from "./types";
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 
 export const NEWLINE = "\r\n";
@@ -14,6 +14,7 @@ export const ANSI_ESCAPE_REGEX = /(\\u001b|\\x1b)(8|7|H|>|\[(\?\d+(h|l)|[0-2]?(K
 
 const FG = {
     reset: "\x1B[39m",
+    black: "\x1B[30m",
     red: "\x1B[31m",
     green: "\x1B[32m",
     yellow: "\x1B[33m",
@@ -26,6 +27,7 @@ const FG = {
 
 const BG = {
     reset: "\x1B[49m",
+    black: "\x1B[40m",
     red: "\x1B[41m",
     green: "\x1B[42m",
     yellow: "\x1B[44m",
@@ -76,6 +78,8 @@ export const ANSI = {
 // TODO: docstrings everywhere
 
 export class WrappedTerminal extends Terminal {
+    _disposable_onkey: IDisposable;
+
     _history: string[] = [];
 
     _current_line = "";
@@ -162,7 +166,7 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    execute = (line: string): void => {
+    execute = async (line: string): Promise<void> => {
         // TODO: screen multiplexing
 
         if (line.length === 0) {
@@ -226,12 +230,23 @@ export class WrappedTerminal extends Terminal {
         }
 
         // if the command is found, run it
-        const exit_code = program.main({
+        const data = {
             term: this,
             args,
             unsubbed_args,
-            registry: this._registry
-        });
+            registry: this._registry,
+        }
+
+        let exit_code = 0;
+        if ("main" in program) {
+            exit_code = (<SyncProgram>program).main(data);
+        } else if ("async_main" in program) {
+            // TODO: use callbacks
+            await (<AsyncProgram>program).async_main(data);
+        } else {
+            throw new Error("Invalid program type");
+        }
+        
 
         // set the exit code
         this.set_variable("?", exit_code.toString());
@@ -259,10 +274,10 @@ export class WrappedTerminal extends Terminal {
      * Registers a key event handler.
      *
      * @param {KeyEventHandler} handler The handler to register
-     * @param {{ keyString?: string, domEventCode?: string, block: boolean }} props The properties of the handler. Key is the key as a string, domEventCode is the DOM event code. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display.
+     * @param {{ keyString?: string, domEventCode?: string, block: boolean, high_priority: boolean }} props The properties of the handler. Key is the key as a string, domEventCode is the DOM event code. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display. High priority determines whether the handler should be placed at the beginning of the handler list.
      * @returns {() => () => void} A function to unregister the handler
      */
-    register_key_event_handler = (handler: KeyEventHandler, props: { keyString?: string, domEventCode?: string, block: boolean }) => {
+    register_key_event_handler = (handler: KeyEventHandler, props: { keyString?: string, domEventCode?: string, block?: boolean, high_priority?: boolean }) => {
         if (props.keyString === undefined && props.domEventCode === undefined) {
             throw new TypeError("Must specify at least one of key or domEventCode");
         }
@@ -273,7 +288,7 @@ export class WrappedTerminal extends Terminal {
             domEventCode: props.domEventCode
         };
 
-        const entry = { handler, block: props.block };
+        const entry = { handler, block: props.block ?? false };
 
         // if the identifier has not already been registered, create a new array for it
         if (!this._key_handlers.has(identifier)) {
@@ -281,7 +296,11 @@ export class WrappedTerminal extends Terminal {
         } else {
             // otherwise, add the handler to the existing array
             // NOTE: reference is retained so no need to search
-            this._key_handlers.get(identifier)!.push(entry);
+            if (props.high_priority) {
+                this._key_handlers.get(identifier)!.unshift(entry);
+            } else {
+                this._key_handlers.get(identifier)!.push(entry);
+            }
         }
 
         // return a function to unregister the handler
@@ -291,7 +310,7 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    _handle_key_event = (e: KeyEvent): void => {
+    _handle_key_event = async (e: KeyEvent): Promise<void> => {
         // TODO: supress builtin key events when program is running, create ctrl+c handler
 
         // search the handlers for the key
@@ -318,6 +337,24 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
+    wait_for_keypress = async (): Promise<KeyEvent> => {
+        // dispose of the current key handler (block bubbling)
+        this._disposable_onkey.dispose();
+
+        return new Promise((resolve) => {
+            this._disposable_onkey = this.onKey((e) => {
+                // dispose of this handler
+                this._disposable_onkey.dispose();
+
+                // re-register the original handler
+                this._disposable_onkey = this.onKey(this._handle_key_event);
+
+                // resolve the promise
+                resolve(e);
+            });
+        });
+    }
+
 
     constructor(fs: FileSystem, registry?: ProgramRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
@@ -330,7 +367,7 @@ export class WrappedTerminal extends Terminal {
             register_builtin_fs_handlers(this);
         }
 
-        this.onKey(this._handle_key_event);
+        this._disposable_onkey = this.onKey(this._handle_key_event);
         
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);

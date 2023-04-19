@@ -46,6 +46,10 @@ export abstract class FileSystem {
     _cwd = this._home;
 
 
+    purge_cache(): void {
+        this._cache = {};
+    }
+
     
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void {
         // if there are no callbacks for this event type, create an empty array
@@ -172,14 +176,11 @@ export abstract class FileSystem {
             return path;
         }
 
-        // drop leading ./ or just . (but not ..)
+        // drop leading ./
         if (path.startsWith("./")) {
             path = path.slice(2);
         }
-
-        if (path.startsWith(".") && !path.startsWith("..")) {
-            path = path.slice(1);
-        }
+        
 
         let effective_cwd = this._cwd;
 

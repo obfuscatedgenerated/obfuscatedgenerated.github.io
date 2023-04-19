@@ -1,5 +1,5 @@
 import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
-import type { Program } from "../types";
+import type { SyncProgram } from "../types";
 
 export default {
     name: "cd",
@@ -43,4 +43,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} as SyncProgram;
