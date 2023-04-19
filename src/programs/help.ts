@@ -36,35 +36,32 @@ export default {
             const max_allowable_length = Math.floor(term.cols / 2) - 1;
             
             // split the programs into 2 columns
-            const column1 = programs_fmt.filter((_, i) => i % 2 === 0);
-            const column2 = programs_fmt.filter((_, i) => i % 2 === 1);
+            const column1 = programs_fmt.filter((_, i) => i <= programs_fmt.length / 2);
+            const column2 = programs_fmt.filter((_, i) => i > programs_fmt.length / 2);
 
-            // pad the programs in each column to the maximum length
-            const column1_formatted = column1.map((program) => {
-                // get program length whilst ignoring ANSI escape codes
-                const program_length = program.replace(ANSI_ESCAPE_REGEX, "").length;
+            // pair the programs in the 2 columns
+            const paired_programs = column1.map((program1, i) => {
+                let program2 = column2[i] ?? "";
 
-                if (program_length > max_allowable_length) {
-                    return program.slice(0, max_allowable_length - 3) + "...";
+                const program1_real_length = program1.replace(ANSI_ESCAPE_REGEX, "").length;
+                const program2_real_length = program2.replace(ANSI_ESCAPE_REGEX, "").length;
+
+                // if the program name is too long, truncate it
+                if (program1_real_length > max_allowable_length) {
+                    program1 = program1.slice(0, max_allowable_length / 2 - 3) + "...";
+                }
+                if (program2_real_length > max_allowable_length) {
+                    program2 = program2.slice(0, max_allowable_length / 2 - 3) + "...";
                 }
 
-                return program.padEnd(max_allowable_length - program_length, " ");
-            });
+                // pad the programs so that they are both left-aligned
+                const padding = " ".repeat(max_allowable_length - program1_real_length);
 
-            const column2_formatted = column2.map((program) => {
-                const program_length = program.replace(ANSI_ESCAPE_REGEX, "").length;
-
-                if (program_length > max_allowable_length) {
-                    return program.slice(0, max_allowable_length - 3) + "...";
-                }
-
-                return program.padEnd(max_allowable_length - program_length, " ");
+                return program1 + padding + program2;
             });
 
             // write the programs to the terminal
-            for (let i = 0; i < column1_formatted.length; i++) {
-                term.writeln(`${column1_formatted[i]}\t${column2_formatted[i] || ""}`);
-            }
+            term.writeln(paired_programs.join(NEWLINE));
 
             return 0;
         }
