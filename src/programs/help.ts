@@ -1,4 +1,4 @@
-import { ANSI, NEWLINE } from "../term_ctl";
+import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
 import type { Program } from "../types";
 
 export default {
@@ -40,16 +40,29 @@ export default {
 
             // pad the programs in each column to the maximum length
             const column1_formatted = column1.map((program) => {
-                return program.padEnd(max_allowable_length - program.length, " ");
+                // get program length whilst ignoring ANSI escape codes
+                const program_length = program.replace(ANSI_ESCAPE_REGEX, "").length;
+
+                if (program_length > max_allowable_length) {
+                    return program.slice(0, max_allowable_length - 3) + "...";
+                }
+
+                return program.padEnd(max_allowable_length - program_length, " ");
             });
 
             const column2_formatted = column2.map((program) => {
-                return program.padEnd(max_allowable_length - program.length, " ");
+                const program_length = program.replace(ANSI_ESCAPE_REGEX, "").length;
+
+                if (program_length > max_allowable_length) {
+                    return program.slice(0, max_allowable_length - 3) + "...";
+                }
+
+                return program.padEnd(max_allowable_length - program_length, " ");
             });
 
             // write the programs to the terminal
             for (let i = 0; i < column1_formatted.length; i++) {
-                term.writeln(`${column1_formatted[i]}  ${column2_formatted[i] || ""}`);
+                term.writeln(`${column1_formatted[i]}\t${column2_formatted[i] || ""}`);
             }
 
             return 0;
