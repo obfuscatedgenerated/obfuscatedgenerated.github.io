@@ -5,7 +5,7 @@ import { FitAddon } from "xterm-addon-fit";
 import { WebLinksAddon } from "xterm-addon-web-links";
 
 import { ProgramRegistry } from "./prog_registry";
-import * as programs from "./programs/ALL";
+import * as programs from "./programs/@ALL";
 
 // create a program registry by importing all programs
 const prog_reg = new ProgramRegistry();
