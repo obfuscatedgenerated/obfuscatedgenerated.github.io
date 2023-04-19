@@ -67,7 +67,7 @@ export default {
             }
 
             // add to line
-            if (fs.dir_exists(`${path}/${file}`)) {
+            if (fs.dir_exists(fs.join(path, file))) {
                 line += `${PREFABS.dir_name}${file}${STYLE.reset_all} `;
             } else {
                 line += `${PREFABS.file_path}${file}${STYLE.reset_all} `;

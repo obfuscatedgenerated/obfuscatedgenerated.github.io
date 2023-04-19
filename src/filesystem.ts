@@ -181,8 +181,9 @@ export abstract class FileSystem {
             path = path.slice(1);
         }
 
-        // if path start with .., step up the cwd
         let effective_cwd = this._cwd;
+
+        // if path starts with .., step up the cwd
         while (path.startsWith("..") && effective_cwd !== this._root) {
             path = path.slice(2);
 
@@ -194,8 +195,18 @@ export abstract class FileSystem {
             effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
         }
 
-        // make path absolute
-        return effective_cwd + "/" + path;
+        // if path starts with ~/, replace it with home
+        if (path.startsWith("~/")) {
+            path = path.slice(2);
+            effective_cwd = this._home;
+        }
+
+        return this.join(effective_cwd, path);
+    }
+
+    join(base_dir: string, path: string): string {
+        // join base_dir and path, keeping in mind that base_dir might not end with /
+        return base_dir + (base_dir.endsWith("/") ? "" : "/") + path;
     }
 }
 

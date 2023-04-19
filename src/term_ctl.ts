@@ -334,5 +334,11 @@ export class WrappedTerminal extends Terminal {
         
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
+
+        // create .ollierc file if it doesn't exist
+        const absolute_rc = fs.absolute("~/.ollierc");
+        if (!fs.exists(absolute_rc)) {
+            fs.write_file(absolute_rc, "");
+        }
     }
 }
