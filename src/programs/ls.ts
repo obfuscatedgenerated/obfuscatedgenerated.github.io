@@ -32,7 +32,7 @@ export default {
                     term.execute("help ls");
                     return 0;
                 default:
-                    path = arg;
+                    path = fs.absolute(arg);
             }
         }
 
@@ -44,6 +44,9 @@ export default {
 
         // list dir
         let dir = fs.list_dir(path);
+        
+        // sort alphabetically (usually already sorted by Object.keys but just in case)
+        dir.sort();
 
         // filter out hidden files
         if (!show_hidden) {
@@ -70,6 +73,9 @@ export default {
                 line += `${PREFABS.file_path}${file}${STYLE.reset_all} `;
             }
         }
+
+        // write last line
+        term.writeln(line);
         
         return 0;
     }

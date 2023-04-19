@@ -4,6 +4,12 @@ export class PathNotFoundError extends Error {
     }
 }
 
+export class NonRecursiveDirectoryError extends Error {
+    constructor(path: string) {
+        super(`Refusing to delete non-empty directory: ${path}`);
+    }
+}
+
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
@@ -29,6 +35,7 @@ export enum FSEventType {
 export type FSEventHandler = (data: string, fs: FileSystem) => void;
 
 export abstract class FileSystem {
+    //TODO: dry
     _initialised = false;
 
     _cache: { [path: string]: string } = {};
@@ -70,8 +77,8 @@ export abstract class FileSystem {
 
 
     read_file(path: string): string {
-        // check if file is in cache
-        if (this._cache[path]) {
+        // check if file is in cache and still exists
+        if (this._cache[path] && this.exists(path)) {
             return this._cache[path];
         }
         
@@ -105,7 +112,7 @@ export abstract class FileSystem {
 
     abstract list_dir(path: string): string[];
     abstract make_dir(path: string): void;
-    abstract delete_dir(path: string): void;
+    abstract delete_dir(path: string, recursive: boolean): void;
     abstract move_dir(path: string, new_path: string): void;
 
     get_cwd(): string {
@@ -153,163 +160,306 @@ export abstract class FileSystem {
         this._call_callbacks(FSEventType.CHECKING_EXISTS, path);
         return this.exists_direct(path);
     }
+
+    absolute(path: string): string {
+        // if path starts with cwd, it is absolute
+        if (path.startsWith(this._cwd)) {
+            return path;
+        }
+
+        // if path starts with root, it is absolute
+        if (path.startsWith(this._root)) {
+            return path;
+        }
+
+        // drop leading ./ or just . (but not ..)
+        if (path.startsWith("./")) {
+            path = path.slice(2);
+        }
+
+        if (path.startsWith(".") && !path.startsWith("..")) {
+            path = path.slice(1);
+        }
+
+        // if path start with .., step up the cwd
+        let effective_cwd = this._cwd;
+        while (path.startsWith("..") && effective_cwd !== this._root) {
+            path = path.slice(2);
+
+            // drop leading /
+            if (path.startsWith("/")) {
+                path = path.slice(1);
+            }
+
+            effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
+        }
+
+        // make path absolute
+        return effective_cwd + "/" + path;
+    }
 }
-
-
-// TODO: could implement directory as ... implements Storage to mimic localStorage
 
 // NOTE: not using implements (TS) so the real methods can be used
 export class LocalStorageFS extends FileSystem {
     make_dir(path: string): void {
-        if (!this.exists(path)) {
-            // create empty directory object
-            localStorage.setItem(path, "{}");
-            this._call_callbacks(FSEventType.MADE_DIR, path);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
+
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+
+        // create directory for each part inside the previous one
+        for (const part of parts) {
+            const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
+
+            if (!current_dir[part]) {
+                current_dir[part] = {};
+                this._call_callbacks(FSEventType.MADE_DIR, absolute_path);
+            }
+
+            current_dir = current_dir[part];
         }
+
+        // save state
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    delete_dir(path: string): void {
-        if (this.exists(path)) {
-            localStorage.removeItem(path);
-            this._call_callbacks(FSEventType.DELETED_DIR, path);
+    delete_dir(path: string, recursive: boolean): void {
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
+
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+
+        // delete directory for each part inside the previous one
+        for (const part of parts) {
+            const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
+
+            if (!recursive && this.list_dir(absolute_path).length > 0) {
+                throw new NonRecursiveDirectoryError(part);
+            }
+
+            if (current_dir[part]) {
+                delete current_dir[part];
+                this._call_callbacks(FSEventType.DELETED_DIR, absolute_path);
+            } else {
+                throw new PathNotFoundError(absolute_path);
+            }
+
+            current_dir = current_dir[part];
         }
     }
 
     move_dir(path: string, new_path: string): void {
-        if (this.exists(path)) {
-            // copy value and remove old key
-            localStorage.setItem(new_path, localStorage.getItem(path));
-            localStorage.removeItem(path);
-            this._call_callbacks(FSEventType.MOVED_DIR, path);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
+
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+        const new_parts = new_path.split("/");
+
+        // move directory for each part
+        for (const part of parts) {
+            const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
+            const new_absolute_path = new_parts.slice(0, parts.indexOf(part) + 1).join("/");
+
+            if (current_dir[part]) {
+                current_dir[new_parts[parts.indexOf(part)]] = current_dir[part];
+                delete current_dir[part];
+                this._call_callbacks(FSEventType.MOVED_DIR, new_absolute_path);
+            } else {
+                throw new PathNotFoundError(absolute_path);
+            }
+
+            current_dir = current_dir[part];
         }
     }
 
     list_dir(path: string): string[] {
         this._call_callbacks(FSEventType.LISTING_DIR, path);
 
-        if (this.exists(path)) {
-            // return keys of directory object
-            return Object.keys(JSON.parse(localStorage.getItem(path)));
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
+
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            if (current_dir[part]) {
+                current_dir = current_dir[part];
+            } else {
+                throw new PathNotFoundError(path);
+            }
         }
 
-        return [];
+        // return list of files in directory
+        return Object.keys(current_dir);
     }
 
 
     read_file_direct(path: string): string {
-        // resolve directory path
-        const dir_path = path.substring(0, path.lastIndexOf("/"));
-        const file_name = path.substring(path.lastIndexOf("/") + 1);
+        const state = JSON.parse(localStorage.getItem("fs"));
 
-        // get directory object
-        const dir = JSON.parse(localStorage.getItem(dir_path));
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+        let current_part = state;
 
-        // check dir exists and file exists
-        if (dir && dir[file_name]) {
-            return dir[file_name];
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            // if this is not the last part, check if it is a directory
+            if (parts.indexOf(part) !== parts.length - 1 && !current_part[part]) {
+                throw new PathNotFoundError(path);
+            }
+
+            current_part = current_part[part];
+        }
+
+        // check if file exists
+        if (current_part) {
+            return current_part;
         }
 
         throw new PathNotFoundError(path);
     }
 
     write_file_direct(path: string, data: string): void {
-        // resolve directory path
-        const dir_path = path.substring(0, path.lastIndexOf("/"));
-        const file_name = path.substring(path.lastIndexOf("/") + 1);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
 
-        // get directory object
-        const dir = JSON.parse(localStorage.getItem(dir_path));
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+        const file_name = parts[parts.length - 1];
 
-        // check dir exists
-        if (dir) {
-            // add file to directory object
-            dir[file_name] = data;
-            localStorage.setItem(dir_path, JSON.stringify(dir));
-        } else {
-            throw new PathNotFoundError(path);
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            // go until before the last part
+            if (parts.indexOf(part) !== parts.length - 1) {
+                if (!current_dir[part]) {
+                    throw new PathNotFoundError(path);
+                }
+
+                current_dir = current_dir[part];
+            }
         }
+
+        // write file to directory
+        current_dir[file_name] = data;
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 
     delete_file_direct(path: string): void {
-        // resolve directory path
-        const dir_path = path.substring(0, path.lastIndexOf("/"));
-        const file_name = path.substring(path.lastIndexOf("/") + 1);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
 
-        // get directory object
-        const dir = JSON.parse(localStorage.getItem(dir_path));
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+        const file_name = parts[parts.length - 1];
 
-        // check dir exists and file exists
-        if (dir && dir[file_name]) {
-            // remove file from directory object
-            delete dir[file_name];
-            localStorage.setItem(dir_path, JSON.stringify(dir));
-        } else {
-            throw new PathNotFoundError(path);
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            // go until before the last part
+            if (parts.indexOf(part) !== parts.length - 1) {
+                if (!current_dir[part]) {
+                    throw new PathNotFoundError(path);
+                }
+
+                current_dir = current_dir[part];
+            }
         }
+
+        // delete file from directory
+        delete current_dir[file_name];
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 
     move_file_direct(path: string, new_path: string): void {
-        // resolve directory paths
-        const dir_path = path.substring(0, path.lastIndexOf("/"));
-        const file_name = path.substring(path.lastIndexOf("/") + 1);
-        const new_dir_path = new_path.substring(0, new_path.lastIndexOf("/"));
-        const new_file_name = new_path.substring(new_path.lastIndexOf("/") + 1);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_dir = state;
 
-        // get directory objects
-        const dir = JSON.parse(localStorage.getItem(dir_path));
-        const new_dir = JSON.parse(localStorage.getItem(new_dir_path));
+        // split paths into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+        const new_parts = new_path === this._root ? [""] : new_path.split("/");
+        const file_name = parts[parts.length - 1];
+        const new_file_name = new_parts[new_parts.length - 1];
 
-        // check dir exists and file exists
-        if (dir && dir[file_name]) {
-            // check new dir exists
-            if (new_dir) {
-                // add file to new directory object
-                new_dir[new_file_name] = dir[file_name];
-                localStorage.setItem(new_dir_path, JSON.stringify(new_dir));
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            // go until before the last part
+            if (parts.indexOf(part) !== parts.length - 1) {
+                if (!current_dir[part]) {
+                    throw new PathNotFoundError(path);
+                }
 
-                // remove file from old directory object
-                delete dir[file_name];
-                localStorage.setItem(dir_path, JSON.stringify(dir));
-            } else {
-                throw new PathNotFoundError(new_path);
+                current_dir = current_dir[part];
             }
-        } else {
-            throw new PathNotFoundError(path);
         }
+
+        // get directory for each part inside the previous one
+        for (const part of new_parts) {
+            // go until before the last part
+            if (new_parts.indexOf(part) !== new_parts.length - 1) {
+                if (!current_dir[part]) {
+                    current_dir[part] = {};
+                }
+
+                current_dir = current_dir[part];
+            }
+        }
+
+        // move file to directory
+        current_dir[new_file_name] = current_dir[file_name];
+        delete current_dir[file_name];
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 
     exists_direct(path: string): boolean {
-        // resolve directory path
-        const dir_path = path.substring(0, path.lastIndexOf("/"));
-        const file_name = path.substring(path.lastIndexOf("/") + 1);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_part = state;
 
-        // get directory object
-        const dir = JSON.parse(localStorage.getItem(dir_path));
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
 
-        // check dir exists and file exists
-        if (dir && dir[file_name]) {
-            return true;
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            if (current_part[part]) {
+                current_part = current_part[part];
+            } else {
+                return false;
+            }
         }
 
-        return false;
+        return true;
     }
 
     dir_exists(path: string): boolean {
-        this._call_callbacks(FSEventType.CHECKING_DIR_EXISTS, path);
+        const state = JSON.parse(localStorage.getItem("fs"));
+        let current_part = state;
 
-        // check if directory object exists
-        if (localStorage.getItem(path)) {
-            return true;
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+
+        // get directory for each part inside the previous one
+        for (const part of parts) {
+            if (current_part[part]) {
+                current_part = current_part[part];
+            } else {
+                return false;
+            }
         }
 
-        return false;
+        return typeof current_part === "object";
     }
 
     constructor() {
         super();
 
+        // initialise file system
+        if (!localStorage.getItem("fs")) {
+            localStorage.setItem("fs", JSON.stringify({}));
+        }
+
         // initialise root and home directory
-        this.make_dir(this._root);
         this.make_dir(this._home);
 
         this._initialised = true;

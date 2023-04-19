@@ -31,14 +31,15 @@ export default {
 
         // check if path is a directory and exists
         const path = args[0];
+        const absolute_path = fs.absolute(path);
 
-        if (!fs.dir_exists(path)) {
+        if (!fs.dir_exists(absolute_path)) {
             term.writeln(`${PREFABS.error}No such directory: ${path}${STYLE.reset_all}`);
             return 1;
         }
 
         // change directory
-        fs.set_cwd(path);
+        fs.set_cwd(absolute_path);
 
         return 0;
     }
