@@ -18,6 +18,7 @@ export default {
             // write header
             term.writeln(`For help on a specific command, type ${PREFABS.program_name}help${STYLE.reset_all} [command].`)
             term.writeln(`The exit code of the most recently executed program is stored in the ${PREFABS.variable_name}$?${STYLE.reset_all} variable.`)
+            term.writeln(`You can set variables with the syntax ${PREFABS.variable_name}variable${STYLE.reset_all}=value and unset them with ${PREFABS.program_name}unset${STYLE.reset_all}.`)
             term.write(NEWLINE);
 
             // get all program names
