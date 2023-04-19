@@ -5,9 +5,12 @@ export class PathNotFoundError extends Error {
 }
 
 export abstract class FileSystem {
+    _initialised = false;
+
     _cache: { [path: string]: string } = {};
-    _cwd = "/";
+
     _home = "/";
+    _cwd = this._home;
 
 
     abstract read_file_direct(path: string): string;
@@ -224,5 +227,14 @@ export class LocalStorageFS extends FileSystem {
         }
 
         return false;
+    }
+
+    constructor() {
+        super();
+
+        // initialise home directory
+        this.make_dir(this._home);
+
+        this._initialised = true;
     }
 }
