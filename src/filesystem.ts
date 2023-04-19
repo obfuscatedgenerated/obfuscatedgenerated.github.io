@@ -4,13 +4,60 @@ export class PathNotFoundError extends Error {
     }
 }
 
+export enum FSEventType {
+    READING_FILE,
+    WROTE_FILE,
+    DELETED_FILE,
+    MOVED_FILE,
+
+    LISTING_DIR,
+    MADE_DIR,
+    DELETED_DIR,
+    MOVED_DIR,
+
+    SET_CWD,
+    GETTING_CWD,
+    SET_HOME,
+    GETTING_HOME,
+
+    CHECKING_EXISTS,
+    CHECKING_DIR_EXISTS,
+}
+
+export type FSEventHandler = (data: string) => void;
+
 export abstract class FileSystem {
     _initialised = false;
 
     _cache: { [path: string]: string } = {};
+    _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
     _home = "/";
     _cwd = this._home;
+
+
+    
+    register_callback(event_type: FSEventType, callback: (data: string) => string): () => void {
+        // if there are no callbacks for this event type, create an empty array
+        if (!this._callbacks.has(event_type)) {
+            this._callbacks.set(event_type, []);
+        }
+
+        // add callback to array
+        this._callbacks.get(event_type).push(callback);
+
+        // return function to remove callback
+        return () => {
+            this._callbacks.get(event_type).splice(this._callbacks.get(event_type).indexOf(callback), 1);
+        }
+    }
+
+    _call_callbacks(event_type: FSEventType, data: string): void {
+        // call all callbacks
+        for (const callback of this._callbacks.get(event_type) ?? []) {
+            callback(data);
+        }
+    }
 
 
     abstract read_file_direct(path: string): string;
@@ -26,6 +73,7 @@ export abstract class FileSystem {
         }
         
         // if not, read it from disk and cache it
+        this._call_callbacks(FSEventType.READING_FILE, path);
         return this._cache[path] = this.read_file_direct(path);
     }
 
@@ -33,12 +81,14 @@ export abstract class FileSystem {
         // write to disk and cache
         this._cache[path] = data;
         this.write_file_direct(path, data);
+        this._call_callbacks(FSEventType.WROTE_FILE, path);
     }
 
     delete_file(path: string): void {
         // delete from cache and disk
         delete this._cache[path];
         this.delete_file_direct(path);
+        this._call_callbacks(FSEventType.DELETED_FILE, path);
     }
 
     move_file(path: string, new_path: string): void {
@@ -46,6 +96,7 @@ export abstract class FileSystem {
         this._cache[new_path] = this._cache[path];
         delete this._cache[path];
         this.move_file_direct(path, new_path);
+        this._call_callbacks(FSEventType.MOVED_FILE, path);
     }
 
 
@@ -55,20 +106,24 @@ export abstract class FileSystem {
     abstract move_dir(path: string, new_path: string): void;
 
     get_cwd(): string {
+        this._call_callbacks(FSEventType.GETTING_CWD, this._cwd);
         return this._cwd;
     }
 
     set_cwd(path: string): void {
         this._cwd = path;
+        this._call_callbacks(FSEventType.SET_CWD, path);
     }
 
     
     get_home(): string {
+        this._call_callbacks(FSEventType.GETTING_HOME, this._home);
         return this._home;
     }
 
     set_home(path: string): void {
         this._home = path;
+        this._call_callbacks(FSEventType.SET_HOME, path);
     }
     
 
@@ -82,6 +137,7 @@ export abstract class FileSystem {
         }
 
         // if not, check if it exists on disk
+        this._call_callbacks(FSEventType.CHECKING_EXISTS, path);
         return this.exists_direct(path);
     }
 }
@@ -95,12 +151,14 @@ export class LocalStorageFS extends FileSystem {
         if (!this.exists(path)) {
             // create empty directory object
             localStorage.setItem(path, "{}");
+            this._call_callbacks(FSEventType.MADE_DIR, path);
         }
     }
 
     delete_dir(path: string): void {
         if (this.exists(path)) {
             localStorage.removeItem(path);
+            this._call_callbacks(FSEventType.DELETED_DIR, path);
         }
     }
 
@@ -109,10 +167,13 @@ export class LocalStorageFS extends FileSystem {
             // copy value and remove old key
             localStorage.setItem(new_path, localStorage.getItem(path));
             localStorage.removeItem(path);
+            this._call_callbacks(FSEventType.MOVED_DIR, path);
         }
     }
 
     list_dir(path: string): string[] {
+        this._call_callbacks(FSEventType.LISTING_DIR, path);
+
         if (this.exists(path)) {
             // return keys of directory object
             return Object.keys(JSON.parse(localStorage.getItem(path)));
@@ -221,6 +282,8 @@ export class LocalStorageFS extends FileSystem {
     }
 
     dir_exists(path: string): boolean {
+        this._call_callbacks(FSEventType.CHECKING_DIR_EXISTS, path);
+
         // check if directory object exists
         if (localStorage.getItem(path)) {
             return true;
