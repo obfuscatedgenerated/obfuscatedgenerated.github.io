@@ -70,6 +70,7 @@ export abstract class FileSystem {
     
 
     abstract exists_direct(path: string): boolean;
+    abstract dir_exists(path: string): boolean;
 
     exists(path: string): boolean {
         // check if file is in cache
@@ -210,6 +211,15 @@ export class LocalStorageFS extends FileSystem {
 
         // check dir exists and file exists
         if (dir && dir[file_name]) {
+            return true;
+        }
+
+        return false;
+    }
+
+    dir_exists(path: string): boolean {
+        // check if directory object exists
+        if (localStorage.getItem(path)) {
             return true;
         }
 

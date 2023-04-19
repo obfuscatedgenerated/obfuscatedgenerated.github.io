@@ -60,6 +60,8 @@ const PREFABS = {
     program_name: FG.cyan + STYLE.italic + STYLE.bold,
     error: FG.red + STYLE.bold,
     variable_name: FG.yellow + STYLE.bold,
+    file_path: FG.green + STYLE.bold,
+    dir_name: FG.blue + STYLE.bold,
 }
 
 export const ANSI = {
