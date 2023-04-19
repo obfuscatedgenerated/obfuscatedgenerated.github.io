@@ -1,6 +1,8 @@
 import { ITerminalOptions, Terminal } from "xterm";
 
 import { ProgramRegistry } from "./prog_registry";
+import type { FileSystem } from "./filesystem";
+
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { register_builtin_key_handlers } from "./event_handlers";
 
@@ -81,12 +83,20 @@ export class WrappedTerminal extends Terminal {
     _preline = "$ ";
 
     _registry: ProgramRegistry;
+    _fs: FileSystem;
+
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     _vars: { [key: string]: string } = {};
+
 
     get_registry(): ProgramRegistry {
         return this._registry;
     }
+
+    get_fs(): FileSystem {
+        return this._fs;
+    }
+
 
     get_variable(name: string): string {
         return this._vars[name];
@@ -100,10 +110,12 @@ export class WrappedTerminal extends Terminal {
         delete this._vars[name];
     }
 
+
     clear_history(): void {
         this._history = [];
         this._current_history_index = 0;
     }
+
 
     reset_current_vars(reset_history_index = false): void {
         this._current_line = "";
@@ -113,6 +125,7 @@ export class WrappedTerminal extends Terminal {
             this._current_history_index = 0;
         }
     }
+
 
     insert_preline(newline = true): void {
         if (newline) {
@@ -126,10 +139,12 @@ export class WrappedTerminal extends Terminal {
         this._preline = preline;
     }
 
+
     next_line(): void {
         this.reset_current_vars();
         this.insert_preline();
     }
+
 
     execute = (line: string): void => {
         // TODO: screen multiplexing
@@ -209,6 +224,7 @@ export class WrappedTerminal extends Terminal {
         this._current_history_index = 0;
     }
 
+
     _search_handlers = (key: string, domEventCode: string): { handler: KeyEventHandler, block: boolean }[] => {
         for (const pair of this._key_handlers.entries()) {
             const identfier = pair[0] as RegisteredKeyEventIdentifier;
@@ -286,9 +302,11 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    constructor(registry?: ProgramRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+
+    constructor(fs: FileSystem, registry?: ProgramRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
+        this._fs = fs;
         this._registry = registry || new ProgramRegistry();
 
         if (register_builtin_handlers) {

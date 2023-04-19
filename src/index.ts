@@ -7,14 +7,19 @@ import { WebLinksAddon } from "xterm-addon-web-links";
 import { ProgramRegistry } from "./prog_registry";
 import * as programs from "./programs/@ALL";
 
+import { LocalStorageFS } from "./filesystem";
+
 // create a program registry by importing all programs
 const prog_reg = new ProgramRegistry();
 for (const prog of Object.values(programs)) {
     prog_reg.registerProgram(prog);
 }
 
+// create a local storage filesystem
+const fs = new LocalStorageFS();
+
 // create a terminal using the registry
-const term = new WrappedTerminal(prog_reg, {
+const term = new WrappedTerminal(fs, prog_reg, {
     screenReaderMode: true,
 });
 
