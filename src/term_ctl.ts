@@ -180,6 +180,11 @@ export class WrappedTerminal extends Terminal {
         // the first word is the command, the rest are arguments
         const command = sub[0];
 
+        if (command === "#") {
+            // if the command is a comment, just move to the next line
+            return;
+        }
+
         // determine if the line is a variable assignment with regex
         if (command.includes("=")) {
             const match = line.match(VAR_ASSIGNMENT_REGEX);

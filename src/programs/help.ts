@@ -19,6 +19,7 @@ export default {
             term.writeln(`For help on a specific command, type ${PREFABS.program_name}help${STYLE.reset_all} [command].`)
             term.writeln(`The exit code of the most recently executed program is stored in the ${PREFABS.variable_name}$?${STYLE.reset_all} variable.`)
             term.writeln(`You can set variables with the syntax ${PREFABS.variable_name}variable${STYLE.reset_all}=value and unset them with ${PREFABS.program_name}unset${STYLE.reset_all}.`)
+            term.writeln(`To persist the variables, define them in the ${PREFABS.file_path}.ollierc${STYLE.reset_all} file in your ${PREFABS.dir_name}home${STYLE.reset_all} directory.`)
             term.write(NEWLINE);
 
             // get all program names
