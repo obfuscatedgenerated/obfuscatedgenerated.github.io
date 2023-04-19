@@ -1,4 +1,4 @@
-import { ANSI, WrappedTerminal } from "./term_ctl";
+import { ANSI, WrappedTerminal, NEWLINE } from "./term_ctl";
 import "xterm/css/xterm.css";
 
 import { FitAddon } from "xterm-addon-fit";
@@ -18,7 +18,14 @@ for (const prog of Object.values(programs)) {
 // create a local storage filesystem
 const fs = new LocalStorageFS();
 
-// create a terminal using the registry
+// create .ollierc file if it doesn't exist
+const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when the shell starts.${NEWLINE}${NEWLINE}`
+const absolute_rc = fs.absolute("~/.ollierc");
+if (!fs.exists(absolute_rc)) {
+    fs.write_file(absolute_rc, rc_content);
+}
+
+// create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
     screenReaderMode: true,
 });
@@ -48,4 +55,10 @@ window.addEventListener("keydown",function (e) {
     if (e.code === "F1") {
         e.preventDefault();
     }
+});
+
+
+// on resize, resize the terminal
+window.addEventListener("resize", () => {
+    fit.fit();
 });
