@@ -1,5 +1,5 @@
 import type { AsyncProgram } from "../types";
-import { ANSI, NEWLINE, WrappedTerminal } from "../term_ctl";
+import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../term_ctl";
 
 const setup = (term: WrappedTerminal, content: string, path: string) => {
     // extract from ANSI to make code less verbose
@@ -10,18 +10,40 @@ const setup = (term: WrappedTerminal, content: string, path: string) => {
 
     // write the file name centered in the header
     const filename = path.split("/").pop() || "";
-    const header = `Editing ${filename} | F1: Save & Exit | ESC: Exit without saving`;
+    const header = `Editing ${filename}`;
+    const h_padding_l = " ".repeat(Math.ceil((term.cols - header.length) / 2));
+    const h_padding_r = " ".repeat(Math.floor((term.cols - header.length) / 2));
 
     term.write(BG.white + FG.black + STYLE.bold);
-    term.write(" ".repeat((term.cols - header.length) / 2));
+    term.write(h_padding_l);
     term.write(header);
-    term.write(" ".repeat((term.cols - header.length) / 2));
+    term.write(h_padding_r);
     term.write(STYLE.reset_all)
-    term.write(NEWLINE);
+
+    // go to the bottom of the screen with ansi
+    term.write(`\x1b[${term.rows - 1};0H`);
+
+    // write the footer
+    const footer = "F1: Save & Exit | ESC: Exit without saving";
+    const f_padding_l = " ".repeat(Math.ceil((term.cols - footer.length) / 2));
+    const f_padding_r = " ".repeat(Math.floor((term.cols - footer.length) / 2));
+
+    term.write(BG.white + FG.black + STYLE.bold);
+    term.write(f_padding_l);
+    term.write(footer);
+    term.write(f_padding_r);
+    term.write(STYLE.reset_all)
+
+    // reset the cursor position to under the header
+    term.write("\x1b[2;0H");
     term.write(NEWLINE);
 
     // write the content
     term.write(content);
+
+    // reset the cursor position to under the header
+    term.write("\x1b[2;0H");
+    term.write(NEWLINE);
 }
 
 
@@ -58,6 +80,8 @@ export default {
         // setup the screen
         setup(term, content, path);
 
+        const split_content = content.split(NEWLINE);
+
         // wait for keypresses
         let exit_code: number | null = null;
         let saved = false;
@@ -73,6 +97,85 @@ export default {
                     saved = true;
                     exit_code = 0;
                     break;
+                case "ArrowUp": {
+                    // determine the current cursor position
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    if (cursor_y === 2) {
+                        // TODO: scroll file
+                        // we're at the top of the file, so we can't move up
+                        break;
+                    }
+
+                    // pass through to the terminal
+                    term.write(key.key);
+
+                    // determine the current line's length (sub 2 for header, sub 1 for moving up)
+                    const line_length = split_content[cursor_y - 3].length;
+
+                    // determine the cursor's x position
+                    const cursor_x = term.buffer.normal.cursorX;
+
+                    // if the cursor is past the end of the line, move it to the end of the line
+                    if (cursor_x > line_length) {
+                        term.write(`\x1b[${line_length + 1}G`);
+                    }
+                }
+                    break;
+                case "ArrowDown": {
+                    // determine the current cursor position
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    if (cursor_y === term.rows - 4) {
+                        // TODO: scroll file
+                        // we're at the bottom of the screen, so we can't move down
+                        break;
+                    }
+
+                    if (cursor_y === split_content.length + 1) { // (add 2 for header, sub 1 for 0-indexing)
+                        // we're at the bottom of the file, so we can't move down
+                        break;
+                    }
+
+                    // pass through to the terminal
+                    term.write(key.key);
+
+                    // determine the current line's length (sub 2 for header, add 1 for moving down)
+                    const line_length = split_content[cursor_y - 1].length;
+
+                    // determine the cursor's x position
+                    const cursor_x = term.buffer.normal.cursorX;
+
+                    // if the cursor is past the end of the line, move it to the end of the line
+                    if (cursor_x > line_length) {
+                        term.write(`\x1b[${line_length + 1}G`);
+                    }
+                }
+                    break;
+                case "ArrowLeft":
+                    // left arrow can always be passed through to the terminal as the terminal will handle the left margin
+                    term.write(key.key);
+                    break;
+                case "ArrowRight": {
+                    // determine cursor position
+                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    // determine the current line's length (sub 2 for header)
+                    const line_length = split_content[cursor_y - 2].length;
+
+                    if (cursor_x < line_length) {
+                        // pass through to the terminal
+                        // NOTE: no need to check right margin, because the terminal will handle that
+                        term.write(key.key);
+                    }
+                }
+                    break;
+                default:
+                    // if the key is a printable character, add it to the content
+                    if (!NON_PRINTABLE_REGEX.test(key.key)) {
+                        content += key.key;
+                    }
             }
         }
 
