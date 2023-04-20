@@ -19,15 +19,10 @@ export default {
 
         switch (args[0]) {
             case undefined:
-                setTimeout(() => {
-                    term.clear();
-                }, 1); // delay needed to clear the command's line
+                term.reset();
                 break;
             case "-s":
-                setTimeout(() => {
-                    term.clear();
-                }, 1); // doesn't clear the input line without this
-
+                term.reset();
                 term.clear_history();
                 break;
             case "-so":

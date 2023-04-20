@@ -256,8 +256,8 @@ export default {
             }
         }
 
-        term.clear();
-
+        term.reset();
+    
         if (saved) {
             term.writeln(`${FG.green}File saved!${STYLE.reset_all}`);
         } else {

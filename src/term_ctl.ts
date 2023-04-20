@@ -166,12 +166,13 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    execute = async (line: string): Promise<void> => {
+    // returns success flag (or error if critical)
+    execute = async (line: string): Promise<boolean> => {
         // TODO: screen multiplexing
 
         if (line.length === 0) {
             // if the line is empty, just move to the next line (additional check if called from external source)
-            return;
+            return true;
         }
 
         // remove leading and trailing whitespace and split the line into an array of words
@@ -182,7 +183,7 @@ export class WrappedTerminal extends Terminal {
 
         if (command === "#") {
             // if the command is a comment, just move to the next line
-            return;
+            return true;
         }
 
         // determine if the line is a variable assignment with regex
@@ -201,7 +202,7 @@ export class WrappedTerminal extends Terminal {
 
                 this.set_variable(var_name, var_value);
                 
-                return;
+                return true;
             }
         }
 
@@ -231,7 +232,7 @@ export class WrappedTerminal extends Terminal {
         // if the command is not found, print an error message
         if (program === undefined) {
             this.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
-            return;
+            return false;
         }
 
         // if the command is found, run it
@@ -258,6 +259,8 @@ export class WrappedTerminal extends Terminal {
 
         // set the history index to 0
         this._current_history_index = 0;
+
+        return true;
     }
 
 
@@ -358,6 +361,36 @@ export class WrappedTerminal extends Terminal {
                 resolve(e);
             });
         });
+    }
+
+
+    word_wrap(text: string, width: number): string {
+        const lines = text.split(NEWLINE);
+        const wrapped_lines: string[] = [];
+
+        for (const line of lines) {
+            const words = line.split(" ");
+            let current_line = "";
+
+            for (const word of words) {
+                if (current_line.length + word.length + 1 > width) {
+                    // push word by word until the line is full
+                    wrapped_lines.push(current_line);
+                    current_line = word;
+                } else {
+                    // if the current line is empty, don't add a space
+                    if (current_line.length === 0) {
+                        current_line = word;
+                    } else {
+                        current_line += " " + word;
+                    }
+                }
+            }
+
+            wrapped_lines.push(current_line);
+        }
+
+        return wrapped_lines.join(NEWLINE);
     }
 
 

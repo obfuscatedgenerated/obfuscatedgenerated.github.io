@@ -47,6 +47,13 @@ term.focus();
 term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ──────────────┐`);
 term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}   │`);
 term.writeln("└──────────────────────────────────────┘");
+
+// if this is a small screen, show a message
+if (window.innerWidth < 600) {
+    const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${ANSI.STYLE.reset_all}`, term.cols);
+    term.writeln(wrapped);
+}
+
 term.insert_preline();
 
 
