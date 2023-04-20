@@ -177,6 +177,10 @@ export class WrappedTerminal extends Terminal {
 
     // returns success flag (or error if critical)
     execute = async (line: string): Promise<boolean> => {
+        // TODO: semicolon to run multiple commands regardless of success
+        // TODO: double ampersand to run multiple commands only if previous succeeded
+        // TODO: double pipe to run multiple commands only if previous failed
+        // TODO: single pipe to pipe output of previous command to next command
         // TODO: screen multiplexing
 
         if (line.length === 0) {
