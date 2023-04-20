@@ -174,6 +174,8 @@ export class WrappedTerminal extends Terminal {
         this.insert_preline();
     }
 
+    // TODO: tab completion of commands, files and known flags
+
 
     // returns success flag (or error if critical)
     execute = async (line: string): Promise<boolean> => {
