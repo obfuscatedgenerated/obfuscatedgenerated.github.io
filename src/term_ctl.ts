@@ -80,6 +80,7 @@ export const ANSI = {
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
 
+    // TODO: store history in a file
     _history: string[] = [];
 
     _current_line = "";
