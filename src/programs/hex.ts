@@ -57,7 +57,7 @@ export default {
 
         // if printing indexes, print the header
         if (args[1] === "-i") {
-            term.writeln(`         ${FG.blue}00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f${STYLE.reset_all}`);
+            term.writeln(`         ${FG.blue}00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F${STYLE.reset_all}`);
         }
 
         // print hex bytes to terminal up to 16 bytes per line, padding the end with .. in place of the missing bytes
@@ -66,13 +66,13 @@ export default {
             const line = hex.slice(i, i + 16);
 
             if (args[1] === "-i") {
-                const idx = i <= 0xffffffff ? i.toString(16) : "........";
+                const idx = i <= 0xffffffff ? i.toString(16).toUpperCase() : "........";
 
 
                 term.write(`${FG.blue}${idx.padStart(8, "0")}${STYLE.reset_all} `);
             }
 
-            const padded = line.concat(Array(16 - line.length).fill(".."));
+            const padded = line.concat(Array(16 - line.length).fill(`${FG.gray}..${STYLE.reset_all}`));
             term.writeln(padded.join(" "));
         }
 
