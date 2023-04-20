@@ -336,6 +336,7 @@ export class WrappedTerminal extends Terminal {
 
         // if the key is a printable character, write it to the terminal
         if (e.key.match(NON_PRINTABLE_REGEX) === null) {
+            // TODO: fix backspace
             this._current_line += e.key;
             this.write(e.key);
             this._current_index++;
