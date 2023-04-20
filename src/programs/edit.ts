@@ -102,6 +102,7 @@ export default {
                 case "F2":
                     term.reset();
                     setup(term, split_content.join(NEWLINE), path);
+                    console.log(split_content.join("\n"));
                     break;
                 case "ArrowUp": {
                     // determine the current cursor position
@@ -212,8 +213,6 @@ export default {
 
                     // move the cursor up one line and to the end of the line
                     term.write("\x1b[1A\x1b[1G");
-
-                    console.log(split_content.join("\n"));
                 }
                     break;
                 case "Backspace": {
