@@ -134,6 +134,14 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
+    get_current_line(): string {
+        return this._current_line;
+    }
+
+    get_current_index(): number {
+        return this._current_index;
+    }
+
 
     insert_preline(newline = true): void {
         if (newline) {
@@ -202,7 +210,7 @@ export class WrappedTerminal extends Terminal {
                 }
 
                 this.set_variable(var_name, var_value);
-                
+
                 return true;
             }
         }
@@ -253,7 +261,7 @@ export class WrappedTerminal extends Terminal {
         } else {
             throw new Error("Invalid program type");
         }
-        
+
 
         // set the exit code
         this.set_variable("?", exit_code.toString());
@@ -337,9 +345,26 @@ export class WrappedTerminal extends Terminal {
 
         // if the key is a printable character, write it to the terminal
         if (e.key.match(NON_PRINTABLE_REGEX) === null) {
-            // TODO: fix backspace
-            this._current_line += e.key;
-            this.write(e.key);
+            // if at the end of the line, just append the character
+            if (this._current_index === this._current_line.length) {
+                this._current_line += e.key;
+                this.write(e.key);
+                this._current_index++;
+                return;
+            }
+
+            // insert the character at the cursor, shift the rest of the line to the right
+            const before_cursor = this._current_line.slice(0, this._current_index);
+            const after_cursor = this._current_line.slice(this._current_index);
+            this._current_line = before_cursor + e.key + after_cursor;
+
+            // write the new right of the line over the old one
+            this.write(e.key + after_cursor);
+
+            // move back to the cursor position
+            this.write(`\x1b[${after_cursor.length}D`);
+
+            // increment the cursor position
             this._current_index++;
         } else {
             console.warn("Ignored key event:", e);
@@ -408,7 +433,7 @@ export class WrappedTerminal extends Terminal {
         }
 
         this._disposable_onkey = this.onKey(this._handle_key_event);
-        
+
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
     }
