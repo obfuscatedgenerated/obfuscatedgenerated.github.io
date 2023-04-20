@@ -47,6 +47,8 @@ const setup = (term: WrappedTerminal, content: string, path: string) => {
 }
 
 
+// TODO: expose ANSI cursor control codes as functions in term_ctl
+
 export default {
     name: "edit",
     description: "Edits the specified file.",
@@ -93,7 +95,7 @@ export default {
                     exit_code = 0;
                     break;
                 case "F1":
-                    fs.write_file(path, content);
+                    fs.write_file(path, split_content.join(NEWLINE));
                     saved = true;
                     exit_code = 0;
                     break;
@@ -171,11 +173,84 @@ export default {
                     }
                 }
                     break;
-                default:
-                    // if the key is a printable character, add it to the content
-                    if (!NON_PRINTABLE_REGEX.test(key.key)) {
-                        content += key.key;
+                case "Backspace": {
+                    // TODO: this is all just fucked :)
+
+                    // get the current cursor position
+                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    // if at the beginning of the line, remove the newline
+                    if (cursor_x === 0) {
+                        split_content.splice(cursor_y - 2, 1);
+                        split_content[cursor_y - 3] += split_content[cursor_y - 2];
+
+                        // move the cursor up one line
+                        term.write("\x1b[1A");
+
+                        // move the cursor to the end of the line
+                        term.write(`\x1b[${split_content[cursor_y - 3].length + 1}G`);
+
+                        // write the rest of the line
+                        term.write(split_content[cursor_y - 2]);
+
+                        // move the cursor back to the original position
+                        term.write(`\x1b[${split_content[cursor_y - 2].length + 1}D`);
                     }
+
+                    // otherwise, remove the character to the left of the cursor
+                    const left = split_content[cursor_y - 2].slice(0, cursor_x - 2);
+                    const right = split_content[cursor_y - 2].slice(cursor_x - 1);
+
+                    split_content[cursor_y - 2] = left + right;
+
+                    // move the cursor back one space
+                    term.write("\x1b[1D");
+
+                    // write the rest of the line
+                    term.write(right + " ");
+
+                    // move the cursor back to the original position
+                    term.write(`\x1b[${right.length + 1}D`);
+
+                    // if the line is now empty, remove it
+                    if (split_content[cursor_y - 2] === "") {
+                        split_content.splice(cursor_y - 2, 1);
+                        term.write("\x1b[1M");
+                    }
+
+                    // if the cursor is now past the end of the line, move it to the end of the line
+                    if (cursor_x > split_content[cursor_y - 2].length) {
+                        term.write(`\x1b[${split_content[cursor_y - 2].length + 1}G`);
+                    }
+                }
+                    break;
+                default: {
+                    // get the current cursor position
+                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    // if the key is a printable character, write it in
+                    if (!NON_PRINTABLE_REGEX.test(key.key)) {
+                        // if at the end of the line, append to the line
+                        if (cursor_x === split_content[cursor_y - 2].length + 1) {
+                            split_content[cursor_y - 2] += key.key;
+                            term.write(key.key);
+                        } else {
+                            // otherwise, insert it and shift the rest of the line
+                            const left = split_content[cursor_y - 2].slice(0, cursor_x - 1);
+                            const right = split_content[cursor_y - 2].slice(cursor_x - 1);
+
+                            split_content[cursor_y - 2] = left + key.key + right;
+
+                            // overwrite the line
+                            term.write(key.key + right);
+
+                            // move the cursor back to the correct position + 1
+                            term.write(`\x1b[${cursor_x + 2}G`);
+                        }
+                    }
+                }
             }
         }
 
