@@ -7,3 +7,4 @@ export { default as ls } from "./ls";
 export { default as cd } from "./cd";
 export { default as edit } from "./edit";
 export { default as webget } from "./webget";
+export { default as cat } from "./cat";
