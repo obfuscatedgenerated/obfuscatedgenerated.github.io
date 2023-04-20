@@ -24,7 +24,7 @@ const setup = (term: WrappedTerminal, content: string, path: string) => {
     term.write(`\x1b[${term.rows - 1};0H`);
 
     // write the footer
-    const footer = "F1: Save & Exit | ESC: Exit without saving";
+    const footer = "F1: Save & Exit | ESC: Exit without saving | F2: Debug Redraw";
     const f_padding_l = " ".repeat(Math.ceil((term.cols - footer.length) / 2));
     const f_padding_r = " ".repeat(Math.floor((term.cols - footer.length) / 2));
 
@@ -99,6 +99,10 @@ export default {
                     saved = true;
                     exit_code = 0;
                     break;
+                case "F2":
+                    term.reset();
+                    setup(term, split_content.join(NEWLINE), path);
+                    break;
                 case "ArrowUp": {
                     // determine the current cursor position
                     const cursor_y = term.buffer.normal.cursorY;
@@ -120,7 +124,7 @@ export default {
 
                     // if the cursor is past the end of the line, move it to the end of the line
                     if (cursor_x > line_length) {
-                        term.write(`\x1b[${line_length + 1}G`);
+                        term.scrollLines(-1);
                     }
                 }
                     break;
@@ -150,7 +154,7 @@ export default {
 
                     // if the cursor is past the end of the line, move it to the end of the line
                     if (cursor_x > line_length) {
-                        term.write(`\x1b[${line_length + 1}G`);
+                        term.scrollLines(1);
                     }
                 }
                     break;
@@ -171,6 +175,45 @@ export default {
                         // NOTE: no need to check right margin, because the terminal will handle that
                         term.write(key.key);
                     }
+                }
+                    break;
+                case "Enter": {
+                    // determine cursor position
+                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_y = term.buffer.normal.cursorY;
+
+                    // split the current line at the cursor position
+                    const line = split_content[cursor_y - 2];
+                    const next_line = split_content[cursor_y - 1];
+
+                    const line_before = line.slice(0, cursor_x);
+                    const line_after = line.slice(cursor_x);
+
+                    // insert the new line into the content
+                    split_content.splice(cursor_y - 2, 1, line_before, line_after);
+
+                    // clear text past the cursor
+                    term.write(" ".repeat(line.length - cursor_x));
+
+                    // move the cursor down one line and to the beginning of the line
+                    term.write("\x1b[1B\x1b[1G");
+
+                    // write the rest of the line
+                    term.write(line_after);
+
+                    // clear text past the cursor
+                    term.write(" ".repeat(next_line.length));
+
+                    // move the cursor down one line and to the beginning of the line
+                    term.write("\x1b[1B\x1b[1G");
+
+                    // write the line
+                    term.write(next_line);
+
+                    // move the cursor up one line and to the end of the line
+                    term.write("\x1b[1A\x1b[1G");
+
+                    console.log(split_content.join("\n"));
                 }
                     break;
                 case "Backspace": {
@@ -257,7 +300,7 @@ export default {
         }
 
         term.reset();
-    
+
         if (saved) {
             term.writeln(`${FG.green}File saved!${STYLE.reset_all}`);
         } else {
