@@ -200,11 +200,6 @@ export class WrappedTerminal extends Terminal {
             }
         }
 
-        // log each part as bytes
-        for (const part of sub) {
-            console.log(part.split("").map(c => c.charCodeAt(0)));
-        }
-
 
         // the first word is the command, the rest are arguments
         const command = sub[0];
