@@ -196,6 +196,8 @@ export default {
 
                         // move the cursor back to the original position
                         term.write(`\x1b[${split_content[cursor_y - 2].length + 1}D`);
+
+                        break;
                     }
 
                     // otherwise, remove the character to the left of the cursor
@@ -205,7 +207,7 @@ export default {
                     split_content[cursor_y - 2] = left + right;
 
                     // move the cursor back one space
-                    term.write("\x1b[1D");
+                    term.write("\b");
 
                     // write the rest of the line
                     term.write(right + " ");
