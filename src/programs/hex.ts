@@ -6,8 +6,9 @@ import { ANSI } from "../term_ctl";
 export default {
     name: "hex",
     description: "Reads a file as hexadecimal.",
-    usage_suffix: "<path> [-i]",
+    usage_suffix: "[-h] <path> [-i]",
     flags: {
+        "-h": "Print this help message.",
         "-i": "Print indexes."
     },
     main: (data) => {
@@ -24,6 +25,11 @@ export default {
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}A file path is required.${STYLE.reset_all}`);
             return 1;
+        }
+
+        if (args[0] === "-h") {
+            term.execute("help hex");
+            return 0;
         }
 
         // get filepath

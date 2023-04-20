@@ -8,6 +8,7 @@ export default {
     description: "Downloads a file from the World Wide Web.",
     usage_suffix: "<url> <filepath> [-k] [-n] [-X <method>] [-H <header>] [-B <body>]",
     flags: {
+        "-h": "Print this help message.",
         "-k": "Do not overwrite existing files.",
         "-n": "Do not replace newlines with the current system's newline character (binary mode).",
         "-X": "Specify a custom HTTP method. (default: GET)",
@@ -30,6 +31,11 @@ export default {
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}A URL is required.${STYLE.reset_all}`);
             return 1;
+        }
+
+        if (args[0] === "-h") {
+            term.execute("help hex");
+            return 0;
         }
 
         // parse url
