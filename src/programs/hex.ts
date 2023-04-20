@@ -53,7 +53,7 @@ export default {
         const content = fs.read_file(abs_path);
 
         // convert file to an array of hex bytes
-        const hex = [...content].map((char) => char.charCodeAt(0).toString(16).padStart(2, "0"));
+        const hex = [...content].map((char) => char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
 
         // if printing indexes, print the header
         if (args[1] === "-i") {
