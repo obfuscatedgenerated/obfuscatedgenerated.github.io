@@ -184,8 +184,23 @@ export class WrappedTerminal extends Terminal {
             return true;
         }
 
-        // remove leading and trailing whitespace and split the line into an array of words
-        const sub = line.trim().split(" ");
+        // remove leading and trailing whitespace and split by spaces, unless contained in double quotes
+        const sub = line.trim().split(/ +(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+
+        // remove quotes from arguments if starting and ending with quotes
+        for (let i = 0; i < sub.length; i++) {
+            const arg = sub[i];
+
+            if (arg.startsWith('"') && arg.endsWith('"')) {
+                sub[i] = arg.slice(1, -1);
+            }
+        }
+
+        // log each part as bytes
+        for (const part of sub) {
+            console.log(part.split("").map(c => c.charCodeAt(0)));
+        }
+
 
         // the first word is the command, the rest are arguments
         const command = sub[0];

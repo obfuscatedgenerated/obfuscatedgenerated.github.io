@@ -1,7 +1,7 @@
 import type { AsyncProgram } from "../types";
 import { ANSI, NEWLINE } from "../term_ctl";
 
-const URL_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/gi;
+const URL_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/i;
 
 export default {
     name: "webget",
@@ -39,34 +39,12 @@ export default {
         }
 
         // parse url
-        const url = args[0];
-        args.shift();
+        const url = args.shift();
 
         // validate url
         if (!URL_REGEX.test(url)) {
             term.writeln(`${PREFABS.error}Invalid URL. Expected a valid HTTP or HTTPS protocol URL.${STYLE.reset_all}`);
             return 1;
-        }
-
-        // if an arg starts with a double quote, join args until an arg ends with a double quote and remove the double quotes
-        for (let i = 0; i < args.length; i++) {
-            if (args[i].startsWith('"')) {
-                let j = i + 1;
-
-                while (j < args.length && !args[j].endsWith('"')) {
-                    j++;
-                }
-
-                if (j === args.length) {
-                    term.writeln(`${PREFABS.error}Invalid string argument. Expected a string argument to end with a double quote.${STYLE.reset_all}`);
-                    return 1;
-                }
-
-                args[i] = args[i].slice(1);
-                args[j] = args[j].slice(0, -1);
-
-                args.splice(i + 1, j - i);
-            }
         }
 
         let file_path = "";
@@ -76,31 +54,56 @@ export default {
         const headers: Record<string, string> = {};
         let body = null;
 
-        for (const arg of args) {
-            if (arg.startsWith("-X ")) {
-                method = arg.slice(3);
-                continue;
-            }
-
-            if (arg.startsWith("-H ")) {
-                const header = arg.slice(3);
-                const split = header.split(": ");
-
-                if (split.length !== 2 || split[0].includes(" ")) {
-                    term.writeln(`${PREFABS.error}Invalid header. Expected a header in the format "Header-Name: Header-Value".${STYLE.reset_all}`);
-                    return 1;
-                }
-
-                headers[split[0]] = split[1];
-                continue;
-            }
-
-            if (arg.startsWith("-B ")) {
-                body = arg.slice(3);
-                continue;
-            }
+        for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
+            const arg = args[arg_idx];
 
             switch (arg) {
+                case "-X": {
+                    // consume next argument
+                    const next_arg = args[arg_idx + 1];
+
+                    if (next_arg === undefined) {
+                        term.writeln(`${PREFABS.error}Expected a method after -X.${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    method = next_arg;
+                    args.splice(arg_idx + 1, 1);
+                }
+                    break;
+                case "-H": {
+                    // consume next argument
+                    const header = args[arg_idx + 1];
+
+                    if (header === undefined) {
+                        term.writeln(`${PREFABS.error}Expected a header after -H.${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    const split = header.split(": ");
+
+                    if (split.length !== 2 || split[0].includes(" ")) {
+                        term.writeln(`${PREFABS.error}Invalid header. Expected a header in the format "Header-Name: Header-Value".${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    headers[split[0]] = split[1];
+                    args.splice(arg_idx + 1, 1);
+                }
+                    break;
+                case "-B": {
+                    // consume next argument
+                    const next_arg = args[arg_idx + 1];
+
+                    if (next_arg === undefined) {
+                        term.writeln(`${PREFABS.error}Expected a body after -B.${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    body = next_arg;
+                    args.splice(arg_idx + 1, 1);
+                }
+                    break;
                 case "-k":
                     overwrite = false;
                     break;
