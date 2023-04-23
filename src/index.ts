@@ -25,6 +25,32 @@ if (!fs.exists(absolute_rc)) {
     fs.write_file(absolute_rc, rc_content);
 }
 
+// create credits file if it doesn't exist
+const credits_content = `
+Credits
+=======
+
+This website was made by obfuscatedgenerated using the following technologies:
+
+- TypeScript
+- xterm.js
+- Handlebars.js
+- Webpack
+
+As well as the following libraries:
+
+- imgToAscii (modified)
+- xterm-addon-fit
+- xterm-addon-web-links
+
+The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
+`.replace(/\n/g, NEWLINE);
+
+const absolute_credits = fs.absolute("~/credits.txt");
+if (!fs.exists(absolute_credits)) {
+    fs.write_file(absolute_credits, credits_content);
+}
+
 // create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
     screenReaderMode: false, // TODO: this is disabled because it causes a bug in which link providers don't work, enable when fixed
