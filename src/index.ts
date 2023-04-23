@@ -27,7 +27,7 @@ if (!fs.exists(absolute_rc)) {
 
 // create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
-    screenReaderMode: true,
+    screenReaderMode: false, // TODO: this is disabled because it causes a bug in which link providers don't work, enable when fixed
     cursorBlink: true,
 });
 
@@ -46,9 +46,11 @@ fit.fit();
 term.focus();
 
 // draw splash screen
-term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ──────────────┐`);
-term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}   │`);
-term.writeln("└──────────────────────────────────────┘");
+term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ─────────────────┐`);
+term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}      │`);
+term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}mefetch${ANSI.STYLE.no_italic + ANSI.FG.blue} for info about me.${ANSI.STYLE.reset_all}        │`);
+term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}cd projects${ANSI.STYLE.no_italic + ANSI.FG.blue} to view project info.${ANSI.STYLE.reset_all} │`);
+term.writeln("└─────────────────────────────────────────┘");
 
 // if this is a small screen, show a message
 if (window.innerWidth < 600) {
