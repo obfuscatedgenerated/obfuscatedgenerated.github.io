@@ -28,11 +28,13 @@ if (!fs.exists(absolute_rc)) {
 // create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
     screenReaderMode: true,
+    cursorBlink: true,
 });
 
 // load addons
 const fit = new FitAddon();
 term.loadAddon(fit);
+
 term.loadAddon(new WebLinksAddon());
 
 // open the terminal

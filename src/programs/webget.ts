@@ -1,7 +1,5 @@
 import type { AsyncProgram } from "../types";
-import { ANSI, NEWLINE } from "../term_ctl";
-
-const URL_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/i;
+import { ANSI, NEWLINE, URL_REGEX } from "../term_ctl";
 
 export default {
     name: "webget",

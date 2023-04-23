@@ -12,6 +12,8 @@ export const NON_PRINTABLE_REGEX = /[\0-\x1F\x7F-\x9F\xAD\u0378\u0379\u037F-\u03
 export const VAR_ASSIGNMENT_REGEX = /^([a-zA-Z0-9_]+)=(.+)$/;
 export const ANSI_ESCAPE_REGEX = /(\\u001b|\\x1b)(8|7|H|>|\[(\?\d+(h|l)|[0-2]?(K|J)|\d*(A|B|C|D\D|E|F|G|g|i|m|n|S|s|T|u)|1000D\d+|\d*;\d*(f|H|r|m)|\d+;\d+;\d+m))/g;
 
+export const URL_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/i;
+
 const FG = {
     reset: "\x1B[39m",
     black: "\x1B[30m",

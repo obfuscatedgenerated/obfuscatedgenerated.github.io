@@ -9,3 +9,4 @@ export { default as edit } from "./edit";
 export { default as webget } from "./webget";
 export { default as cat } from "./cat";
 export { default as hex } from "./hex";
+export { default as mefetch } from "./mefetch";
