@@ -105,11 +105,17 @@ export default {
         const width_scale = width_arg / img_width;
         const new_height = img_height * width_scale;
 
-        // convert the Uint8Array to a sixel image
-        const sixel = image2sixel(img_data, width_arg, new_height);
+        try {
+            // convert the Uint8Array to a sixel image
+            const sixel = image2sixel(img_data, width_arg, new_height);
 
-        // write the sixel image to the terminal
-        term.write(sixel);
+            // write the sixel image to the terminal
+            term.write(sixel);
+        } catch (e) {
+            term.write(`${PREFABS.error}Failed to convert image to sixel.${STYLE.reset_all}`);
+            console.error(e);
+            return 1;
+        }
 
         return 0;
     }
