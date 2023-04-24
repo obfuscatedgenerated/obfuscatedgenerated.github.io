@@ -5,6 +5,8 @@ const DB_VERSION = 1;
 
 // TODO: finish this later, try implement file storage in localstorage first
 
+// NOTE: https://github.com/ebidel/idb.filesystem.js
+
 export class IndexedDBFS extends FileSystem {
     _idb: IDBDatabase;
 
