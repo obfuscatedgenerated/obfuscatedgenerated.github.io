@@ -5,6 +5,29 @@ import { image2sixel } from "sixel";
 
 
 // TODO: implement indexeddb fs to allow saving binary files properly
+const convert_file_data_to_image_data = (data: Uint8Array, mime: string) => {
+    // get the png data
+    const file_data = new Uint8Array(data);
+
+    // create a canvas to draw the image on
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // create an image to draw the png data on
+    const img = new Image();
+    img.src = URL.createObjectURL(new Blob([file_data], { type: mime }));
+
+    // draw the image on the canvas
+    ctx.drawImage(img, 0, 0);
+
+    // get the image data
+    const img_data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // convert image data to uint8array
+    const data_arr = new Uint8Array(img_data.data);
+
+    return data_arr;
+};
 
 export default {
     name: "imagine",
@@ -74,14 +97,14 @@ export default {
 
         // get the image data
         const content = fs.read_file(abs_path, true) as Uint8Array;
-        console.log(content);
+        const img_data = convert_file_data_to_image_data(content, mime);
 
         // scale the height to fit the width
         const scale = width / height;
         const new_height = Math.floor(width / scale);
 
         // convert the Uint8Array to a sixel image
-        const sixel = image2sixel(content, width, new_height);
+        const sixel = image2sixel(img_data, width, new_height);
 
         // write the sixel image to the terminal
         term.write(sixel);
