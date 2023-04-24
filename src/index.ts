@@ -19,10 +19,17 @@ for (const prog of Object.values(programs)) {
 const fs = new LocalStorageFS();
 
 // create .ollierc file if it doesn't exist
-const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when the shell starts.${NEWLINE}${NEWLINE}`
+const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
 const absolute_rc = fs.absolute("~/.ollierc");
 if (!fs.exists(absolute_rc)) {
     fs.write_file(absolute_rc, rc_content);
+}
+
+// create .ollie_profile file if it doesn't exist
+const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts.${NEWLINE}${NEWLINE}`;
+const absolute_profile = fs.absolute("~/.ollie_profile");
+if (!fs.exists(absolute_profile)) {
+    fs.write_file(absolute_profile, profile_content);
 }
 
 // create credits file if it doesn't exist
@@ -88,7 +95,7 @@ term.insert_preline();
 
 
 // disable F1 help
-window.addEventListener("keydown",function (e) {
+window.addEventListener("keydown", function (e) {
     if (e.code === "F1") {
         e.preventDefault();
     }
