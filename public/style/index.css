@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
     min-height: 100vh;
     height: 100vh;
     overflow: hidden;
@@ -7,9 +8,15 @@ html, body {
 
 #terminal {
     width: 100%;
-    height: 99%; /* 100% can lead to trimming bottom */
+    height: 99%;
+    /* 100% can lead to trimming bottom */
 }
 
 .xterm .xterm-viewport {
     overflow: hidden !important;
+}
+
+#screenreader_hint {
+    position: absolute;
+    top: -50px
 }
