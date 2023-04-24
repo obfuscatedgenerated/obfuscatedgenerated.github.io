@@ -49,6 +49,11 @@ export default {
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
+        if (!args.includes("-letmein")) {
+            term.write(`${PREFABS.error}This program is currently in development.${STYLE.reset_all}`);
+            return 1;
+        }
+
         // get fs
         const fs = term.get_fs();
 
