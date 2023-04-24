@@ -13,7 +13,7 @@ export default {
         "System flags:": {
             "-h": "Print this help message.",
             "-k": "Do not overwrite existing files.",
-            "-n": "Do not replace newlines with the current system's newline character (binary mode).",
+            "-n": "Do not replace newlines with the current system's newline character, store as a binary (binary mode).",
         },
         "Request flags:": {
             "-X": "Specify a custom HTTP method. (default: GET)",
@@ -40,7 +40,7 @@ export default {
         }
 
         if (args[0] === "-h") {
-            term.execute("help hex");
+            term.execute("help webget");
             return 0;
         }
 
@@ -178,11 +178,17 @@ export default {
             return 1;
         }
 
-        // get the file contents
-        const text = await response.text();
+        if (binary) {
+            // write the file as binary
+            const buffer = await response.arrayBuffer();
 
-        // write the file
-        fs.write_file(abs_path, binary ? text : text.replace(/\r?\n/g, NEWLINE));
+            fs.write_file(abs_path, new Uint8Array(buffer));
+        } else {
+            // write the file as text
+            const text = await response.text();
+
+            fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE));
+        }
 
         term.writeln(`${FG.green}File downloaded successfully.${STYLE.reset_all}`);
 
