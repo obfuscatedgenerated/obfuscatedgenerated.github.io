@@ -27,40 +27,40 @@ export class IndexedDBFS extends FileSystem {
     }
 
     delete_dir(path: string, recursive: boolean): void {
-        
+        return;
     }
 
     move_dir(path: string, new_path: string): void {
-        
+        return;
     }
 
     list_dir(path: string): string[] {
-        
+        return [];
     }
 
 
     read_file_direct(path: string): string {
-        
+        return "";
     }
 
     write_file_direct(path: string, data: string): void {
-        
+        return;
     }
 
     delete_file_direct(path: string): void {
-        
+        return;
     }
 
     move_file_direct(path: string, new_path: string): void {
-        
+        return;
     }
 
     exists_direct(path: string): boolean {
-        
+        return false;
     }
 
     dir_exists(path: string): boolean {
-        
+        return false;
     }
 
     _finish_init(req: IDBOpenDBRequest): void {
