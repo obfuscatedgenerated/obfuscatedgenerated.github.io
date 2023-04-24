@@ -26,20 +26,19 @@ const convert_file_data_to_image_data = (data: Uint8Array, mime: string) => {
     // convert image data to uint8array
     const data_arr = new Uint8Array(img_data.data);
 
-    return data_arr;
+    return { array: data_arr, width: img_data.width, height: img_data.height };
 };
 
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "<path> [-w <width>] [-h <height>] [-u]",
+    usage_suffix: "<path> [-w <width>] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
         },
         "Options:": {
             "-w": "The width of the image in columns. Defaults to the terminal width.",
-            "-h": "The height of the image in rows. Defaults to the terminal height.",
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
@@ -62,8 +61,7 @@ export default {
         }
 
         // get the width of the image specified or the terminal width
-        const width = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
-        const height = args.includes("-h") ? parseInt(args[args.indexOf("-h") + 1]) : term.rows;
+        const width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
         const is_web_url = args.includes("-u");
 
         let abs_path: string;
@@ -97,14 +95,14 @@ export default {
 
         // get the image data
         const content = fs.read_file(abs_path, true) as Uint8Array;
-        const img_data = convert_file_data_to_image_data(content, mime);
+        const { array: img_data, width: img_width, height: img_height } = convert_file_data_to_image_data(content, mime);
 
         // scale the height to fit the width
-        const scale = width / height;
-        const new_height = Math.floor(width / scale);
+        const width_scale = width_arg / img_width;
+        const new_height = Math.round(img_height * width_scale);
 
         // convert the Uint8Array to a sixel image
-        const sixel = image2sixel(img_data, width, new_height);
+        const sixel = image2sixel(img_data, width_arg, new_height);
 
         // write the sixel image to the terminal
         term.write(sixel);
