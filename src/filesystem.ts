@@ -1,3 +1,5 @@
+// TODO: add indexeddb support to store binary files properly
+
 export class PathNotFoundError extends Error {
     constructor(path: string) {
         super(`Path not found: ${path}`);

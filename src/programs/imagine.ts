@@ -5,6 +5,8 @@ import { image2sixel } from "sixel";
 import { NotBase64Error } from "../filesystem";
 
 
+// TODO: implement indexeddb fs to allow saving binary files properly
+
 const b64_image_to_uint8 = (image_b64: string, mime: string): { array: Uint8Array, width: number, height: number } => {
     const img = new Image();
     img.src = `data:${mime};base64,${image_b64}`;

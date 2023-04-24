@@ -4,7 +4,7 @@ import { ANSI, NEWLINE } from "../term_ctl";
 export default {
     name: "webget",
     description: "Downloads a file from the World Wide Web.",
-    usage_suffix: "<url> <filepath> [-k] [-n] [-a] [-X <method>] [-H <header>] [-B <body>]",
+    usage_suffix: "<url> <filepath> [-k] [-n] [-X <method>] [-H <header>] [-B <body>]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to download from.",
@@ -13,7 +13,7 @@ export default {
         "System flags:": {
             "-h": "Print this help message.",
             "-k": "Do not overwrite existing files.",
-            "-n": "Binary mode. Do not replace newlines with the current system's newline character, save it as base64.",
+            "-n": "Do not replace newlines with the current system's newline character (binary mode).",
         },
         "Request flags:": {
             "-X": "Specify a custom HTTP method. (default: GET)",
@@ -179,17 +179,10 @@ export default {
         }
 
         // get the file contents
-        let content: string | ArrayBuffer;
-        if (binary) {
-            content = await response.arrayBuffer();
-            content = btoa(unescape(encodeURIComponent(String.fromCharCode(...new Uint8Array(content)))));
-        } else {
-            content = await response.text();
-            content = content.replace(/\r?\n/g, NEWLINE);
-        }
+        const text = await response.text();
 
         // write the file
-        fs.write_file(abs_path, content, binary, false);
+        fs.write_file(abs_path, binary ? text : text.replace(/\r?\n/g, NEWLINE));
 
         term.writeln(`${FG.green}File downloaded successfully.${STYLE.reset_all}`);
 
