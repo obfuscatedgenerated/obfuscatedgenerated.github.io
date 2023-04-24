@@ -18,18 +18,37 @@ for (const prog of Object.values(programs)) {
 // create a local storage filesystem
 const fs = new LocalStorageFS();
 
+
+// create etc directory if it doesn't exist
+const absolute_etc = fs.absolute("/etc");
+if (!fs.dir_exists(absolute_etc)) {
+    fs.make_dir(absolute_etc);
+}
+
+// create motd file if it doesn't exist
+const motd_content = `┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ─────────────────┐
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}      │
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}mefetch${ANSI.STYLE.no_italic + ANSI.FG.blue} for info about me.${ANSI.STYLE.reset_all}        │
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}cd projects${ANSI.STYLE.no_italic + ANSI.FG.blue} to view project info.${ANSI.STYLE.reset_all} │
+└─────────────────────────────────────────┘`.replace(/\n/g, NEWLINE);
+
+const absolute_motd = fs.absolute("/etc/motd.txt");
+if (!fs.exists(absolute_motd)) {
+    fs.write_file(absolute_motd, motd_content);
+}
+
+// create .ollie_profile file if it doesn't exist
+const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}`;
+const absolute_profile = fs.absolute("~/.ollie_profile");
+if (!fs.exists(absolute_profile)) {
+    fs.write_file(absolute_profile, profile_content);
+}
+
 // create .ollierc file if it doesn't exist
 const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
 const absolute_rc = fs.absolute("~/.ollierc");
 if (!fs.exists(absolute_rc)) {
     fs.write_file(absolute_rc, rc_content);
-}
-
-// create .ollie_profile file if it doesn't exist
-const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts.${NEWLINE}${NEWLINE}`;
-const absolute_profile = fs.absolute("~/.ollie_profile");
-if (!fs.exists(absolute_profile)) {
-    fs.write_file(absolute_profile, profile_content);
 }
 
 // create credits file if it doesn't exist
@@ -58,6 +77,7 @@ if (!fs.exists(absolute_credits)) {
     fs.write_file(absolute_credits, credits_content);
 }
 
+
 // create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
     screenReaderMode: false,
@@ -77,13 +97,6 @@ fit.fit();
 
 // focus the terminal
 term.focus();
-
-// draw splash screen
-term.writeln(`┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ─────────────────┐`);
-term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}      │`);
-term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}mefetch${ANSI.STYLE.no_italic + ANSI.FG.blue} for info about me.${ANSI.STYLE.reset_all}        │`);
-term.writeln(`│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}cd projects${ANSI.STYLE.no_italic + ANSI.FG.blue} to view project info.${ANSI.STYLE.reset_all} │`);
-term.writeln("└─────────────────────────────────────────┘");
 
 // if this is a small screen, show a message
 if (window.innerWidth < 600) {

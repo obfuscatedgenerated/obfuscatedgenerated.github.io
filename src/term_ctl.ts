@@ -459,5 +459,23 @@ export class WrappedTerminal extends Terminal {
         if (localStorage.getItem("reader") === "true") {
             this.execute("reader -s on");
         }
+
+        // run .ollie_profile if it exists
+        const absolute_profile = fs.absolute("~/.ollie_profile");
+        if (fs.exists(absolute_profile)) {
+            // iter through the lines of the file and execute them
+            for (const line of fs.read_file(absolute_profile).split(NEWLINE)) {
+                this.execute(line);
+            }
+        }
+
+        // run .ollierc if it exists (TODO: make shells and the OS different things!)
+        const absolute_rc = fs.absolute("~/.ollierc");
+        if (fs.exists(absolute_rc)) {
+            // iter through the lines of the file and execute them
+            for (const line of fs.read_file(absolute_rc).split(NEWLINE)) {
+                this.execute(line);
+            }
+        }
     }
 }
