@@ -2,7 +2,6 @@ import type { SyncProgram } from "../types";
 import { ANSI } from "../term_ctl";
 
 import { image2sixel } from "sixel";
-import { NotBase64Error } from "../filesystem";
 
 
 // TODO: implement indexeddb fs to allow saving binary files properly
@@ -87,18 +86,9 @@ export default {
 
         const mime = ext === ".png" ? "image/png" : "image/jpeg";
 
-        // get the image data as base64, catching the NotBase64 error
-        let base64_content: string;
-        try {
-            base64_content = fs.read_file(abs_path, true, false);
-        } catch (e) {
-            if (e instanceof NotBase64Error) {
-                term.write(`${PREFABS.error}File was not stored base64 encoded: ${path}${STYLE.reset_all}`);
-                return 1;
-            }
-
-            throw e;
-        }
+        // get the image data
+        const content = fs.read_file(abs_path);
+        const base64_content = btoa(content);
 
 
         // convert the image data to a Uint8Array

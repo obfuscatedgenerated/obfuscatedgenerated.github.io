@@ -8,7 +8,7 @@ import { ImageAddon } from "xterm-addon-image";
 import { ProgramRegistry } from "./prog_registry";
 import * as programs from "./programs/@ALL";
 
-import { LocalStorageFS } from "./filesystem";
+import { LocalStorageFS } from "./fs_impl/localstorage";
 
 // create a program registry by importing all programs
 const prog_reg = new ProgramRegistry();
@@ -16,7 +16,7 @@ for (const prog of Object.values(programs)) {
     prog_reg.registerProgram(prog);
 }
 
-// create a local storage filesystem
+// create a filesystem
 const fs = new LocalStorageFS();
 
 

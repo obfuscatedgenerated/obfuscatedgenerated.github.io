@@ -1,0 +1,91 @@
+import { FileSystem, FSEventType, PathNotFoundError, NonRecursiveDirectoryError } from "../filesystem";
+
+const DB_NAME = "ollieos_idb_fs";
+const DB_VERSION = 1;
+
+// TODO: finish this later, try implement file storage in localstorage first
+
+export class IndexedDBFS extends FileSystem {
+    _idb: IDBDatabase;
+
+    make_dir(path: string): void {
+        const transaction = this._idb.transaction(["files"], "readwrite");
+
+        // split path into parts, if root, use single empty string to avoid doubling
+        const parts = path === this._root ? [""] : path.split("/");
+
+        // create directory for each part inside the previous one
+        for (const part of parts) {
+            const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
+            
+            // create directory as object store
+            transaction.objectStore(absolute_path);
+        }
+
+    }
+
+    delete_dir(path: string, recursive: boolean): void {
+        
+    }
+
+    move_dir(path: string, new_path: string): void {
+        
+    }
+
+    list_dir(path: string): string[] {
+        
+    }
+
+
+    read_file_direct(path: string): string {
+        
+    }
+
+    write_file_direct(path: string, data: string): void {
+        
+    }
+
+    delete_file_direct(path: string): void {
+        
+    }
+
+    move_file_direct(path: string, new_path: string): void {
+        
+    }
+
+    exists_direct(path: string): boolean {
+        
+    }
+
+    dir_exists(path: string): boolean {
+        
+    }
+
+    _finish_init(req: IDBOpenDBRequest): void {
+        this._idb = req.result;
+
+        // initialise root and home directory
+        this.make_dir(this._home);
+
+        this._initialised = true;
+    }
+
+    constructor() {
+        super();
+
+        // initialise db
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = () => {
+            // no object stores needed, created on demand
+        }
+
+        request.onsuccess = () => {
+            this._finish_init(request);
+        }
+
+        request.onerror = () => {
+            throw new Error("Could not open IndexedDB: " + request.error);
+        }
+    }
+}
