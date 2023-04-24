@@ -134,9 +134,16 @@ export abstract class FileSystem {
         }
     }
 
-    write_file(path: string, data: string, as_b64 = false): void {
+    write_file(path: string, data: string, as_b64 = false, convert_b64 = false): void {
         if (as_b64) {
-            data = "B64" + btoa(unescape(encodeURIComponent(data)));
+            const old_dat = data;
+            data = "B64";
+
+            if (convert_b64) {
+                data += btoa(unescape(encodeURIComponent(old_dat)));
+            } else {
+                data += old_dat;
+            }
         }
 
         // write to disk and cache

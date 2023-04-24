@@ -13,8 +13,7 @@ export default {
         "System flags:": {
             "-h": "Print this help message.",
             "-k": "Do not overwrite existing files.",
-            "-n": "Do not replace newlines with the current system's newline character (binary mode).",
-            "-a": "Save the file as base64 encoded data (binary mode)."
+            "-n": "Binary mode. Do not replace newlines with the current system's newline character, save it as base64.",
         },
         "Request flags:": {
             "-X": "Specify a custom HTTP method. (default: GET)",
@@ -66,7 +65,6 @@ export default {
         let method = "GET";
         const headers: Record<string, string> = {};
         let body = null;
-        let b64 = false;
 
         for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
             const arg = args[arg_idx];
@@ -123,9 +121,6 @@ export default {
                     break;
                 case "-n":
                     binary = true;
-                    break;
-                case "-a":
-                    b64 = true;
                     break;
                 default:
                     if (file_path === "") {
@@ -184,10 +179,17 @@ export default {
         }
 
         // get the file contents
-        const text = await response.text();
+        let content: string | ArrayBuffer;
+        if (binary) {
+            content = await response.arrayBuffer();
+            content = btoa(unescape(encodeURIComponent(String.fromCharCode(...new Uint8Array(content)))));
+        } else {
+            content = await response.text();
+            content = content.replace(/\r?\n/g, NEWLINE);
+        }
 
         // write the file
-        fs.write_file(abs_path, binary ? text : text.replace(/\r?\n/g, NEWLINE), b64);
+        fs.write_file(abs_path, content, binary, false);
 
         term.writeln(`${FG.green}File downloaded successfully.${STYLE.reset_all}`);
 
