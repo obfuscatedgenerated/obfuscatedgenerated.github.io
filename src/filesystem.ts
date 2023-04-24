@@ -38,7 +38,7 @@ export abstract class FileSystem {
     //TODO: dry
     _initialised = false;
 
-    _cache: { [path: string]: string } = {};
+    _cache: { [path: string]: string | Uint8Array } = {};
     _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
     _root = "/";
@@ -74,13 +74,13 @@ export abstract class FileSystem {
     }
 
 
-    abstract read_file_direct(path: string): string;
-    abstract write_file_direct(path: string, data: string): void;
+    abstract read_file_direct(path: string, as_uint: boolean): string | Uint8Array;
+    abstract write_file_direct(path: string, data: string | Uint8Array): void;
     abstract delete_file_direct(path: string): void;
     abstract move_file_direct(path: string, new_path: string): void;
 
 
-    read_file(path: string): string {
+    read_file(path: string, as_uint = false): string | Uint8Array {
         this._call_callbacks(FSEventType.READING_FILE, path);
 
         // check if file is in cache and still exists
@@ -89,10 +89,10 @@ export abstract class FileSystem {
         }
 
         // if not, read it from disk and cache it
-        return this._cache[path] = this.read_file_direct(path);
+        return this._cache[path] = this.read_file_direct(path, as_uint);
     }
 
-    write_file(path: string, data: string): void {
+    write_file(path: string, data: string | Uint8Array): void {
         // write to disk and cache
         this._cache[path] = data;
         this.write_file_direct(path, data);

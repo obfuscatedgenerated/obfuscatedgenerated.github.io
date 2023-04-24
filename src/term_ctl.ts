@@ -464,7 +464,8 @@ export class WrappedTerminal extends Terminal {
         const absolute_profile = fs.absolute("~/.ollie_profile");
         if (fs.exists(absolute_profile)) {
             // iter through the lines of the file and execute them
-            for (const line of fs.read_file(absolute_profile).split(NEWLINE)) {
+            const content = fs.read_file(absolute_profile) as string;
+            for (const line of content.split(NEWLINE)) {
                 this.execute(line);
             }
         }
@@ -473,7 +474,8 @@ export class WrappedTerminal extends Terminal {
         const absolute_rc = fs.absolute("~/.ollierc");
         if (fs.exists(absolute_rc)) {
             // iter through the lines of the file and execute them
-            for (const line of fs.read_file(absolute_rc).split(NEWLINE)) {
+            const content = fs.read_file(absolute_rc) as string;
+            for (const line of content.split(NEWLINE)) {
                 this.execute(line);
             }
         }

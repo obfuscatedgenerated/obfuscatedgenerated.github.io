@@ -6,32 +6,17 @@ import { image2sixel } from "sixel";
 
 // TODO: implement indexeddb fs to allow saving binary files properly
 
-const b64_image_to_uint8 = (image_b64: string, mime: string): { array: Uint8Array, width: number, height: number } => {
-    const img = new Image();
-    img.src = `data:${mime};base64,${image_b64}`;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-
-    const data = ctx.getImageData(0, 0, img.width, img.height).data;
-
-    return { array: new Uint8Array(data), width: img.width, height: img.height };
-}
-
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "<path> [-w <width>] [-u]",
+    usage_suffix: "<path> [-w <width>] [-h <height>] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
         },
         "Options:": {
             "-w": "The width of the image in columns. Defaults to the terminal width.",
+            "-h": "The height of the image in rows. Defaults to the terminal height.",
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
@@ -54,7 +39,8 @@ export default {
         }
 
         // get the width of the image specified or the terminal width
-        const width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
+        const width = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
+        const height = args.includes("-h") ? parseInt(args[args.indexOf("-h") + 1]) : term.rows;
         const is_web_url = args.includes("-u");
 
         let abs_path: string;
@@ -87,19 +73,15 @@ export default {
         const mime = ext === ".png" ? "image/png" : "image/jpeg";
 
         // get the image data
-        const content = fs.read_file(abs_path);
-        const base64_content = btoa(content);
-
-
-        // convert the image data to a Uint8Array
-        const { array, width, height } = b64_image_to_uint8(base64_content, mime);
+        const content = fs.read_file(abs_path, true) as Uint8Array;
+        console.log(content);
 
         // scale the height to fit the width
-        const scale = width_arg / height;
-        const new_height = Math.floor(width_arg / scale);
+        const scale = width / height;
+        const new_height = Math.floor(width / scale);
 
         // convert the Uint8Array to a sixel image
-        const sixel = image2sixel(array, width_arg, new_height);
+        const sixel = image2sixel(content, width, new_height);
 
         // write the sixel image to the terminal
         term.write(sixel);

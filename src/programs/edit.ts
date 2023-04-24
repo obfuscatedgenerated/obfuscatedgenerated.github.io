@@ -76,7 +76,7 @@ export default {
 
         // if the file exists, load it in. otherwise, keep the content empty
         if (fs.exists(path)) {
-            content = fs.read_file(path);
+            content = fs.read_file(path) as string;
         }
 
         // temporary note

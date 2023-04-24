@@ -101,7 +101,7 @@ export class LocalStorageFS extends FileSystem {
     }
 
 
-    read_file_direct(path: string): string {
+    read_file_direct(path: string, as_uint = false): string | Uint8Array {
         const state = JSON.parse(localStorage.getItem("fs"));
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -121,13 +121,37 @@ export class LocalStorageFS extends FileSystem {
         // check if file exists
         if (current_part) {
             // decode data from base64 to avoid errors with special characters
-            return decodeURIComponent(escape(atob(current_part)));
+            const b64 = atob(current_part);
+            const uint = new Uint8Array(b64.length);
+            uint.map((_, i) => uint[i] = b64.charCodeAt(i));
+
+            if (as_uint) {
+                return uint;
+            } else {
+                return new TextDecoder().decode(uint);
+            }
         }
 
         throw new PathNotFoundError(path);
     }
 
-    write_file_direct(path: string, data: string): void {
+    write_file_direct(path: string, data: string | ArrayBuffer | Uint8Array): void {
+        let uint: Uint8Array;
+
+        // convert string to uint8array
+        if (typeof data === "string") {
+            uint = new TextEncoder().encode(data);
+        }
+
+        // convert array buffer to uint8array
+        if (data instanceof ArrayBuffer) {
+            uint = new Uint8Array(data);
+        }
+
+        if (data instanceof Uint8Array) {
+            uint = data;
+        }
+
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
 
@@ -148,11 +172,11 @@ export class LocalStorageFS extends FileSystem {
         }
 
         
-        // encode data to base64 to avoid errors with special characters
-        data = btoa(unescape(encodeURIComponent(data)));
+        // encode data with base64 to avoid errors with special characters
+        const b64 = btoa(uint.reduce((prev, byte) => prev + String.fromCharCode(byte), ""))
 
         // write file to directory
-        current_dir[file_name] = data;
+        current_dir[file_name] = b64;
         localStorage.setItem("fs", JSON.stringify(state));
     }
 

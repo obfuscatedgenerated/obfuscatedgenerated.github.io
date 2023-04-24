@@ -55,10 +55,10 @@ export default {
         }
 
         // get file
-        const content = fs.read_file(abs_path);
+        const content = fs.read_file(abs_path, true) as Uint8Array;
 
-        // convert file to an array of hex bytes
-        const hex = [...content].map((char) => char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
+        // convert uint8array to hex string
+        const hex = Array.from(content).map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"));
 
         // if printing indexes, print the header
         if (args[1] === "-i") {
