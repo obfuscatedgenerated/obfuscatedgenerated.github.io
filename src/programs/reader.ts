@@ -4,10 +4,12 @@ export default {
     name: "reader",
     description: "Toggles screen reader mode. Due to a technical limitation, on-screen links will not be clickable in screen reader mode.",
     usage_suffix: "[-h] [-q] [-s on|off]",
-    flags: {
-        "-h": "Show this help message.",
-        "-q": "Query the current screen reader mode.",
-        "-s": "Explicitly set the screen reader mode to on or off, rather than toggling it."
+    arg_descriptions: {
+        "Flags:": {
+            "-h": "Show this help message.",
+            "-q": "Query the current screen reader mode.",
+            "-s": "Explicitly set the screen reader mode to on or off, rather than toggling it."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose

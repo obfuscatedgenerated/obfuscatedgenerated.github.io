@@ -18,7 +18,7 @@ export default {
     name: "mefetch",
     description: "Shows information about me.",
     usage_suffix: "",
-    flags: {},
+    arg_descriptions: {},
     async_main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;

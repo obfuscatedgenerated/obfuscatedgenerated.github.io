@@ -5,9 +5,14 @@ export default {
     name: "ls",
     description: "List files in the current or another directory.",
     usage_suffix: "[-h] [-a] [path]",
-    flags: {
-        "-h": "Show this help message.",
-        "-a": "Show hidden files."
+    arg_descriptions: {
+        "Arguments:": {
+            "path": "The path to the directory to list. Defaults to the current directory."
+        },
+        "Flags:": {
+            "-h": "Show this help message.",
+            "-a": "Show hidden files."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose
@@ -44,7 +49,7 @@ export default {
 
         // list dir
         let dir = fs.list_dir(path);
-        
+
         // sort alphabetically (usually already sorted by Object.keys but just in case)
         dir.sort();
 
@@ -76,7 +81,7 @@ export default {
 
         // write last line
         term.writeln(line);
-        
+
         return 0;
     }
 } as SyncProgram;

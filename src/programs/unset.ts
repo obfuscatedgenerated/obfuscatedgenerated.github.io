@@ -4,7 +4,11 @@ export default {
     name: "unset",
     description: "Unset a variable.",
     usage_suffix: "<variable>",
-    flags: {},
+    arg_descriptions: {
+        "Arguments:": {
+            "variable": "The name of the bariable to unset."
+        }
+    },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

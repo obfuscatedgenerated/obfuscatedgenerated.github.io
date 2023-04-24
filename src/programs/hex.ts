@@ -7,9 +7,14 @@ export default {
     name: "hex",
     description: "Reads a file as hexadecimal.",
     usage_suffix: "[-h] <path> [-i]",
-    flags: {
-        "-h": "Print this help message.",
-        "-i": "Print indexes."
+    arg_descriptions: {
+        "Arguments:": {
+            "path": "The path to the file to read."
+        },
+        "Flags:": {
+            "-h": "Print this help message.",
+            "-i": "Print indexes."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose

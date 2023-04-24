@@ -5,13 +5,21 @@ export default {
     name: "webget",
     description: "Downloads a file from the World Wide Web.",
     usage_suffix: "<url> <filepath> [-k] [-n] [-X <method>] [-H <header>] [-B <body>]",
-    flags: {
-        "-h": "Print this help message.",
-        "-k": "Do not overwrite existing files.",
-        "-n": "Do not replace newlines with the current system's newline character (binary mode).",
-        "-X": "Specify a custom HTTP method. (default: GET)",
-        "-H": "Add a custom header to the request.",
-        "-B": "Specify a custom request body. (only works with POST and PUT methods)"
+    arg_descriptions: {
+        "Arguments:": {
+            "url": "The URL to download from.",
+            "filepath": "The path to save the file to."
+        },
+        "System flags:": {
+            "-h": "Print this help message.",
+            "-k": "Do not overwrite existing files.",
+            "-n": "Do not replace newlines with the current system's newline character (binary mode).",
+        },
+        "Request flags:": {
+            "-X": "Specify a custom HTTP method. (default: GET)",
+            "-H": "Add a custom header to the request.",
+            "-B": "Specify a custom request body. (only works with POST and PUT methods)"
+        }
     },
     async_main: async (data) => {
         // TODO: replace filename with using piping and send content to stdout

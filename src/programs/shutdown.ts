@@ -5,9 +5,11 @@ export default {
     name: "shutdown",
     description: "Stops the OS.",
     usage_suffix: "[-h | -r]",
-    flags: {
-        "-h": "Show this help message.",
-        "-r": "Reboot the terminal."
+    arg_descriptions: {
+        "Flags:": {
+            "-h": "Show this help message.",
+            "-r": "Reboot the terminal."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose

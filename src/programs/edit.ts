@@ -53,7 +53,7 @@ export default {
     name: "edit",
     description: "Edits the specified file.",
     usage_suffix: "<path>",
-    flags: {},
+    arg_descriptions: {},
     async_main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

@@ -11,11 +11,12 @@ export interface ProgramMainData {
 export type ProgramMain = (data: ProgramMainData) => number;
 export type AsyncProgramMain = (data: ProgramMainData) => Promise<number>;
 
+export type arg_descriptions = { [key: string]: string | arg_descriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
 export interface Program {
     name: string,
     description: string,
     usage_suffix: string,
-    flags: { [key: string]: string }, // { flag: flag_description }
+    arg_descriptions: arg_descriptions,
 }
 
 export interface SyncProgram extends Program {

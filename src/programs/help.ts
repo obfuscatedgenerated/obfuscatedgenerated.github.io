@@ -1,11 +1,15 @@
 import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { SyncProgram, arg_descriptions } from "../types";
 
 export default {
     name: "help",
     description: "List programs or get help for a specific program.",
     usage_suffix: "[command]",
-    flags: {},
+    arg_descriptions: {
+        "Arguments:": {
+            "command": "The name of the program to get help for.",
+        }
+    },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
@@ -75,17 +79,35 @@ export default {
             return 1;
         }
 
-        term.writeln(`${PREFABS.program_name}${program.name}${STYLE.reset_all}`);
+        term.writeln(`${NEWLINE}${PREFABS.program_name}${program.name}${STYLE.reset_all}`);
         term.writeln(`${program.description}`);
         term.write(NEWLINE);
         term.writeln(`Usage: ${PREFABS.program_name}${program.name}${STYLE.reset_all} ${program.usage_suffix}`);
 
-        if (Object.keys(program.flags).length > 0) {
-            term.write(NEWLINE);
-            term.writeln("Flags:");
-            for (const [flag, description] of Object.entries(program.flags)) {
-                term.writeln(`  ${flag}${STYLE.reset_all}\t${description}`);
+        if (Object.keys(program.arg_descriptions).length > 0) {
+            // recurse each level of nesting
+            // each level is a section title, until the innermost object, in which they are pairs of argument name and description.
+            // add indents depending on the level of nesting
+            const recurse = (descs: arg_descriptions, nest_level: number): string => {
+                let output = "";
+
+                for (const [key, value] of Object.entries(descs)) {
+                    if (typeof value === "string") {
+                        // argument, innermost nest
+                        output += `${" ".repeat(nest_level * 4)}${key} - ${value}${NEWLINE}`;
+                    } else {
+                        // title, deeper nest
+                        output += `${NEWLINE}${STYLE.bold + STYLE.italic}${key}${STYLE.reset_all}${NEWLINE}`;
+                        output += recurse(value, nest_level + 1);
+                    }
+                }
+
+                return output;
             }
+            
+
+            term.write(NEWLINE);
+            term.write(recurse(program.arg_descriptions, 0));
         }
 
         return 0;

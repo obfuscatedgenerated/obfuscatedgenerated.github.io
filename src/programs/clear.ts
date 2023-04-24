@@ -5,10 +5,12 @@ export default {
     name: "clear",
     description: "Clears the screen, and/or the scrollback.",
     usage_suffix: "[-h | -s | -so]",
-    flags: {
-        "-h": "Show this help message.",
-        "-s": "Clear the screen and the scrollback.",
-        "-so": "Only clear the scrollback."
+    arg_descriptions: {
+        "Flags:": {
+            "-h": "Show this help message.",
+            "-s": "Clear the screen and the scrollback.",
+            "-so": "Only clear the scrollback."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose

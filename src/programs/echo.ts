@@ -4,7 +4,11 @@ export default {
     name: "echo",
     description: "Echos a string to the terminal.",
     usage_suffix: "<string>",
-    flags: {},
+    arg_descriptions: {
+        "Arguments:": {
+            "string": "The string to echo."
+        }
+    },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

@@ -1,11 +1,11 @@
-import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
+import { ANSI } from "../term_ctl";
 import type { SyncProgram } from "../types";
 
 export default {
     name: "cd",
     description: "Change directory or print current directory.",
     usage_suffix: "[path]",
-    flags: {},
+    arg_descriptions: {},
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

@@ -5,7 +5,11 @@ export default {
     name: "cat",
     description: "Reads files and prints their contents to the terminal.",
     usage_suffix: "[...filepaths]",
-    flags: {},
+    arg_descriptions: {
+        "Arguments:": {
+            "filepaths": "The paths of the files to read."
+        }
+    },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
