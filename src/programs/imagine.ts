@@ -24,13 +24,14 @@ const b64_image_to_uint8 = (image_b64: string, mime: string): { array: Uint8Arra
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "<path> [-w <width>]",
+    usage_suffix: "<path> [-w <width>] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in columns. Defaults to the terminal width."
+            "-w": "The width of the image in columns. Defaults to the terminal width.",
+            "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
     main: (data) => {
@@ -53,12 +54,26 @@ export default {
 
         // get the width of the image specified or the terminal width
         const width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
+        const is_web_url = args.includes("-u");
 
-        // process the path
-        const abs_path = fs.absolute(path);
-        if (!fs.exists(abs_path)) {
-            term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
-            return 1;
+        let abs_path: string;
+        if (!is_web_url) {
+            // process the path
+            abs_path = fs.absolute(path);
+            if (!fs.exists(abs_path)) {
+                term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
+                return 1;
+            }
+
+        } else {
+            // check path is a valid URL
+            try {
+                new URL(path);
+                abs_path = path;
+            } catch (e) {
+                term.write(`${PREFABS.error}Invalid URL: ${path}${STYLE.reset_all}`);
+                return 1;
+            }
         }
 
         // check path is a .png or .jpg

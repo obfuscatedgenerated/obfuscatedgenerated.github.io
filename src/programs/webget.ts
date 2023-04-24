@@ -1,10 +1,10 @@
 import type { AsyncProgram } from "../types";
-import { ANSI, NEWLINE, URL_REGEX } from "../term_ctl";
+import { ANSI, NEWLINE } from "../term_ctl";
 
 export default {
     name: "webget",
     description: "Downloads a file from the World Wide Web.",
-    usage_suffix: "<url> <filepath> [-k] [-n] [-X <method>] [-H <header>] [-B <body>]",
+    usage_suffix: "<url> <filepath> [-k] [-n] [-a] [-X <method>] [-H <header>] [-B <body>]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to download from.",
@@ -49,7 +49,13 @@ export default {
         const url = args.shift();
 
         // validate url
-        if (!URL_REGEX.test(url)) {
+        try {
+            const proc_url = new URL(url);
+
+            if (proc_url.protocol !== "http:" && proc_url.protocol !== "https:") {
+                throw new Error("Invalid protocol");
+            }
+        } catch (e) {
             term.writeln(`${PREFABS.error}Invalid URL. Expected a valid HTTP or HTTPS protocol URL.${STYLE.reset_all}`);
             return 1;
         }
