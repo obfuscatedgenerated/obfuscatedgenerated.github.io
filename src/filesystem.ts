@@ -10,6 +10,12 @@ export class NonRecursiveDirectoryError extends Error {
     }
 }
 
+export class NotBase64Error extends Error {
+    constructor(path: string) {
+        super(`File is not base64 encoded: ${path}`);
+    }
+}
+
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
@@ -50,7 +56,7 @@ export abstract class FileSystem {
         this._cache = {};
     }
 
-    
+
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void {
         // if there are no callbacks for this event type, create an empty array
         if (!this._callbacks.has(event_type)) {
@@ -80,18 +86,59 @@ export abstract class FileSystem {
     abstract move_file_direct(path: string, new_path: string): void;
 
 
-    read_file(path: string): string {
+    // TODO: make less messy, DRY
+    read_file(path: string, as_b64 = false, convert_b64 = true): string {
+        this._call_callbacks(FSEventType.READING_FILE, path);
+
         // check if file is in cache and still exists
         if (this._cache[path] && this.exists(path)) {
-            return this._cache[path];
+            const data = this._cache[path];
+
+            if (as_b64) {
+                // check first 3 chars are "B64"
+                if (data.substr(0, 3) !== "B64") {
+                    throw new NotBase64Error(path);
+                }
+
+                const trimmed = data.substr(3);
+
+                if (convert_b64) {
+                    return decodeURIComponent(escape(atob(trimmed)));
+                } else {
+                    return trimmed;
+                }
+            } else {
+                return data;
+            }
         }
-        
+
         // if not, read it from disk and cache it
-        this._call_callbacks(FSEventType.READING_FILE, path);
-        return this._cache[path] = this.read_file_direct(path);
+        const data = this.read_file_direct(path);
+        this._cache[path] = data;
+
+        if (as_b64) {
+            // check first 3 chars are "B64"
+            if (data.substr(0, 3) !== "B64") {
+                throw new NotBase64Error(path);
+            }
+
+            const trimmed = data.substr(3);
+
+            if (convert_b64) {
+                return decodeURIComponent(escape(atob(trimmed)));
+            } else {
+                return trimmed;
+            }
+        } else {
+            return data;
+        }
     }
 
-    write_file(path: string, data: string): void {
+    write_file(path: string, data: string, as_b64 = false): void {
+        if (as_b64) {
+            data = "B64" + btoa(unescape(encodeURIComponent(data)));
+        }
+
         // write to disk and cache
         this._cache[path] = data;
         this.write_file_direct(path, data);
@@ -129,7 +176,7 @@ export abstract class FileSystem {
         this._call_callbacks(FSEventType.SET_CWD, path);
     }
 
-    
+
     get_home(): string {
         this._call_callbacks(FSEventType.GETTING_HOME, this._home);
         return this._home;
@@ -149,7 +196,7 @@ export abstract class FileSystem {
         this._root = path;
         this._call_callbacks(FSEventType.SET_ROOT, path);
     }
-    
+
 
     abstract exists_direct(path: string): boolean;
     abstract dir_exists(path: string): boolean;
@@ -180,7 +227,7 @@ export abstract class FileSystem {
         if (path.startsWith("./")) {
             path = path.slice(2);
         }
-        
+
 
         let effective_cwd = this._cwd;
 

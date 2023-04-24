@@ -3,6 +3,7 @@ import "xterm/css/xterm.css";
 
 import { FitAddon } from "xterm-addon-fit";
 import { WebLinksAddon } from "xterm-addon-web-links";
+import { ImageAddon } from "xterm-addon-image";
 
 import { ProgramRegistry } from "./prog_registry";
 import * as programs from "./programs/@ALL";
@@ -66,8 +67,10 @@ This website was made by obfuscatedgenerated using the following technologies:
 As well as the following libraries:
 
 - imgToAscii (modified)
+- node-sixel
 - xterm-addon-fit
 - xterm-addon-web-links
+- xterm-addon-image
 
 The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
 `.replace(/\n/g, NEWLINE);
@@ -89,6 +92,8 @@ const fit = new FitAddon();
 term.loadAddon(fit);
 
 term.loadAddon(new WebLinksAddon());
+
+term.loadAddon(new ImageAddon());
 
 // open the terminal
 const render = <HTMLElement>document.querySelector("#terminal");
