@@ -53,7 +53,7 @@ if (!fs.exists(absolute_credits)) {
 
 // create a terminal using the registry and filesystem
 const term = new WrappedTerminal(fs, prog_reg, {
-    screenReaderMode: false, // TODO: this is disabled because it causes a bug in which link providers don't work, enable when fixed
+    screenReaderMode: false,
     cursorBlink: true,
 });
 

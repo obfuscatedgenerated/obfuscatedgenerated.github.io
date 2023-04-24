@@ -454,5 +454,10 @@ export class WrappedTerminal extends Terminal {
 
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
+
+        // enable screen reader mode if stored in local storage
+        if (localStorage.getItem("reader") === "true") {
+            this.execute("reader -s on");
+        }
     }
 }
