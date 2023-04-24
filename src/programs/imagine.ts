@@ -38,7 +38,7 @@ export default {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in columns. Defaults to the terminal width.",
+            "-w": "The width of the image in columns. Defaults to the width of the image.",
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
@@ -61,7 +61,7 @@ export default {
         }
 
         // get the width of the image specified or the terminal width
-        const width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : term.cols;
+        let width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : undefined;
         const is_web_url = args.includes("-u");
 
         let abs_path: string;
@@ -97,9 +97,13 @@ export default {
         const content = fs.read_file(abs_path, true) as Uint8Array;
         const { array: img_data, width: img_width, height: img_height } = convert_file_data_to_image_data(content, mime);
 
+        if (!width_arg) {
+            width_arg = img_width;
+        }
+
         // scale the height to fit the width
         const width_scale = width_arg / img_width;
-        const new_height = Math.round(img_height * width_scale);
+        const new_height = img_height * width_scale;
 
         // convert the Uint8Array to a sixel image
         const sixel = image2sixel(img_data, width_arg, new_height);
