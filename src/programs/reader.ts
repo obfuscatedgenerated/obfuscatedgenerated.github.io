@@ -3,8 +3,9 @@ import type { SyncProgram } from "../types";
 export default {
     name: "reader",
     description: "Toggles screen reader mode. Due to a technical limitation, on-screen links will not be clickable in screen reader mode.",
-    usage_suffix: "[-q] [-s on|off]",
+    usage_suffix: "[-h] [-q] [-s on|off]",
     flags: {
+        "-h": "Show this help message.",
         "-q": "Query the current screen reader mode.",
         "-s": "Explicitly set the screen reader mode to on or off, rather than toggling it."
     },
@@ -13,6 +14,9 @@ export default {
         const { args, term } = data;
 
         switch (args[0]) {
+            case "-h":
+                term.execute("help reader");
+                return 0;
             case "-q":
                 // query screen reader mode
                 term.writeln(`Screen reader mode is currently ${term.options.screenReaderMode ? "on" : "off"}.`);
