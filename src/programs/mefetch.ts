@@ -5,7 +5,7 @@ import { default as img2ascii } from "imgToAscii";
 
 
 const convert_to_ascii = async (url: string, size: number): Promise<string> => {
-    const img = new img2ascii(url, size, size / 2);
+    const img = new img2ascii(url, size, Math.round(size / 2));
     await img.loadImage;
 
     // convert newlines in string
