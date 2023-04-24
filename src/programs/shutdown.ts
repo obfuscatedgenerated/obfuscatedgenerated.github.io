@@ -1,46 +1,78 @@
 import { ANSI } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { AsyncProgram } from "../types";
 
 export default {
     name: "shutdown",
     description: "Stops the OS.",
-    usage_suffix: "[-h | -r]",
+    usage_suffix: "[-h] [-r] [-t <time>]",
     arg_descriptions: {
         "Flags:": {
             "-h": "Show this help message.",
-            "-r": "Reboot the terminal."
+            "-r": "Reboot the terminal.",
+            "-t": "Set the time before shutdown in milliseconds. Default is 1000ms."
         }
     },
-    main: (data) => {
+    async_main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
 
-        switch (args[0]) {
-            case undefined:
-                term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
+        let time = 1000;
+        let restart = false;
 
-                setTimeout(() => {
-                    term.dispose();
-                }, 1000);
-                break;
-            case "-r":
-                term.writeln(`${FG.red}Rebooting...${STYLE.reset_all}`);
+        for (const arg of args) {
+            switch (arg) {
+                case "-h":
+                    term.execute("help shutdown");
+                    return 0;
+                case "-r":
+                    restart = true;
+                    break;
+                case "-t": {
+                    // get the next argument
+                    const time_arg = args[args.indexOf(arg) + 1];
+                    if (time_arg === undefined) {
+                        term.writeln(`${FG.red}Invalid argument: ${arg}${STYLE.reset_all}`);
+                        return 1;
+                    }
 
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-                break;
-            case "-h":
-                term.execute("help shutdown");
-                break;
-            default:
-                term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);
-                return 1;
+                    // parse the time
+                    const parsed_time = parseInt(time_arg);
+                    if (isNaN(parsed_time)) {
+                        term.writeln(`${FG.red}Invalid argument: ${arg}${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    time = parsed_time;
+
+                    // skip the next argument
+                    args.splice(args.indexOf(arg) + 1, 1);
+                    break;
+                }
+                default:
+                    term.writeln(`${FG.red}Invalid argument: ${arg}${STYLE.reset_all}`);
+                    return 1;
+            }
         }
 
-        return 0;
+        if (restart) {
+            term.writeln(`${FG.red}Restarting...${STYLE.reset_all}`);
+        } else {
+            term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
+        }
+
+        setTimeout(() => {
+            if (restart) {
+                window.location.reload();
+            } else {
+                term.dispose();
+            }
+        }, time);
+
+        // hang the terminal until it is shut down or restarted (dont allow any more commands)
+        // await an event that will never happen
+        await new Promise(() => {});
     }
-} as SyncProgram;
+} as AsyncProgram;

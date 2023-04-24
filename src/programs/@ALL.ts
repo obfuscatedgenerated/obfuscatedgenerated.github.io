@@ -11,3 +11,4 @@ export { default as cat } from "./cat";
 export { default as hex } from "./hex";
 export { default as mefetch } from "./mefetch";
 export { default as reader } from "./reader";
+export { default as selfdestruct } from "./selfdestruct";
