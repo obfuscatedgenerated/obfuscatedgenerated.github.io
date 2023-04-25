@@ -49,14 +49,7 @@ export default {
 
         // play sound
         const sound_name = `reader_${state}`;
-        if (sfx_reg.is_ready(sound_name)) {
-            sfx_reg.play(sound_name);
-        } else {
-            console.log(`Sound ${sound_name} is not ready yet, waiting...`);
-            sfx_reg.await_ready(sound_name).then(() => {
-                sfx_reg.play(sound_name);
-            });
-        }
+        sfx_reg.wait_to_play(sound_name);
 
         // print message
         term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage.`);

@@ -52,4 +52,15 @@ export class SoundRegistry {
     is_ready(name: string) {
         return this.registry[name].ready;
     }
+
+    wait_to_play(name: string, interval = 100) {
+        if (this.is_ready(name)) {
+            this.play(name);
+        } else {
+            console.log(`Sound ${name} is not ready yet, waiting...`);
+            this.await_ready(name, interval).then(() => {
+                this.play(name);
+            });
+        }
+    }
 }
