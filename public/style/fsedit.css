@@ -23,3 +23,27 @@ main {
 #title {
     margin-bottom: 0;
 }
+
+#file-tree {
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+}
+
+#file-tree li {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+#file-tree li a {
+    display: block;
+    padding: 0.5em;
+    text-decoration: none;
+    color: #fff;
+}

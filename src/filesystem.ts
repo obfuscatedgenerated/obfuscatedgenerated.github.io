@@ -168,13 +168,13 @@ export abstract class FileSystem {
     }
 
     absolute(path: string): string {
-        // if path starts with cwd, it is absolute
-        if (path.startsWith(this._cwd)) {
+        // if path starts with cwd and doesn't contain .., it is absolute
+        if (path.startsWith(this._cwd) && !path.includes("..")) {
             return path;
         }
 
-        // if path starts with root, it is absolute
-        if (path.startsWith(this._root)) {
+        // if path starts with root and doesn't contain .., it is absolute
+        if (path.startsWith(this._root) && !path.includes("..")) {
             return path;
         }
 
@@ -198,10 +198,37 @@ export abstract class FileSystem {
             effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
         }
 
+        // TODO: doesn't support middle of path ..
+        // if path ends with .., remove the last part of the full path
+        while (path.endsWith("..")) {
+            path = path.slice(0, path.lastIndexOf(".."));
+
+            // drop trailing /
+            if (path.endsWith("/")) {
+                path = path.slice(0, path.length - 1);
+            }
+
+            // slice path, slicing effective_cwd if path is empty
+            if (path === "") {
+                effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
+            } else {
+                path = path.slice(0, path.lastIndexOf("/"));
+
+                if (path === "") {
+                    effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
+                }
+            }
+        }
+
         // if path starts with ~/, replace it with home
         if (path.startsWith("~/")) {
             path = path.slice(2);
             effective_cwd = this._home;
+        }
+
+        // if path still starts with /, drop it
+        if (path.startsWith("/")) {
+            path = path.slice(1);
         }
 
         return this.join(effective_cwd, path);

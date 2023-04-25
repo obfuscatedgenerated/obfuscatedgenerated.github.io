@@ -81,6 +81,10 @@ As well as the following libraries:
 - xterm-addon-image
 - howler.js
 
+Additionally, fsedit uses:
+
+- Font Awesome
+
 The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
 `.replace(/\n/g, NEWLINE);
 
