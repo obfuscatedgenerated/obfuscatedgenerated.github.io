@@ -39,17 +39,33 @@ window.addEventListener("beforeunload", () => {
 });
 
 
-// save a reference to the editor pane and the file tree
-const editor = document.getElementById("editor") as HTMLDivElement;
+// save a reference to the editor and the file tree
+const file_editor = document.getElementById("file-editor") as HTMLDivElement;
 const file_tree = document.getElementById("file-tree") as HTMLDivElement;
 
+const title = document.getElementById("title") as HTMLHeadingElement;
+
 let render_directory: (dir: string) => void;
+
+const render_file_editor = (path: string) => {
+    // hide the file tree
+    file_tree.style.display = "none";
+
+    // show the file editor
+    file_editor.style.display = "block";
+}
+
+const close_file_editor = () => {
+    // hide the file editor
+    file_editor.style.display = "none";
+
+    // show the file tree
+    file_tree.style.display = "block";
+}
 
 const render_item = (dir: string, name: string) => {
     const joined_path = fs.join(dir, name);
     const abs_path = fs.absolute(joined_path);
-
-    console.log("rendering", joined_path);
 
     const li = document.createElement("li");
     const icon = document.createElement("i");
@@ -68,6 +84,16 @@ const render_item = (dir: string, name: string) => {
     text.innerText = name;
     text.href = "#";
     text.onclick = () => {
+        // check path still exists
+        if (!fs.exists(abs_path)) {
+            alert(`Path '${abs_path}' no longer exists.`);
+
+            // re-render the directory
+            render_directory(dir);
+            return;
+        }
+
+
         if (fs.dir_exists(abs_path)) {
             // if dir, render the dir
             render_directory(abs_path);
@@ -98,7 +124,25 @@ render_directory = (dir: string) => {
     for (const name of dir_contents) {
         render_item(dir, name);
     }
+
+    // set title
+    const title_str = `fsedit - ${dir}`;
+    title.innerText = title_str;
+    document.title = title_str;
+
+    // update the url
+    params.set("dir", dir);
+    window.history.replaceState({}, "", `?${params.toString()}`);
 };
 
-// render the root directory
-render_directory("/");
+// render the initial directory
+if (params.has("dir")) {
+    if (!fs.dir_exists(params.get("dir"))) {
+        alert(`Directory '${params.get("dir")}' does not exist.`);
+        window.close();
+    }
+
+    render_directory(params.get("dir"));
+} else {
+    render_directory(fs.get_root());
+}
