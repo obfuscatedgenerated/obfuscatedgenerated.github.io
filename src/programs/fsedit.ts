@@ -43,7 +43,7 @@ export default {
         const encoded_dir = encodeURIComponent(dir);
 
         // open fsedit in a popup window
-        window.open(`/fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true")
+        window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true")
 
         // send message
         term.writeln("Opened fsedit in a new window.");
