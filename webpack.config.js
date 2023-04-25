@@ -6,6 +6,11 @@ const hb = require("handlebars");
 const fs = require("fs");
 const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
 
+// make fsedit dir
+if (!fs.existsSync("./fsedit")) {
+    fs.mkdirSync("./fsedit");
+}
+
 function hb_build() {
     console.log("Compiling index");
     let index_template = fs.readFileSync("./src/index.handlebars", "utf8");
@@ -13,6 +18,13 @@ function hb_build() {
     let html = compiled({ title: "OllieOS", desc: "Ollie's Portfolio" });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
+
+    console.log("Compiling fsedit");
+    let fsedit_template = fs.readFileSync("./src/fsedit/index.handlebars", "utf8");
+    let fsedit_compiled = hb.compile(fsedit_template);
+    let fsedit_html = fsedit_compiled({ title: "OllieOS - Filesystem Editor", desc: "fsedit for OllieOS" });
+    fs.writeFileSync("./fsedit/index.html", fsedit_html);
+    console.log("Compiled fsedit");
 }
 
 module.exports = (env, argv) => {
@@ -29,10 +41,13 @@ module.exports = (env, argv) => {
                 },
             },
             new ExtraWatchWebpackPlugin({
-                files: ["./src/*.handlebars"],
+                files: ["./src/*.handlebars", "./src/fsedit/*.handlebars"],
             }),
         ],
-        entry: "./src/index.ts",
+        entry: {
+            main: "./src/index.ts",
+            fsedit: "./src/fsedit/index.ts",
+        },
         devtool: dt,
         module: {
             rules: [

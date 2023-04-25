@@ -9,9 +9,3 @@
     src: url(/public/OpenSans-Regular.ttf),
         url("/public/OpenSans-Regular.woff");
 }
-
-@font-face {
-    font-family: "WeblySleek UI";
-    src: url(/public/weblysleekuisb.ttf),
-        url("/public/weblysleekuisb.woff");
-}
