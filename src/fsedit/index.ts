@@ -30,13 +30,15 @@ const fs: FileSystem = new fs_impl();
 
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
+let is_locked = false;
 if (fs.exists(lock_path)) {
-    alert("fsedit is already running on this filesystem.");
+    alert("fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)");
     window.close();
 }
 
 const lock_str = `locked at ${new Date().toISOString()}`;
 fs.write_file(lock_path, lock_str);
+is_locked = true;
 
 
 // save a reference to the editor and the file tree
@@ -236,8 +238,11 @@ window.addEventListener("beforeunload", (e) => {
 
 // bind an event listener to the window close event
 window.addEventListener("unload", () => {
-    // remove the lock file
-    fs.delete_file(lock_path);
+    if (is_locked) {
+        // remove the lock file
+        fs.delete_file(lock_path);
+        is_locked = false;
+    }
 });
 
 
