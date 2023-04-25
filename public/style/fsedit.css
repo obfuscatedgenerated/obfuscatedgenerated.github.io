@@ -77,6 +77,7 @@ main {
 
 #file-buttons {
     margin-top: 1%;
+    margin-bottom: 2%;
 
     display: flex;
     flex-direction: row;
@@ -124,20 +125,6 @@ main {
     background-color: #d0451b;
 }
 
-#file-buttons button.green {
-    box-shadow: inset 0px 1px 0px 0px #89e185;
-
-    background: linear-gradient(to bottom, #77d42a 5%, #a5e756 100%);
-    background-color: #77d42a;
-
-    border: 1px solid #6b8a23;
-}
-
-#file-buttons button.green:hover {
-    background: linear-gradient(to bottom, #a5e756 5%, #77d42a 100%);
-    background-color: #a5e756;
-}
-
 #file-buttons button.blue {
     box-shadow: inset 0px 1px 0px 0px #97c4fe;
 
@@ -150,4 +137,10 @@ main {
 #file-buttons button.blue:hover {
     background: linear-gradient(to bottom, #82b0de 5%, #288ad6 100%);
     background-color: #82b0de;
+}
+
+.warn-text {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
 }
