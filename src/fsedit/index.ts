@@ -4,6 +4,9 @@ import * as fs_impls from "../fs_impl/@ALL";
 // import the fs interface
 import { FileSystem } from "../filesystem";
 
+// other imports
+import { NEWLINE } from "../term_ctl";
+
 const params = new URLSearchParams(window.location.search);
 
 if (!params.has("type")) {
@@ -43,16 +46,33 @@ window.addEventListener("beforeunload", () => {
 const file_editor = document.getElementById("file-editor") as HTMLDivElement;
 const file_tree = document.getElementById("file-tree") as HTMLDivElement;
 
+// save a reference to the titles
 const title = document.getElementById("title") as HTMLHeadingElement;
+const file_name = document.getElementById("file-name") as HTMLHeadingElement;
+
+// save a reference to the textarea
+const content_area = document.getElementById("file-content") as HTMLTextAreaElement;
 
 let render_directory: (dir: string) => void;
 
-const render_file_editor = (path: string) => {
+const render_file_editor = (abs_path: string, name: string) => {
     // hide the file tree
     file_tree.style.display = "none";
 
     // show the file editor
     file_editor.style.display = "block";
+
+    // set the heading
+    file_name.innerText = `Editing ${name}`;
+
+    // get the file contents
+    const content = fs.read_file(abs_path) as string;
+
+    // replace NEWLINE with local newline
+    content.replace(NEWLINE, "\n");
+
+    // set the content area value
+    content_area.value = content;
 }
 
 const close_file_editor = () => {
@@ -99,6 +119,7 @@ const render_item = (dir: string, name: string) => {
             render_directory(abs_path);
         } else {
             // open the file in the editor
+            render_file_editor(abs_path, name);
         }
     };
 

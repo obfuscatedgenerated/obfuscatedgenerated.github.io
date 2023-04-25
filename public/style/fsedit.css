@@ -1,5 +1,7 @@
 html,
 body {
+    height: 99%;
+
     background: #111;
     color: #fff;
 }
@@ -8,20 +10,25 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    
+
 
     font-family: OpenSans, "Open Sans", Arial, sans-serif;
 }
 
 main {
-    height: 100%;
+    height: 85%;
     width: 85%;
     display: flex;
     flex-direction: column;
 }
 
-#title {
-    margin-bottom: 0;
+#pane {
+    height: 100%;
+}
+
+.vr {
+    border-left: 1px solid #444;
+    height: 100%;
 }
 
 #file-tree {
@@ -35,10 +42,20 @@ main {
     width: 100%;
 }
 
+
 #file-tree li {
     padding: 0;
     margin: 0;
     list-style: none;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    border-top: #444 1px solid;
+    border-bottom: #444 1px solid;
+
+    padding: 0.35em 1em;
 }
 
 #file-tree li a {
@@ -46,4 +63,91 @@ main {
     padding: 0.5em;
     text-decoration: none;
     color: #fff;
+}
+
+#file-editor {
+    height: 100%;
+}
+
+#file-content {
+    width: 100%;
+    height: 90%;
+    resize: none;
+}
+
+#file-buttons {
+    margin-top: 1%;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+
+    gap: 1em;
+
+    height: 5%;
+    width: 100%;
+}
+
+#file-buttons button {
+    border-radius: 3%;
+    font-family: Arial;
+
+    font-size: 1em;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0px 1px 0px #283966;
+
+    padding: 0.5em 1em;
+
+    text-decoration: none;
+
+    min-width: 7em;
+}
+
+#file-buttons button:active {
+    position: relative;
+    top: 1px;
+}
+
+#file-buttons button.red {
+    box-shadow: inset 0px 1px 0px 0px #cf866c;
+
+    background: linear-gradient(to bottom, #c62d1f 5%, #f24437 100%);
+    background-color: #c62d1f;
+
+    border: 1px solid #d02718;
+}
+
+#file-buttons button.red:hover {
+    background: linear-gradient(to bottom, #d0451b 5%, #bc3315 100%);
+    background-color: #d0451b;
+}
+
+#file-buttons button.green {
+    box-shadow: inset 0px 1px 0px 0px #89e185;
+
+    background: linear-gradient(to bottom, #77d42a 5%, #a5e756 100%);
+    background-color: #77d42a;
+
+    border: 1px solid #6b8a23;
+}
+
+#file-buttons button.green:hover {
+    background: linear-gradient(to bottom, #a5e756 5%, #77d42a 100%);
+    background-color: #a5e756;
+}
+
+#file-buttons button.blue {
+    box-shadow: inset 0px 1px 0px 0px #97c4fe;
+
+    background: linear-gradient(to bottom, #288ad6 5%, #82b0de 100%);
+    background-color: #288ad6;
+
+    border: 1px solid #1f628d;
+}
+
+#file-buttons button.blue:hover {
+    background: linear-gradient(to bottom, #82b0de 5%, #288ad6 100%);
+    background-color: #82b0de;
 }

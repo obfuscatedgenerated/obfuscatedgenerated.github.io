@@ -37,7 +37,17 @@
         <h1 id="title">fsedit</h1>
         <div id="pane">
             <ul id="file-tree"></ul>
-            <div id="file-editor"></div>
+            <div id="file-editor" style="display:none">
+                <h3 id="file-name"></h3>
+                <textarea id="file-content" title="file content"></textarea>
+                <div id="file-buttons">
+                    <button id="exit-button" class="blue">Exit</button>
+                    <button id="save-button" class="blue">Save</button>
+                    <div class="vr"></div>
+                    <button id="rename-button" class="blue">Rename File</button>
+                    <button id="delete-button" class="red">Delete File</button>
+                </div>
+            </div>
         </div>
     </main>
 
