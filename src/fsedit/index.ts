@@ -136,6 +136,9 @@ render_directory = (dir: string) => {
     // clear the file tree
     file_tree.innerHTML = "";
 
+    // set the cwd
+    fs.set_cwd(fs.absolute(dir));
+
     // if this isn't root, add a link to go up a directory
     if (dir !== fs.get_root()) {
         render_item(dir, "..");
