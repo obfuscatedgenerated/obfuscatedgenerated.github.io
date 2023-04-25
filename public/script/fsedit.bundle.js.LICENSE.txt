@@ -19,23 +19,3 @@
  *
  *  MIT License
  */
-
-/*! For license information please see xterm-addon-image.js.LICENSE.txt */
-
-/**
- * Copyright (c) 2019 Joerg Breitbart.
- * @license MIT
- */
-
-/**
- * Copyright (c) 2020 Joerg Breitbart.
- * @license MIT
- *
- * Parts taken from UPNG:
- * MIT License, Copyright (c) 2017 Photopea
- */
-
-/**
- * Copyright (c) 2021 Joerg Breitbart.
- * @license MIT
- */
