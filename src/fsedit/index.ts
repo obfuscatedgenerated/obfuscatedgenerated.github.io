@@ -26,6 +26,8 @@ if (!fs_impl) {
 // instance the fs implementation
 const fs: FileSystem = new fs_impl();
 
+// TODO: replace all alerts and confirms with sweetalert2
+
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
 if (fs.exists(lock_path)) {
@@ -33,13 +35,8 @@ if (fs.exists(lock_path)) {
     window.close();
 }
 
-fs.write_file(lock_path, `locked at ${new Date().toISOString()}`);
-
-// bind an event listener to the window close event
-window.addEventListener("beforeunload", () => {
-    // remove the lock file
-    fs.delete_file(lock_path);
-});
+const lock_str = `locked at ${new Date().toISOString()}`;
+fs.write_file(lock_path, lock_str);
 
 
 // save a reference to the editor and the file tree
@@ -53,8 +50,10 @@ const file_name = document.getElementById("file-name") as HTMLHeadingElement;
 // save a reference to the textarea
 const content_area = document.getElementById("file-content") as HTMLTextAreaElement;
 
+
 let render_directory: (dir: string) => void;
 
+let current_abs_path: string;
 const render_file_editor = (abs_path: string, name: string) => {
     // hide the file tree
     file_tree.style.display = "none";
@@ -73,15 +72,36 @@ const render_file_editor = (abs_path: string, name: string) => {
 
     // set the content area value
     content_area.value = content;
+
+    // set the current path
+    current_abs_path = abs_path;
 }
 
 const close_file_editor = () => {
+    // unset current path
+    current_abs_path = undefined;
+
     // hide the file editor
     file_editor.style.display = "none";
 
     // show the file tree
     file_tree.style.display = "block";
 }
+
+const save_file_in_editor = () => {
+    // get the file contents
+    const content = content_area.value;
+
+    // replace local newline with NEWLINE
+    content.replace("\n", NEWLINE);
+
+    console.log(content)
+    console.log(current_abs_path)
+
+    // save the file
+    fs.write_file(current_abs_path, content);
+}
+
 
 const render_item = (dir: string, name: string) => {
     const joined_path = fs.join(dir, name);
@@ -158,6 +178,68 @@ render_directory = (dir: string) => {
     params.set("dir", dir);
     window.history.replaceState({}, "", `?${params.toString()}`);
 };
+
+
+// bind the exit button
+document.getElementById("exit-button").onclick = () => {
+    const save = confirm("Save changes before exiting?");
+
+    if (save) {
+        save_file_in_editor();
+    } else {
+        // get confirmation
+        if (!confirm("Are you sure you want to exit without saving?")) {
+            return;
+        }
+    }
+
+    // close the editor
+    close_file_editor();
+}
+
+// bind the save button
+document.getElementById("save-button").onclick = () => {
+    save_file_in_editor();
+
+    alert("File saved.");
+}
+
+// bind the download button
+document.getElementById("download-button").onclick = () => {
+    // get the file contents
+    const content = content_area.value;
+
+    const use_ollie_newlines = confirm("Download with OllieOS line endings? (prevents corruption of binary files)");
+
+    if (use_ollie_newlines) {
+        // replace local newline with NEWLINE
+        content.replace("\n", NEWLINE);
+    }
+
+    // create a blob
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    // download the file
+    window.open(url, "_blank");
+}
+
+
+// bind an event listener to the window close event
+window.addEventListener("beforeunload", (e) => {
+    // if current path is set, confirm they want to close
+    if (current_abs_path) {
+        e.returnValue = "You have unsaved changes. Are you sure you want to exit?";
+        return e.returnValue;
+    }
+});
+
+// bind an event listener to the window close event
+window.addEventListener("unload", () => {
+    // remove the lock file
+    fs.delete_file(lock_path);
+});
+
 
 // render the initial directory
 if (params.has("dir")) {
