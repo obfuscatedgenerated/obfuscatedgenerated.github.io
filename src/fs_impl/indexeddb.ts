@@ -10,6 +10,10 @@ const DB_VERSION = 1;
 export class IndexedDBFS extends FileSystem {
     _idb: IDBDatabase;
 
+    get_unique_fs_type_name(): string {
+        return "indexeddb";
+    }
+
     make_dir(path: string): void {
         const transaction = this._idb.transaction(["files"], "readwrite");
 

@@ -45,6 +45,7 @@ export abstract class FileSystem {
     _home = "/home";
     _cwd = this._home;
 
+    abstract get_unique_fs_type_name(): string;
 
     purge_cache(): void {
         this._cache = {};

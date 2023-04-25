@@ -13,3 +13,4 @@ export { default as mefetch } from "./mefetch";
 export { default as reader } from "./reader";
 export { default as selfdestruct } from "./selfdestruct";
 export { default as imagine } from "./imagine";
+export { default as fsedit } from "./fsedit";

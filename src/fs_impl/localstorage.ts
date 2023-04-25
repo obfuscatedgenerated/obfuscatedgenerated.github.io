@@ -4,6 +4,10 @@ import { FileSystem, FSEventType, NonRecursiveDirectoryError, PathNotFoundError 
 // NOTE: not using implements (TS) so the real methods can be used
 // indexeddb fs is superior
 export class LocalStorageFS extends FileSystem {
+    get_unique_fs_type_name(): string {
+        return "localstorage";
+    }
+
     make_dir(path: string): void {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;

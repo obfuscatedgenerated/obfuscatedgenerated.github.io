@@ -9,8 +9,11 @@ export default {
         // extract from data to make code less verbose
         const { term } = data;
 
+        // get fs's unique name
+        const fs_name = term.get_fs().get_unique_fs_type_name();
+
         // open fsedit in a popup window
-        window.open("/fsedit", "_blank", "popup=true")
+        window.open(`/fsedit?type=${fs_name}`, "_blank", "popup=true")
 
         // send message
         term.writeln("Opened fsedit in a new window.");
