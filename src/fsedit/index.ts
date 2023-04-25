@@ -67,10 +67,10 @@ const render_file_editor = (abs_path: string, name: string) => {
     file_name.innerText = `Editing ${name}`;
 
     // get the file contents
-    const content = fs.read_file(abs_path) as string;
+    let content = fs.read_file(abs_path) as string;
 
     // replace NEWLINE with local newline
-    content.replace(NEWLINE, "\n");
+    content = content.replace(new RegExp(NEWLINE, "g"), "\n");
 
     // set the content area value
     content_area.value = content;
@@ -92,16 +92,14 @@ const close_file_editor = () => {
 
 const save_file_in_editor = () => {
     // get the file contents
-    const content = content_area.value;
-
+    let content = content_area.value;
+    
     // replace local newline with NEWLINE
-    content.replace("\n", NEWLINE);
-
-    console.log(content)
-    console.log(current_abs_path)
+    content = content.replace(/(?:\r\n|\r|\n)/g, NEWLINE);
 
     // save the file
-    fs.write_file(current_abs_path, content);
+    fs.remote_remove_from_cache(current_abs_path);
+    fs.write_file(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
 }
 
 
@@ -209,13 +207,13 @@ document.getElementById("save-button").onclick = () => {
 // bind the download button
 document.getElementById("download-button").onclick = () => {
     // get the file contents
-    const content = content_area.value;
+    let content = content_area.value;
 
     const use_ollie_newlines = confirm("Download with OllieOS line endings? (prevents corruption of binary files)");
 
     if (use_ollie_newlines) {
         // replace local newline with NEWLINE
-        content.replace("\n", NEWLINE);
+        content = content.replace(/(?:\r\n|\r|\n)/g, NEWLINE);
     }
 
     // create a blob

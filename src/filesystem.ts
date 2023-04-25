@@ -59,6 +59,32 @@ export abstract class FileSystem {
         }
     }
 
+    force_remove_from_cache(path: string): void {
+        delete this._cache[path];
+    }
+
+    remote_purge_cache(smart: boolean): void {
+        localStorage.setItem("purge_cache", smart.toString());
+    }
+
+    remote_remove_from_cache(path: string): void {
+        localStorage.setItem("remove_from_cache", path);
+    }
+
+    _remote_listener(): void {
+        const purge_cache = localStorage.getItem("purge_cache");
+        if (purge_cache) {
+            this.purge_cache(purge_cache === "true");
+            localStorage.removeItem("purge_cache");
+        }
+
+        const remove_from_cache = localStorage.getItem("remove_from_cache");
+        if (remove_from_cache) {
+            this.force_remove_from_cache(remove_from_cache);
+            localStorage.removeItem("remove_from_cache");
+        }
+    }
+
 
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void {
         // if there are no callbacks for this event type, create an empty array
@@ -254,5 +280,10 @@ export abstract class FileSystem {
     join(base_dir: string, path: string): string {
         // join base_dir and path, keeping in mind that base_dir might not end with /
         return base_dir + (base_dir.endsWith("/") ? "" : "/") + path;
+    }
+
+    constructor() {
+        // check if the cache should be purged from remote changes
+        setInterval(() => this._remote_listener(), 100);
     }
 }
