@@ -224,6 +224,9 @@ document.getElementById("download-button").onclick = () => {
     window.open(url, "_blank");
 }
 
+// TODO: bind other buttons
+// TODO: add file creation and uploading from main page
+
 
 // bind an event listener to the window close event
 window.addEventListener("beforeunload", (e) => {
