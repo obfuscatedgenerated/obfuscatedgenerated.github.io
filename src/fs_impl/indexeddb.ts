@@ -30,7 +30,7 @@ export class IndexedDBFS extends FileSystem {
 
     }
 
-    delete_dir(path: string, recursive: boolean): void {
+    delete_dir_direct(path: string, recursive: boolean): void {
         return;
     }
 

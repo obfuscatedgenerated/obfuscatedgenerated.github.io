@@ -6,7 +6,9 @@ export default {
     description: "Opens the fsedit program to edit the filesystem.",
     usage_suffix: "[directory]",
     arg_descriptions: {
-        directory: "The directory to open fsedit in. Defaults to the current working directory."
+        "Arguments:": {
+            directory: "The directory to open fsedit in. Defaults to the current working directory."
+        }
     },
     main: (data) => {
         // extract from data to make code less verbose

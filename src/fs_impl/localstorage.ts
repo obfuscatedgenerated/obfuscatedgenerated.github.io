@@ -31,30 +31,40 @@ export class LocalStorageFS extends FileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    delete_dir(path: string, recursive: boolean): void {
+    delete_dir_direct(path: string, recursive: boolean): void {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
         const parts = path === this._root ? [""] : path.split("/");
 
-        // delete directory for each part inside the previous one
-        for (const part of parts) {
+        // delete innermost directory
+        for (let part_idx = 0; part_idx < parts.length; part_idx++) {
+            const part = parts[part_idx];
             const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
 
             if (!recursive && this.list_dir(absolute_path).length > 0) {
                 throw new NonRecursiveDirectoryError(part);
             }
 
-            if (current_dir[part]) {
-                delete current_dir[part];
-                this._call_callbacks(FSEventType.DELETED_DIR, absolute_path);
-            } else {
+            // check if directory exists
+            if (!current_dir[part]) {
                 throw new PathNotFoundError(absolute_path);
             }
 
+            // delete directory if it's the last part
+            if (part_idx === parts.length - 1) {
+                console.log("deleting", absolute_path);
+                delete current_dir[part];
+                this._call_callbacks(FSEventType.DELETED_DIR, absolute_path);
+            }
+
+            // recurse into directory to discover the next part
             current_dir = current_dir[part];
         }
+
+        // save state
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 
     move_dir(path: string, new_path: string): void {

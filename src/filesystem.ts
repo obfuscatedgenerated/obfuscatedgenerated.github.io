@@ -47,8 +47,16 @@ export abstract class FileSystem {
 
     abstract get_unique_fs_type_name(): string;
 
-    purge_cache(): void {
-        this._cache = {};
+    purge_cache(smart = false): void {
+        if (smart) {
+            for (const path in this._cache) {
+                if (!this.exists_direct(path)) {
+                    delete this._cache[path];
+                }
+            }
+        } else {
+            this._cache = {};
+        }
     }
 
 
@@ -102,7 +110,9 @@ export abstract class FileSystem {
 
     delete_file(path: string): void {
         // delete from cache and disk
-        delete this._cache[path];
+        if (this._cache[path]) {
+            delete this._cache[path];
+        }
         this.delete_file_direct(path);
         this._call_callbacks(FSEventType.DELETED_FILE, path);
     }
@@ -118,8 +128,15 @@ export abstract class FileSystem {
 
     abstract list_dir(path: string): string[];
     abstract make_dir(path: string): void;
-    abstract delete_dir(path: string, recursive: boolean): void;
+    abstract delete_dir_direct(path: string, recursive: boolean): void;
     abstract move_dir(path: string, new_path: string): void;
+
+    delete_dir(path: string, recursive = false): void {
+        this.delete_dir_direct(path, recursive);
+
+        // smart purge cache
+        this.purge_cache(true);
+    }
 
     get_cwd(): string {
         this._call_callbacks(FSEventType.GETTING_CWD, this._cwd);
