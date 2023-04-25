@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/obfuscatedgenerated/ogsys#readme",
   "dependencies": {
+    "howler": "^2.2.3",
     "imgtoascii": "github:obfuscatedgenerated/imgToAscii",
     "sixel": "^0.16.0",
     "xterm": "^5.1.0",

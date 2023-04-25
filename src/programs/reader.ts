@@ -15,6 +15,9 @@ export default {
         // extract from data to make code less verbose
         const { args, term } = data;
 
+        // get sound registry
+        const sfx_reg = term.get_sound_registry();
+
         switch (args[0]) {
             case "-h":
                 term.execute("help reader");
@@ -42,13 +45,29 @@ export default {
                 term.options.screenReaderMode = !term.options.screenReaderMode;
         }
 
+        const state = term.options.screenReaderMode ? "on" : "off";
+
+        // play sound
+        const sound_name = `reader_${state}`;
+        if (sfx_reg.is_ready(sound_name)) {
+            sfx_reg.play(sound_name);
+        } else {
+            console.log(`Sound ${sound_name} is not ready yet, waiting...`);
+            sfx_reg.await_ready(sound_name).then(() => {
+                sfx_reg.play(sound_name);
+            });
+        }
+
         // print message
-        term.writeln(`Screen reader mode was turned ${term.options.screenReaderMode ? "on" : "off"}. This setting is saved in your browser's local storage.`);
+        term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage.`);
 
         // remove hint element if screen reader mode is on
         if (term.options.screenReaderMode) {
             const hint = document.querySelector("#screenreader_hint");
-            hint.remove();
+
+            if (hint) {
+                hint.remove();
+            }
         }
 
         // save into local storage

@@ -5,6 +5,7 @@ import type { FileSystem } from "./filesystem";
 
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, SyncProgram, AsyncProgram } from "./types";
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
+import { SoundRegistry } from "./sfx_registry";
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */
@@ -92,15 +93,20 @@ export class WrappedTerminal extends Terminal {
     _preline = "";
     _prompt_suffix = "$ ";
 
-    _registry: ProgramRegistry;
+    _prog_registry: ProgramRegistry;
+    _sfx_registry: SoundRegistry;
     _fs: FileSystem;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     _vars: { [key: string]: string } = {};
 
 
-    get_registry(): ProgramRegistry {
-        return this._registry;
+    get_program_registry(): ProgramRegistry {
+        return this._prog_registry;
+    }
+
+    get_sound_registry(): SoundRegistry {
+        return this._sfx_registry;
     }
 
     get_fs(): FileSystem {
@@ -254,7 +260,7 @@ export class WrappedTerminal extends Terminal {
         }
 
         // search for the command in the registry
-        const program = this._registry.getProgram(command);
+        const program = this._prog_registry.getProgram(command);
 
         // if the command is not found, print an error message
         if (program === undefined) {
@@ -267,7 +273,7 @@ export class WrappedTerminal extends Terminal {
             term: this,
             args,
             unsubbed_args,
-            registry: this._registry,
+            registry: this._prog_registry,
         }
 
         let exit_code = 0;
@@ -439,11 +445,12 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    constructor(fs: FileSystem, registry?: ProgramRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+    constructor(fs: FileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
         this._fs = fs;
-        this._registry = registry || new ProgramRegistry();
+        this._prog_registry = prog_registry || new ProgramRegistry();
+        this._sfx_registry = sound_registry || new SoundRegistry();
 
         if (register_builtin_handlers) {
             register_builtin_key_handlers(this);
