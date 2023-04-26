@@ -108,6 +108,13 @@ export default {
                         break;
                     }
 
+                    // check readonly again, in case the file was changed while editing
+                    if (fs.is_readonly(path)) {
+                        // TODO: make this not overwrite the screen
+                        term.writeln(`${PREFABS.error}The file became read-only!${STYLE.reset_all}`);
+                        break;
+                    }
+
                     fs.write_file(path, split_content.join(NEWLINE));
                     saved = true;
                     exit_code = 0;
