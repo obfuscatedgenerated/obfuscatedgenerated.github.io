@@ -1,10 +1,11 @@
 import type { AsyncProgram } from "../types";
 import { ANSI, NEWLINE } from "../term_ctl";
+import { PathNotFoundError } from "../filesystem";
 
 export default {
     name: "webget",
     description: "Downloads a file from the World Wide Web.",
-    usage_suffix: "<url> <filepath> [-k] [-n] [-X <method>] [-H <header>] [-B <body>]",
+    usage_suffix: "<url> <filepath> [-o] [-n] [-X <method>] [-H <header>] [-B <body>]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to download from.",
@@ -12,7 +13,7 @@ export default {
         },
         "System flags:": {
             "-h": "Print this help message.",
-            "-k": "Do not overwrite existing files.",
+            "-o": "Overwrite existing files.",
             "-n": "Do not replace newlines with the current system's newline character, store as a binary (binary mode).",
         },
         "Request flags:": {
@@ -60,7 +61,7 @@ export default {
         }
 
         let file_path = "";
-        let overwrite = true;
+        let overwrite = false;
         let binary = false;
         let method = "GET";
         const headers: Record<string, string> = {};
@@ -116,8 +117,8 @@ export default {
                     args.splice(arg_idx + 1, 1);
                 }
                     break;
-                case "-k":
-                    overwrite = false;
+                case "-o":
+                    overwrite = true;
                     break;
                 case "-n":
                     binary = true;
@@ -151,6 +152,20 @@ export default {
             return 1;
         }
 
+        // if overwriting, run initial check of readonly status
+        if (overwrite) {
+            if (fs.is_readonly(abs_path)) {
+                term.writeln(`${PREFABS.error}File is readonly.${STYLE.reset_all}`);
+                return 1;
+            }
+        }
+
+        // lock the file, creating it if it does not exist
+        if (!fs.exists(abs_path)) {
+            fs.write_file(abs_path, "");
+        }
+        fs.set_readonly(abs_path, true);
+
         // fetch the file
         let response: Response;
 
@@ -162,6 +177,15 @@ export default {
             term.writeln(`${PREFABS.error}Failed to fetch file.${STYLE.reset_all}`);
             term.writeln(`${PREFABS.error}${"message" in e ? e.message : e}${STYLE.reset_all}`);
             console.error(e);
+
+            // reset readonly state
+            fs.set_readonly(abs_path, false);
+
+            //  if this wasn't an overwrite, delete the file that was created
+            if (!overwrite) {
+                fs.delete_file(abs_path);
+            }
+
             return 1;
         }
 
@@ -173,6 +197,14 @@ export default {
 
             if (text !== "") {
                 term.writeln(`${PREFABS.error}${text}${STYLE.reset_all}`);
+            }
+
+            // reset readonly state
+            fs.set_readonly(abs_path, false);
+
+            //  if this wasn't an overwrite, delete the file that was created
+            if (!overwrite) {
+                fs.delete_file(abs_path);
             }
 
             return 1;
@@ -189,6 +221,9 @@ export default {
 
             fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE));
         }
+
+        // reset readonly state (must've be writable or else this wouldn't be reached)
+        fs.set_readonly(abs_path, false);
 
         term.writeln(`${FG.green}File downloaded successfully.${STYLE.reset_all}`);
 
