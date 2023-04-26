@@ -96,8 +96,8 @@ export default {
             return 1;
         }
 
-        // get the text
-        const text = (await response.text()).replace(/\n/g, NEWLINE);
+        // get the text and convert newlines (\r\n or \n) to the terminal's newline
+        const text = (await response.text()).replace(/\r\n|\n/g, NEWLINE);
 
         // parse the text
         const parser = new DOMParser();
@@ -177,6 +177,9 @@ export default {
 
             // trim start and end whitespace
             description = description.trim();
+
+            // replace newlines again in case the description was html
+            description = description.replace(/\r\n|\n/g, NEWLINE);
 
             // pubDate
             const pubDate = item.getElementsByTagName("pubDate").item(0)?.textContent ?? "";
