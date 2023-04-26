@@ -217,6 +217,13 @@ export class LocalStorageFS extends FileSystem {
         // delete file from directory
         delete current_dir[file_name];
         localStorage.setItem("fs", JSON.stringify(state));
+
+        // remove from readonly list if it is there
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        if (readonly_list.includes(path)) {
+            readonly_list.splice(readonly_list.indexOf(path), 1);
+            localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));
+        }
     }
 
     move_file_direct(path: string, new_path: string): void {
@@ -257,6 +264,31 @@ export class LocalStorageFS extends FileSystem {
         current_dir[new_file_name] = current_dir[file_name];
         delete current_dir[file_name];
         localStorage.setItem("fs", JSON.stringify(state));
+
+        // relocate in readonly list if it is there
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        if (readonly_list.includes(path)) {
+            readonly_list.splice(readonly_list.indexOf(path), 1);
+            readonly_list.push(new_path);
+            localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));
+        }
+    }
+
+    set_readonly_direct(path: string, readonly: boolean): void {
+        const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+
+        if (readonly && !state.includes(path)) {
+            state.push(path);
+        } else if (!readonly && state.includes(path)) {
+            state.splice(state.indexOf(path), 1);
+        }
+
+        localStorage.setItem("fs_readonly_paths", JSON.stringify(state));
+    }
+
+    is_readonly_direct(path: string): boolean {
+        const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        return state.includes(path);
     }
 
     exists_direct(path: string): boolean {
@@ -303,6 +335,10 @@ export class LocalStorageFS extends FileSystem {
         // initialise file system
         if (!localStorage.getItem("fs")) {
             localStorage.setItem("fs", JSON.stringify({}));
+        }
+
+        if (!localStorage.getItem("fs_readonly_paths")) {
+            localStorage.setItem("fs_readonly_paths", JSON.stringify([]));
         }
 
         // initialise root and home directory

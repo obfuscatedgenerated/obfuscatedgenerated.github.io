@@ -92,6 +92,9 @@ const absolute_credits = fs.absolute("~/credits.txt");
 if (!fs.exists(absolute_credits)) {
     fs.write_file(absolute_credits, credits_content);
 }
+if (!fs.is_readonly(absolute_credits)) {
+    fs.set_readonly(absolute_credits, true);
+}
 
 
 // create a terminal using the registry and filesystem

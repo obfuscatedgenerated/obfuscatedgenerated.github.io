@@ -59,6 +59,14 @@ export class IndexedDBFS extends FileSystem {
         return;
     }
 
+    set_readonly_direct(path: string, readonly: boolean): void {
+        return;
+    }
+
+    is_readonly_direct(path: string): boolean {
+        return false;
+    }
+
     exists_direct(path: string): boolean {
         return false;
     }

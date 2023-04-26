@@ -38,6 +38,7 @@ if (fs.exists(lock_path)) {
 
 const lock_str = `locked at ${new Date().toISOString()}`;
 fs.write_file(lock_path, lock_str);
+fs.set_readonly(lock_path, true);
 is_locked = true;
 
 
@@ -56,6 +57,7 @@ const content_area = document.getElementById("file-content") as HTMLTextAreaElem
 let render_directory: (dir: string) => void;
 
 let current_abs_path: string;
+let current_readonly: boolean;
 const render_file_editor = (abs_path: string, name: string) => {
     // hide the file tree
     file_tree.style.display = "none";
@@ -63,8 +65,17 @@ const render_file_editor = (abs_path: string, name: string) => {
     // show the file editor
     file_editor.style.display = "block";
 
+    current_readonly = fs.is_readonly(abs_path);
+
     // set the heading
-    file_name.innerText = `Editing ${name}`;
+    file_name.innerText = current_readonly ? `Viewing read-only file: ${name}` : `Editing file: ${name}`;
+
+    // set the content area readonly if needed
+    content_area.readOnly = current_readonly;
+
+    // set visibility of save and delete buttons based on readonly
+    document.getElementById("save-button").style.display = current_readonly ? "none" : "block";
+    document.getElementById("delete-button").style.display = current_readonly ? "none" : "block";
 
     // get the file contents
     let content = fs.read_file(abs_path) as string;
@@ -93,7 +104,7 @@ const close_file_editor = () => {
 const save_file_in_editor = () => {
     // get the file contents
     let content = content_area.value;
-    
+
     // replace local newline with NEWLINE
     content = content.replace(/(?:\r\n|\r|\n)/g, NEWLINE);
 
@@ -182,14 +193,16 @@ render_directory = (dir: string) => {
 
 // bind the exit button
 document.getElementById("exit-button").onclick = () => {
-    const save = confirm("Save changes before exiting?");
+    if (!current_readonly) {
+        const save = confirm("Save changes before exiting?");
 
-    if (save) {
-        save_file_in_editor();
-    } else {
-        // get confirmation
-        if (!confirm("Are you sure you want to exit without saving?")) {
-            return;
+        if (save) {
+            save_file_in_editor();
+        } else {
+            // get confirmation
+            if (!confirm("Are you sure you want to exit without saving?")) {
+                return;
+            }
         }
     }
 
@@ -231,7 +244,7 @@ document.getElementById("download-button").onclick = () => {
 // bind an event listener to the window close event
 window.addEventListener("beforeunload", (e) => {
     // if current path is set, confirm they want to close
-    if (current_abs_path) {
+    if (current_abs_path && !current_readonly) {
         e.returnValue = "You have unsaved changes. Are you sure you want to exit?";
         return e.returnValue;
     }

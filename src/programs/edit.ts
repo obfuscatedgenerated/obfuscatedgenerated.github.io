@@ -1,16 +1,16 @@
 import type { AsyncProgram } from "../types";
 import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../term_ctl";
 
-const setup = (term: WrappedTerminal, content: string, path: string) => {
+const setup = (term: WrappedTerminal, content: string, path: string, readonly: boolean) => {
     // extract from ANSI to make code less verbose
     const { STYLE, BG, FG } = ANSI;
 
     // clear the screen
     term.clear();
 
-    // write the file name centered in the header
+    // write the file name centered in the header, showing the read-only status if the file is read-only
     const filename = path.split("/").pop() || "";
-    const header = `Editing ${filename}`;
+    const header = readonly ? `Viewing read-only file: ${filename}` : `Editing file: ${filename}`;
     const h_padding_l = " ".repeat(Math.ceil((term.cols - header.length) / 2));
     const h_padding_r = " ".repeat(Math.floor((term.cols - header.length) / 2));
 
@@ -23,8 +23,8 @@ const setup = (term: WrappedTerminal, content: string, path: string) => {
     // go to the bottom of the screen with ansi
     term.write(`\x1b[${term.rows - 1};0H`);
 
-    // write the footer
-    const footer = "F1: Save & Exit | ESC: Exit without saving | F2: Debug Redraw";
+    // write the footer, showing the save and exit key if the file is not read-only
+    const footer = `${readonly ? "" : "F1: Save & Exit | "}ESC: Exit without saving | F2: Debug Redraw`;
     const f_padding_l = " ".repeat(Math.ceil((term.cols - footer.length) / 2));
     const f_padding_r = " ".repeat(Math.floor((term.cols - footer.length) / 2));
 
@@ -85,7 +85,8 @@ export default {
         await term.wait_for_keypress();
 
         // setup the screen
-        setup(term, content, path);
+        const readonly = fs.is_readonly(path);
+        setup(term, content, path, readonly);
 
         const split_content = content.split(NEWLINE);
 
@@ -100,13 +101,18 @@ export default {
                     exit_code = 0;
                     break;
                 case "F1":
+                    // if readonly, don't allow saving
+                    if (readonly) {
+                        break;
+                    }
+
                     fs.write_file(path, split_content.join(NEWLINE));
                     saved = true;
                     exit_code = 0;
                     break;
                 case "F2":
                     term.reset();
-                    setup(term, split_content.join(NEWLINE), path);
+                    setup(term, split_content.join(NEWLINE), path, readonly);
                     console.log(split_content.join("\n"));
                     break;
                 case "ArrowUp": {
@@ -184,6 +190,11 @@ export default {
                 }
                     break;
                 case "Enter": {
+                    // if readonly, don't allow editing
+                    if (readonly) {
+                        break;
+                    }
+
                     // determine cursor position
                     const cursor_x = term.buffer.normal.cursorX;
                     const cursor_y = term.buffer.normal.cursorY;
@@ -221,6 +232,11 @@ export default {
                 }
                     break;
                 case "Backspace": {
+                    // if readonly, don't allow editing
+                    if (readonly) {
+                        break;
+                    }
+
                     // TODO: this is all just fucked :)
 
                     // get the current cursor position
@@ -275,6 +291,11 @@ export default {
                 }
                     break;
                 default: {
+                    // if readonly, don't allow editing
+                    if (readonly) {
+                        break;
+                    }
+
                     // get the current cursor position
                     const cursor_x = term.buffer.normal.cursorX;
                     const cursor_y = term.buffer.normal.cursorY;

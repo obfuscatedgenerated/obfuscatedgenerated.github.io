@@ -10,11 +10,18 @@ export class NonRecursiveDirectoryError extends Error {
     }
 }
 
+export class ReadOnlyError extends Error {
+    constructor(path: string) {
+        super(`Path is read-only: ${path}`);
+    }
+}
+
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
     DELETED_FILE,
     MOVED_FILE,
+    SET_READONLY,
 
     LISTING_DIR,
     MADE_DIR,
@@ -38,7 +45,7 @@ export abstract class FileSystem {
     //TODO: dry
     _initialised = false;
 
-    _cache: { [path: string]: string | Uint8Array } = {};
+    _cache: { [path: string]: { readonly: boolean, content: string | Uint8Array, as_uint: boolean } } = {};
     _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
     _root = "/";
@@ -113,23 +120,37 @@ export abstract class FileSystem {
     abstract write_file_direct(path: string, data: string | Uint8Array): void;
     abstract delete_file_direct(path: string): void;
     abstract move_file_direct(path: string, new_path: string): void;
+    abstract set_readonly_direct(path: string, readonly: boolean): void;
+    abstract is_readonly_direct(path: string): boolean;
 
 
     read_file(path: string, as_uint = false): string | Uint8Array {
         this._call_callbacks(FSEventType.READING_FILE, path);
 
-        // check if file is in cache and still exists
-        if (this._cache[path] && this.exists(path)) {
-            return this._cache[path];
+        // check if file is in cache and still exists, as well as if it's the correct type
+        if (this._cache[path] && this.exists(path) && this._cache[path].as_uint === as_uint) {
+            return this._cache[path].content;
         }
 
         // if not, read it from disk and cache it
-        return this._cache[path] = this.read_file_direct(path, as_uint);
+        const content = this.read_file_direct(path, as_uint);
+        this._cache[path] = { readonly: this.is_readonly(path), content, as_uint };
+        return content;
     }
 
-    write_file(path: string, data: string | Uint8Array): void {
+    write_file(path: string, data: string | Uint8Array, force = false): void {
+        // check if file is readonly
+        let readonly = false;
+        if (this.exists(path)) {
+            readonly = this.is_readonly(path);
+            
+            if (!force && readonly) {
+                throw new ReadOnlyError(path);
+            }
+        }
+
         // write to disk and cache
-        this._cache[path] = data;
+        this._cache[path] = { readonly, content: data, as_uint: data instanceof Uint8Array };
         this.write_file_direct(path, data);
         this._call_callbacks(FSEventType.WROTE_FILE, path);
     }
@@ -149,6 +170,38 @@ export abstract class FileSystem {
         delete this._cache[path];
         this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
+    }
+
+    set_readonly(path: string, readonly: boolean): void {
+        // check if file exists
+        if (!this.exists(path)) {
+            throw new PathNotFoundError(path);
+        }
+
+        // set readonly in cache and disk
+        if (this._cache[path]) {
+            this._cache[path].readonly = readonly;
+        } else {
+            this._cache[path] = { readonly, content: this.read_file(path), as_uint: false };
+        }
+
+        this.set_readonly_direct(path, readonly);
+        this._call_callbacks(FSEventType.SET_READONLY, path);
+    }
+
+    is_readonly(path: string): boolean {
+        // check if file exists
+        if (!this.exists(path)) {
+            throw new PathNotFoundError(path);
+        }
+
+        // check if file is in cache
+        if (this._cache[path]) {
+            return this._cache[path].readonly;
+        }
+
+        // if not, check on disk (cannot cache as would need to read content, causes recursive call)
+        return this.is_readonly_direct(path);
     }
 
 
