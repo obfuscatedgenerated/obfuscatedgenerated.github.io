@@ -1,4 +1,4 @@
-import { ANSI, ANSI_ESCAPE_REGEX } from "../term_ctl";
+import { ANSI, ANSI_ESCAPE_REGEX, ANSI_UNESCAPED_REGEX } from "../term_ctl";
 import type { SyncProgram } from "../types";
 
 export default {
@@ -64,7 +64,7 @@ export default {
 
         for (const file of dir) {
             // check if file will fit on current line
-            const real_length = line.replace(ANSI_ESCAPE_REGEX, "").length;
+            const real_length = line.replace(ANSI_ESCAPE_REGEX, "").replace(ANSI_UNESCAPED_REGEX, "").length;
             if (real_length + file.length + 1 > max_width) {
                 // write line and reset
                 term.writeln(line);

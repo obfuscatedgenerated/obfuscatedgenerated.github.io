@@ -1,5 +1,5 @@
 import type { AsyncProgram } from "../types";
-import { NEWLINE, ANSI } from "../term_ctl";
+import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../term_ctl";
 
 import { default as img2ascii } from "imgToAscii";
 
@@ -54,7 +54,6 @@ export default {
         ${STYLE.bold}Current Favourite Language${STYLE.reset_all + FG.cyan}: C
         ${STYLE.bold}Favourite Project${STYLE.reset_all + FG.cyan}: This website!
         `.replace(/\n/g, NEWLINE);
-        // TODO: move acknowledgements to a separate file in home
 
         // reapply style each line as image will override it
         const txt_line_prefix = FG.cyan;
@@ -67,12 +66,13 @@ export default {
         // get the greater of the two lengths
         const max_lines = Math.max(asc_lines.length, txt_lines.length);
 
-        // get the longest length of a line of text
-        const max_line_length = Math.max(...txt_lines.map(line => line.length));
+        // get the longest length of a line of ascii ignoring ansi characters, and the longest length of a line of text
+        const max_asc_line_length = Math.max(...asc_lines.map(line => line.replace(ANSI_UNESCAPED_REGEX, "").length));
+        const max_txt_line_length = Math.max(...txt_lines.map(line => line.length));
 
         // determine padding around and between text and ascii
-        const center_padding_size = Math.floor(max_columns * 0.1);
-        const side_padding_size = Math.floor((max_columns - max_line_length - asc_width - center_padding_size) / 2);
+        const center_padding_size = Math.floor(max_columns / 15);
+        const side_padding_size = Math.floor((max_columns - max_txt_line_length - (max_asc_line_length / 2) - center_padding_size) / 2);
 
         // generate padding strings, if positive
         const center_padding = " ".repeat(center_padding_size > 0 ? center_padding_size : 0);
@@ -83,8 +83,13 @@ export default {
             const asc_line = asc_lines[i] || "";
             const txt_line = txt_lines[i] || "";
 
+            // add additional padding so the width of the ascii line is always the same
+            const asc_line_padding = " ".repeat(max_asc_line_length - asc_line.replace(ANSI_UNESCAPED_REGEX, "").length);
+
+            console.log(asc_line.replace(ANSI_UNESCAPED_REGEX, ""));
+
             // print side by side with padding
-            term.writeln(side_padding + asc_line + center_padding + txt_line_prefix+ txt_line + txt_line_suffix);
+            term.writeln(side_padding + asc_line + asc_line_padding + center_padding + txt_line_prefix + txt_line + txt_line_suffix);
         }
 
         return 0;
