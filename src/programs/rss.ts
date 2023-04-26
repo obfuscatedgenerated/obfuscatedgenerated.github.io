@@ -120,6 +120,14 @@ export default {
         const feed_title = doc.getElementsByTagName("title").item(0)?.textContent ?? "Untitled feed";
         term.writeln(`${FG.cyan + STYLE.bold + STYLE.italic}${feed_title}${STYLE.reset_all}`);
 
+        // print the site link if it exists
+        const site_link = doc.getElementsByTagName("link").item(0)?.textContent ?? "";
+        term.writeln(`${FG.cyan}${site_link}${STYLE.reset_all}`);
+
+        // print the site description if it exists
+        const site_description = doc.getElementsByTagName("description").item(0)?.textContent ?? "";
+        term.writeln(`${site_description}`);
+
         term.write(NEWLINE);
         term.writeln(`${FG.gray}------${STYLE.reset_all}`);
         term.write(NEWLINE);
@@ -166,6 +174,9 @@ export default {
                 // get the text content
                 description = html?.textContent ?? description;
             }
+
+            // trim start and end whitespace
+            description = description.trim();
 
             // pubDate
             const pubDate = item.getElementsByTagName("pubDate").item(0)?.textContent ?? "";
