@@ -280,10 +280,22 @@ export class WrappedTerminal extends Terminal {
 
         let exit_code = 0;
         if ("main" in program) {
-            exit_code = (<SyncProgram>program).main(data);
+            try {
+                exit_code = (<SyncProgram>program).main(data);
+            } catch (e) {
+                exit_code = -1;
+                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                console.error(e);
+            }
         } else if ("async_main" in program) {
             // TODO: use callbacks
-            await (<AsyncProgram>program).async_main(data);
+            try {
+                await (<AsyncProgram>program).async_main(data);
+            } catch (e) {
+                exit_code = -1;
+                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                console.error(e);
+            }
         } else {
             throw new Error("Invalid program type");
         }
