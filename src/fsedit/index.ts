@@ -236,14 +236,14 @@ document.getElementById("save-button").onclick = () => {
 
 // bind the download button
 document.getElementById("download-button").onclick = () => {
-    // get the file contents
-    let content = content_area.value;
+    const download_direct = confirm("Download directly from filesystem? This ignores any unsaved edits made, but will be the latest version and most binary compatible. Additionally, line endings will be in the filesystem's format.")
 
-    const use_ollie_newlines = confirm("Download with OllieOS line endings? (prevents corruption of binary files)");
+    let content: string;
 
-    if (use_ollie_newlines) {
-        // replace local newline with NEWLINE
-        content = content.replace(/(?:\r\n|\r|\n)/g, NEWLINE);
+    if (download_direct) {
+        content = fs.read_file_direct(current_abs_path, false) as string;
+    } else {
+        content = content_area.value;
     }
 
     // create a blob
