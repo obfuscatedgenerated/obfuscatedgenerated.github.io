@@ -254,6 +254,14 @@ document.getElementById("download-button").onclick = () => {
     window.open(url, "_blank");
 }
 
+document.getElementById("delete-button").onclick = () => {
+    alert("Not implemented yet.");
+}
+
+document.getElementById("rename-button").onclick = () => {
+    alert("Not implemented yet.");
+}
+
 // TODO: bind other buttons
 // TODO: add file creation and uploading from main page
 
