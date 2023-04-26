@@ -1,6 +1,5 @@
 import type { AsyncProgram } from "../types";
 import { ANSI, NEWLINE } from "../term_ctl";
-import { PathNotFoundError } from "../filesystem";
 
 export default {
     name: "webget",
