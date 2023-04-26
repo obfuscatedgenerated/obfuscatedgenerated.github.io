@@ -162,6 +162,7 @@ export default {
             const link = item.getElementsByTagName("link").item(0)?.textContent ?? "";
 
             // description
+            // TODO: understand a range of tag naming standards e.g. steam uses <content:encoded> instead of <description> (rdf)
             let description = item.getElementsByTagName("description").item(0)?.textContent ?? "";
 
             // if the description is html, attempt to convert it to plaintext
