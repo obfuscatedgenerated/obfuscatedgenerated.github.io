@@ -163,6 +163,7 @@ export default {
 
             // description
             // TODO: understand a range of tag naming standards e.g. steam uses <content:encoded> instead of <description> (rdf)
+            // perhaps could just yoink the arrays from https://github.com/rbren/rss-parser/blob/master/lib/fields.js (MIT) ??? i tried using the package as is but importing it was a pain
             let description = item.getElementsByTagName("description").item(0)?.textContent ?? "";
 
             // if the description is html, attempt to convert it to plaintext
