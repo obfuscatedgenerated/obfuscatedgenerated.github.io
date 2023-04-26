@@ -80,6 +80,9 @@ export default {
         if (fs.exists(path)) {
             content = fs.read_file(path) as string;
             readonly = fs.is_readonly(path);
+
+            // lock the file by making it read-only
+            fs.set_readonly(path, true);
         }
 
         // temporary note
@@ -100,6 +103,9 @@ export default {
 
             switch (key.domEvent.code) {
                 case "Escape":
+                    // revert the file to its original read-only status
+                    fs.set_readonly(path, readonly);
+
                     exit_code = 0;
                     break;
                 case "F1":
@@ -108,15 +114,12 @@ export default {
                         break;
                     }
 
-                    // check readonly again, in case the file was changed while editing
-                    if (fs.exists(path) && fs.is_readonly(path)) {
-                        // TODO: make this not overwrite the screen
-                        term.writeln(`${PREFABS.error}The file became read-only!${STYLE.reset_all}`);
-                        break;
-                    }
-
                     fs.write_file(path, split_content.join(NEWLINE));
                     saved = true;
+
+                    // revert the file to its original read-only status
+                    fs.set_readonly(path, readonly);
+
                     exit_code = 0;
                     break;
                 case "F2":

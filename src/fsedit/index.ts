@@ -24,6 +24,7 @@ if (!fs_impl) {
 }
 
 // instance the fs implementation
+// NOTE: cache will be separate from the main window, use direct methods on all files not completely controlled by fsedit
 const fs: FileSystem = new fs_impl();
 
 // TODO: replace all alerts and confirms with sweetalert2
@@ -31,7 +32,7 @@ const fs: FileSystem = new fs_impl();
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
 let is_locked = false;
-if (fs.exists(lock_path)) {
+if (fs.exists_direct(lock_path)) {
     alert("fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)");
     window.close();
 }
@@ -65,7 +66,16 @@ const render_file_editor = (abs_path: string, name: string) => {
     // show the file editor
     file_editor.style.display = "block";
 
-    current_readonly = fs.is_readonly(abs_path);
+    current_readonly = fs.is_readonly_direct(abs_path);
+
+    // lock the file by setting it to readonly when editing
+    if (!current_readonly) {
+        // uncache the file
+        fs.remote_remove_from_cache(abs_path);
+
+        // set the file to readonly
+        fs.set_readonly_direct(abs_path, true);
+    }
 
     // set the heading
     file_name.innerText = current_readonly ? `Viewing read-only file: ${name}` : `Editing file: ${name}`;
@@ -78,7 +88,7 @@ const render_file_editor = (abs_path: string, name: string) => {
     document.getElementById("delete-button").style.display = current_readonly ? "none" : "block";
 
     // get the file contents
-    let content = fs.read_file(abs_path) as string;
+    let content = fs.read_file_direct(abs_path, false) as string;
 
     // replace NEWLINE with local newline
     content = content.replace(new RegExp(NEWLINE, "g"), "\n");
@@ -91,8 +101,15 @@ const render_file_editor = (abs_path: string, name: string) => {
 }
 
 const close_file_editor = () => {
-    // unset current path
+    // unset from cache
+    fs.remote_remove_from_cache(current_abs_path);
+
+    // revert the file to original readonly state
+    fs.set_readonly_direct(current_abs_path, current_readonly);
+
+    // unset current values
     current_abs_path = undefined;
+    current_readonly = undefined;
 
     // hide the file editor
     file_editor.style.display = "none";
@@ -110,7 +127,7 @@ const save_file_in_editor = () => {
 
     // save the file
     fs.remote_remove_from_cache(current_abs_path);
-    fs.write_file(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
+    fs.write_file_direct(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
 }
 
 
@@ -252,9 +269,17 @@ window.addEventListener("beforeunload", (e) => {
 
 // bind an event listener to the window close event
 window.addEventListener("unload", () => {
+    if (current_abs_path) {
+        // remove from cache
+        fs.remote_remove_from_cache(current_abs_path);
+
+        // revert the file to original readonly state
+        fs.set_readonly_direct(current_abs_path, current_readonly);
+    }
+
     if (is_locked) {
         // remove the lock file
-        fs.delete_file(lock_path);
+        fs.delete_file_direct(lock_path);
         is_locked = false;
     }
 });
