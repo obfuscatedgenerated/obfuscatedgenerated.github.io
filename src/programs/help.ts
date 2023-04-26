@@ -97,7 +97,7 @@ export default {
                         output += `${" ".repeat(nest_level * 4)}${key} - ${value}${NEWLINE}`;
                     } else {
                         // title, deeper nest
-                        output += `${NEWLINE}${STYLE.bold + STYLE.italic}${key}${STYLE.reset_all}${NEWLINE}`;
+                        output += `${NEWLINE}${" ".repeat(nest_level * 4)}${STYLE.bold + STYLE.italic}${key}${STYLE.reset_all}${NEWLINE}`;
                         output += recurse(value, nest_level + 1);
                     }
                 }

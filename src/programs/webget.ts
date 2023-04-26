@@ -11,15 +11,17 @@ export default {
             "url": "The URL to download from.",
             "filepath": "The path to save the file to."
         },
-        "System flags:": {
-            "-h": "Print this help message.",
-            "-o": "Overwrite existing files.",
-            "-n": "Do not replace newlines with the current system's newline character, store as a binary (binary mode).",
-        },
-        "Request flags:": {
-            "-X": "Specify a custom HTTP method. (default: GET)",
-            "-H": "Add a custom header to the request.",
-            "-B": "Specify a custom request body. (only works with POST and PUT methods)"
+        "Flags:": {
+            "System flags:": {
+                "-h": "Print this help message.",
+                "-o": "Overwrite existing files.",
+                "-n": "Do not replace newlines with the current system's newline character, store as a binary (binary mode).",
+            },
+            "Request flags:": {
+                "-X": "Specify a custom HTTP method. (default: GET)",
+                "-H": "Add a custom header to the request.",
+                "-B": "Specify a custom request body. (only works with POST and PUT methods)"
+            }
         }
     },
     async_main: async (data) => {
