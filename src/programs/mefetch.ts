@@ -24,7 +24,7 @@ export default {
         const { term } = data;
 
         // extract from ANSI to make code less verbose
-        const { STYLE, FG } = ANSI;
+        const { STYLE, FG, PREFABS } = ANSI;
 
         // restrict to first 3 quarters of screen
         const max_columns = Math.floor(term.cols * 0.75);
@@ -46,6 +46,8 @@ export default {
         ${STYLE.bold}Interests${STYLE.reset_all + FG.cyan}: Programming, Music, Photography, 3D Stuff
 
         ${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: https://ollieg.codes
+        ${STYLE.bold}Blog${STYLE.reset_all + FG.cyan}: https://blog.ollieg.codes (or use the ${PREFABS.program_name}rss${STYLE.reset_all + FG.cyan} command)
+
         ${STYLE.bold}GitHub${STYLE.reset_all + FG.cyan}: https://github.com/obfuscatedgenerated
         ${STYLE.bold}Mastodon${STYLE.reset_all + FG.cyan}: https://fosstodon.org/@ollieg
         ${STYLE.bold}PyPI${STYLE.reset_all + FG.cyan}: https://pypi.org/user/obfuscatedgenerated
