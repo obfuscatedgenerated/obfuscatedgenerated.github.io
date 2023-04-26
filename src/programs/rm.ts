@@ -5,13 +5,14 @@ import { NonRecursiveDirectoryError, PathNotFoundError } from "../filesystem";
 export default {
     name: "rm",
     description: "Deletes a file or directory.",
-    usage_suffix: "[-rf] <path>",
+    usage_suffix: "[-rf | -f] <path>",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the file or directory to delete."
         },
         "Flags:": {
-            "-rf": "Recursively and forcibly delete directories."
+            "-rf": "Recursively and forcibly delete directories (ignoring if directory has content, treated as -f if a file is passed).",
+            "-f": "Forcibly delete files (ignoring readonly state, NOT treated as -rf if a directory is passed)."
         }
     },
     main: (data) => {
@@ -24,10 +25,16 @@ export default {
         // get fs
         const fs = term.get_fs();
 
-        // determine if -rf was passed
+        // determine if -rf OR -f was passed
         let rimraf = false;
+        let force = false;
+
         if (args[0] === "-rf") {
             rimraf = true;
+            force = true;
+            args.shift();
+        } else if (args[0] === "-f") {
+            force = true;
             args.shift();
         }
 
@@ -68,6 +75,12 @@ export default {
                 throw e;
             }
         } else {
+            // if not forcing, check if file is readonly
+            if (!force && fs.is_readonly(abs_path)) {
+                term.writeln(`${PREFABS.error}File is readonly. Refusing to delete without -f flag.${STYLE.reset_all}`);
+                return 1;
+            }
+
             fs.delete_file(abs_path);
         }
 
