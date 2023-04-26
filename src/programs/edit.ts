@@ -72,11 +72,14 @@ export default {
 
         const path = fs.absolute(args[0]);
 
+
         let content = "";
 
         // if the file exists, load it in. otherwise, keep the content empty
+        let readonly = false;
         if (fs.exists(path)) {
             content = fs.read_file(path) as string;
+            readonly = fs.is_readonly(path);
         }
 
         // temporary note
@@ -85,7 +88,6 @@ export default {
         await term.wait_for_keypress();
 
         // setup the screen
-        const readonly = fs.is_readonly(path);
         setup(term, content, path, readonly);
 
         const split_content = content.split(NEWLINE);
