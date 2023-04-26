@@ -35,15 +35,15 @@ export default {
         // get filesystem
         const fs = term.get_fs();
 
+        if (args[0] === "-h") {
+            term.execute("help webget");
+            return 0;
+        }
+
         // check if the user provided a URL
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}A URL is required.${STYLE.reset_all}`);
             return 1;
-        }
-
-        if (args[0] === "-h") {
-            term.execute("help webget");
-            return 0;
         }
 
         // parse url

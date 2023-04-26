@@ -81,6 +81,7 @@ As well as the following libraries:
 - xterm-addon-web-links
 - xterm-addon-image
 - howler.js
+- 
 
 Additionally, fsedit uses:
 
@@ -89,13 +90,10 @@ Additionally, fsedit uses:
 The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
 `.replace(/\n/g, NEWLINE);
 
+// always overwrite the credits file
 const absolute_credits = fs.absolute("~/credits.txt");
-if (!fs.exists(absolute_credits)) {
-    fs.write_file(absolute_credits, credits_content);
-}
-if (!fs.is_readonly(absolute_credits)) {
-    fs.set_readonly(absolute_credits, true);
-}
+fs.write_file(absolute_credits, credits_content, true);
+fs.set_readonly(absolute_credits, true);
 
 
 // create a terminal using the registry and filesystem
