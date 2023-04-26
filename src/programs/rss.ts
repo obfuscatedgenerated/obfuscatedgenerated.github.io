@@ -175,7 +175,7 @@ export default {
                 // remove CDATA tags if present
                 description = description.replace(/<!\[CDATA\[|\]\]>/g, "");
 
-                // parse the description
+                // parse the description using custom highlighters
                 description = convert_html_to_text(description,
                     {
                         formatters: {
@@ -186,6 +186,22 @@ export default {
                                 builder.addInline(STYLE.reset_all);
                                 builder.closeBlock();
                             },
+                            "img_highlight": (elem, walk, builder, options) => {
+                                const img_fmt = builder.options.formatters["image"];
+                                if (img_fmt) {
+                                    builder.addInline(STYLE.bold + FG.magenta);
+                                    img_fmt(elem, walk, builder, options);
+                                    builder.addInline(STYLE.reset_all);
+                                }
+                            },
+                            "a_highlight": (elem, walk, builder, options) => {
+                                const a_fmt = builder.options.formatters["anchor"];
+                                if (a_fmt) {
+                                    builder.addInline(STYLE.bold + FG.blue);
+                                    a_fmt(elem, walk, builder, options);
+                                    builder.addInline(STYLE.reset_all);
+                                }
+                            }
                         },
                         selectors: [
                             {
@@ -223,6 +239,14 @@ export default {
                                     opener: STYLE.underline
                                 }
                             },
+                            {
+                                selector: "img",
+                                format: "img_highlight"
+                            },
+                            {
+                                selector: "a",
+                                format: "a_highlight"
+                            }
                         ]
                     }
                 );
