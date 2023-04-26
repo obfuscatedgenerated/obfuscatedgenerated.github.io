@@ -2,13 +2,17 @@ import type { AsyncProgram } from "../types";
 
 import { ANSI, NEWLINE } from "../term_ctl";
 
+import { convert as convert_html_to_text } from "html-to-text";
+
+const HTML_TAG_REGEX = /<\/?[a-z][\s\S]*>/i;
+
 export default {
     name: "rss",
     description: "Reads from an RSS feed.",
     usage_suffix: "[-h] [url] [-m <items>]",
     arg_descriptions: {
         "Arguments:": {
-            "url": "The URL to the XML feed (plaintext feed recommended). Defaults to https://blog.ollieg.codes/rss/feed.text.xml"
+            "url": "The URL to the XML feed (plaintext feed recommended, unless the HTML is basic). Defaults to https://blog.ollieg.codes/rss/feed.xml"
         },
         "Flags:": {
             "-h": "Print this help message.",
@@ -50,7 +54,7 @@ export default {
 
 
         // check if the user provided a URL
-        let url = "https://blog.ollieg.codes/rss/feed.text.xml";
+        let url = "https://blog.ollieg.codes/rss/feed.xml";
         if (args.length !== 0) {
             url = args.shift();
         }
@@ -140,8 +144,8 @@ export default {
         }
 
         // print the items
-        for (let i = 0; i < max_items; i++) {
-            const item = items.item(i);
+        for (let item_idx = 0; item_idx < max_items; item_idx++) {
+            const item = items.item(item_idx);
 
             // check if the item exists
             if (!item) {
@@ -161,18 +165,67 @@ export default {
             let description = item.getElementsByTagName("description").item(0)?.textContent ?? "";
 
             // if the description is html, attempt to convert it to plaintext
-            if (description.startsWith("<![CDATA[")) {
-                // remove the cdata tags
-                description = description.substring(9, description.length - 3);
+            if (HTML_TAG_REGEX.test(description)) {
+                term.writeln(`${FG.gray}(interpreting description as HTML)${STYLE.reset_all}`)
+                term.write(NEWLINE);
+
+                // reparse as html
+                description = item.getElementsByTagName("description").item(0)?.innerHTML ?? "";
+
+                // remove CDATA tags if present
+                description = description.replace(/<!\[CDATA\[|\]\]>/g, "");
 
                 // parse the description
-                const description_doc = parser.parseFromString(description, "text/html");
-
-                // get the html tag
-                const html = description_doc.getElementsByTagName("html").item(0);
-
-                // get the text content
-                description = html?.textContent ?? description;
+                description = convert_html_to_text(description,
+                    {
+                        formatters: {
+                            "ansi_formatter": (elem, walk, builder, options) => {
+                                builder.openBlock();
+                                builder.addInline(options.opener);
+                                walk(elem.children, builder);
+                                builder.addInline(STYLE.reset_all);
+                                builder.closeBlock();
+                            },
+                        },
+                        selectors: [
+                            {
+                                selector: "b",
+                                format: "ansi_formatter",
+                                options: {
+                                    opener: STYLE.bold
+                                }
+                            },
+                            {
+                                selector: "strong",
+                                format: "ansi_formatter",
+                                options: {
+                                    opener: STYLE.bold
+                                }
+                            },
+                            {
+                                selector: "i",
+                                format: "ansi_formatter",
+                                options: {
+                                    opener: STYLE.italic
+                                }
+                            },
+                            {
+                                selector: "em",
+                                format: "ansi_formatter",
+                                options: {
+                                    opener: STYLE.italic
+                                }
+                            },
+                            {
+                                selector: "u",
+                                format: "ansi_formatter",
+                                options: {
+                                    opener: STYLE.underline
+                                }
+                            },
+                        ]
+                    }
+                );
             }
 
             // trim start and end whitespace

@@ -81,7 +81,7 @@ As well as the following libraries:
 - xterm-addon-web-links
 - xterm-addon-image
 - howler.js
-- 
+- html-to-text
 
 Additionally, fsedit uses:
 
