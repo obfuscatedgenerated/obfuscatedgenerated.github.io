@@ -214,12 +214,12 @@ export default {
             // write the file as binary
             const buffer = await response.arrayBuffer();
 
-            fs.write_file(abs_path, new Uint8Array(buffer));
+            fs.write_file(abs_path, new Uint8Array(buffer), true);
         } else {
             // write the file as text
             const text = await response.text();
 
-            fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE));
+            fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE), true);
         }
 
         // reset readonly state (must've be writable or else this wouldn't be reached)
