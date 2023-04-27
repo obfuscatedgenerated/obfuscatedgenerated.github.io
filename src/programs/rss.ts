@@ -6,6 +6,78 @@ import { convert as convert_html_to_text } from "html-to-text";
 
 const HTML_TAG_REGEX = /<\/?[a-z][\s\S]*>/i;
 
+// modified from source: https://github.com/rbren/rss-parser/blob/master/lib/fields.js
+const fields = { feed: {}, item: {} };
+
+// known feed fields
+fields.feed = {
+    author: ["author", "creator"],
+    publisher: ["dc:publisher", "publisher"],
+    title: ["dc:title", "title"],
+    description: "description",
+    date: "pubDate",
+    link: "link",
+};
+
+// known item fields
+fields.item = {
+    author: ["author", "creator"],
+    date: ["dc:date", "date", "pubDate"],
+    title: ["dc:title", "title"],
+    link: "link",
+    summary: "summary",
+    description: ["content:encoded", "content", "description"],
+};
+// end source: https://github.com/rbren/rss-parser/blob/master/lib/fields.js
+
+enum DocType {
+    FEED,
+    ITEM
+}
+
+const get_field = (doc: Document | Element, doc_type: DocType, field: string, as_html = false) => {
+    // get the fields object
+    const dict = doc_type === DocType.FEED ? fields.feed : fields.item;
+
+    // check if the field is known
+    if (!(field in dict)) {
+        return undefined;
+    }
+
+    // get the field
+    const field_value = dict[field];
+
+    // if the field is an array, concatenate the values
+    if (Array.isArray(field_value)) {
+        let value = "";
+
+        for (const sub_field of field_value) {
+            const sub_field_doc = doc.getElementsByTagName(sub_field)[0];
+            let sub_value: string;
+
+            if (as_html) {
+                sub_value = sub_field_doc?.innerHTML;
+            } else {
+                sub_value = sub_field_doc?.textContent;
+            }
+
+            if (sub_value) {
+                value += sub_value;
+            }
+        }
+
+        return value;
+    } else {
+        // otherwise, get the value
+        if (as_html) {
+            return doc.getElementsByTagName(field_value)[0]?.innerHTML;
+        } else {
+            return doc.getElementsByTagName(field_value)[0]?.textContent;
+        }
+    }
+}
+
+
 export default {
     name: "rss",
     description: "Reads from an RSS feed.",
@@ -121,15 +193,15 @@ export default {
         term.write(NEWLINE);
 
         // print the title if it exists
-        const feed_title = doc.getElementsByTagName("title").item(0)?.textContent ?? "Untitled feed";
+        const feed_title = get_field(doc, DocType.FEED, "title") ?? "Untitled feed";
         term.writeln(`${FG.cyan + STYLE.bold + STYLE.italic}${feed_title}${STYLE.reset_all}`);
 
         // print the site link if it exists
-        const site_link = doc.getElementsByTagName("link").item(0)?.textContent ?? "";
+        const site_link = get_field(doc, DocType.FEED, "link") ?? "";
         term.writeln(`${FG.cyan}${site_link}${STYLE.reset_all}`);
 
         // print the site description if it exists
-        const site_description = doc.getElementsByTagName("description").item(0)?.textContent ?? "";
+        const site_description = get_field(doc, DocType.FEED, "description") ?? "";
         term.writeln(`${site_description}`);
 
         term.write(NEWLINE);
@@ -156,15 +228,13 @@ export default {
             // get each field of the item if they exist
 
             // title
-            const item_title = item.getElementsByTagName("title").item(0)?.textContent ?? "Untitled item";
+            const item_title = get_field(item, DocType.ITEM, "title") ?? "Untitled item";
 
             // link
-            const link = item.getElementsByTagName("link").item(0)?.textContent ?? "";
+            const link = get_field(item, DocType.ITEM, "link") ?? "";
 
             // description
-            // TODO: understand a range of tag naming standards e.g. steam uses <content:encoded> instead of <description> (rdf)
-            // perhaps could just yoink the arrays from https://github.com/rbren/rss-parser/blob/master/lib/fields.js (MIT) ??? i tried using the package as is but importing it was a pain
-            let description = item.getElementsByTagName("description").item(0)?.textContent ?? "";
+            let description = get_field(item, DocType.ITEM, "description") ?? "";
 
             // if the description is html, attempt to convert it to plaintext
             if (HTML_TAG_REGEX.test(description)) {
@@ -172,7 +242,7 @@ export default {
                 term.write(NEWLINE);
 
                 // reparse as html
-                description = item.getElementsByTagName("description").item(0)?.innerHTML ?? "";
+                description =  get_field(item, DocType.ITEM, "description", true) ?? "";
 
                 // remove CDATA tags if present
                 description = description.replace(/<!\[CDATA\[|\]\]>/g, "");
@@ -261,7 +331,7 @@ export default {
             description = description.replace(/\r\n|\n/g, NEWLINE);
 
             // pubDate
-            const pubDate = item.getElementsByTagName("pubDate").item(0)?.textContent ?? "";
+            const pubDate = get_field(item, DocType.ITEM, "pubDate") ?? "";
 
             // print the item
             term.writeln(`${FG.green + STYLE.bold + STYLE.underline}${item_title}${STYLE.reset_all}`);

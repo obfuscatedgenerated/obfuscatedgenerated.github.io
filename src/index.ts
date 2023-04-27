@@ -82,6 +82,7 @@ As well as the following libraries:
 - xterm-addon-image
 - howler.js
 - html-to-text
+- some code from rss-parser (modified)
 
 Additionally, fsedit uses:
 
