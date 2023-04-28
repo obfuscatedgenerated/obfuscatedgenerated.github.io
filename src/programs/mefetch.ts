@@ -88,8 +88,6 @@ export default {
             // add additional padding so the width of the ascii line is always the same
             const asc_line_padding = " ".repeat(max_asc_line_length - asc_line.replace(ANSI_UNESCAPED_REGEX, "").length);
 
-            console.log(asc_line.replace(ANSI_UNESCAPED_REGEX, ""));
-
             // print side by side with padding
             term.writeln(side_padding + asc_line + asc_line_padding + center_padding + txt_line_prefix + txt_line + txt_line_suffix);
         }
