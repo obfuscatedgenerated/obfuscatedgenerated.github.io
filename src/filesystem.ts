@@ -45,7 +45,7 @@ export abstract class FileSystem {
     //TODO: dry
     _initialised = false;
 
-    _cache: { [path: string]: { readonly: boolean, content: string | Uint8Array, as_uint: boolean } } = {};
+    _cache: Map<string, { readonly: boolean, content: string | Uint8Array, as_uint: boolean }> = new Map();
     _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
     _root = "/";
@@ -58,16 +58,16 @@ export abstract class FileSystem {
         if (smart) {
             for (const path in this._cache) {
                 if (!this.exists_direct(path)) {
-                    delete this._cache[path];
+                    this._cache.delete(path);
                 }
             }
         } else {
-            this._cache = {};
+            this._cache = new Map();
         }
     }
 
     force_remove_from_cache(path: string): void {
-        delete this._cache[path];
+        this._cache.delete(path);
     }
 
     remote_purge_cache(smart: boolean): void {
@@ -125,16 +125,18 @@ export abstract class FileSystem {
 
 
     read_file(path: string, as_uint = false): string | Uint8Array {
+        // prevent prototype pollution
+
         this._call_callbacks(FSEventType.READING_FILE, path);
 
         // check if file is in cache and still exists, as well as if it's the correct type
-        if (this._cache[path] && this.exists(path) && this._cache[path].as_uint === as_uint) {
-            return this._cache[path].content;
+        if (this._cache.has(path) && this.exists(path) && this._cache.get(path).as_uint === as_uint) {
+            return this._cache.get(path).content;
         }
 
         // if not, read it from disk and cache it
         const content = this.read_file_direct(path, as_uint);
-        this._cache[path] = { readonly: this.is_readonly(path), content, as_uint };
+        this._cache.set(path, { readonly: this.is_readonly(path), content, as_uint });
         return content;
     }
 
@@ -150,15 +152,15 @@ export abstract class FileSystem {
         }
 
         // write to disk and cache
-        this._cache[path] = { readonly, content: data, as_uint: data instanceof Uint8Array };
+        this._cache.set(path, { readonly, content: data, as_uint: data instanceof Uint8Array });
         this.write_file_direct(path, data);
         this._call_callbacks(FSEventType.WROTE_FILE, path);
     }
 
     delete_file(path: string): void {
         // delete from cache and disk
-        if (this._cache[path]) {
-            delete this._cache[path];
+        if (this._cache.has(path)) {
+            this._cache.delete(path);
         }
         this.delete_file_direct(path);
         this._call_callbacks(FSEventType.DELETED_FILE, path);
@@ -166,8 +168,8 @@ export abstract class FileSystem {
 
     move_file(path: string, new_path: string): void {
         // move in cache and disk
-        this._cache[new_path] = this._cache[path];
-        delete this._cache[path];
+        this._cache.set(new_path, this._cache.get(path));
+        this._cache.delete(path);
         this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
     }
@@ -179,10 +181,12 @@ export abstract class FileSystem {
         }
 
         // set readonly in cache and disk
-        if (this._cache[path]) {
-            this._cache[path].readonly = readonly;
+        if (this._cache.get(path)) {
+            const entry = this._cache.get(path);
+            entry.readonly = readonly;
+            this._cache.set(path, entry);
         } else {
-            this._cache[path] = { readonly, content: this.read_file(path), as_uint: false };
+            this._cache.set(path, {readonly, content: this.read_file(path), as_uint: false});
         }
 
         this.set_readonly_direct(path, readonly);
@@ -196,8 +200,8 @@ export abstract class FileSystem {
         }
 
         // check if file is in cache
-        if (this._cache[path]) {
-            return this._cache[path].readonly;
+        if (this._cache.has(path)) {
+            return this._cache.get(path).readonly;
         }
 
         // if not, check on disk (cannot cache as would need to read content, causes recursive call)
@@ -254,7 +258,7 @@ export abstract class FileSystem {
 
     exists(path: string): boolean {
         // check if file is in cache
-        if (this._cache[path]) {
+        if (this._cache.has(path)) {
             return true;
         }
 

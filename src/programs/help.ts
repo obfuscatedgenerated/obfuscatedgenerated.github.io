@@ -72,7 +72,7 @@ export default {
         }
 
         // if arguments are given, get help for the first argument
-        const program = data.registry.programs[args[0]];
+        const program = data.registry.getProgram(args[0]);
 
         if (program === undefined) {
             term.writeln(`${PREFABS.error}Could not resolve help for ${args[0]}.${STYLE.reset_all}`);

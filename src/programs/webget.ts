@@ -65,7 +65,7 @@ export default {
         let overwrite = false;
         let binary = false;
         let method = "GET";
-        const headers: Record<string, string> = {};
+        const headers: Map<string, string> = new Map();
         let body = null;
 
         for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
@@ -101,7 +101,7 @@ export default {
                         return 1;
                     }
 
-                    headers[split[0]] = split[1];
+                    headers.set(split[0], split[1]);
                     args.splice(arg_idx + 1, 1);
                 }
                     break;
@@ -173,7 +173,13 @@ export default {
         term.writeln(`${FG.green}Downloading file...${STYLE.reset_all}`);
 
         try {
-            response = await fetch(url, { method, headers, body });
+            // convert headers to object
+            const headers_obj: Record<string, string> = {};
+            headers.forEach((value, key) => {
+                headers_obj[key] = value;
+            });
+
+            response = await fetch(url, { method, headers: headers_obj, body });
         } catch (e) {
             term.writeln(`${PREFABS.error}Failed to fetch file.${STYLE.reset_all}`);
             term.writeln(`${PREFABS.error}${"message" in e ? e.message : e}${STYLE.reset_all}`);

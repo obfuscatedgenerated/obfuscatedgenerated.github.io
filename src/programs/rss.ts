@@ -39,8 +39,8 @@ const get_field = (doc: Document | Element, doc_type: DocType, field: string, as
     // get the fields object
     const dict = doc_type === DocType.FEED ? fields.feed : fields.item;
 
-    // check if the field is known
-    if (!(field in dict)) {
+    // check if the field is known (don't use in, it won't filter out __proto__ etc.)
+    if (!Object.keys(dict).includes(field)) {
         return undefined;
     }
 

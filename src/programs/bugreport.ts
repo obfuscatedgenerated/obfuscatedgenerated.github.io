@@ -28,8 +28,8 @@ export default {
         if (args.length > 0) {
             type = args[0].toLowerCase();
 
-            // check if the type is valid
-            if (!(type in type_suffixes)) {
+            // check if the type is valid (don't use in, it won't filter __proto__ etc.)
+            if (!Object.keys(type_suffixes).includes(type)) {
                 term.writeln(`${PREFABS.error} Invalid type: ${type}. Please choose bug, feature, or other.${STYLE.reset_all}`);
                 return 1;
             }

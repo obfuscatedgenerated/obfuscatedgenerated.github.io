@@ -100,7 +100,7 @@ export class WrappedTerminal extends Terminal {
     _fs: FileSystem;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
-    _vars: { [key: string]: string } = {};
+    _vars: Map<string, string> = new Map();
 
 
     get_program_registry(): ProgramRegistry {
@@ -117,15 +117,15 @@ export class WrappedTerminal extends Terminal {
 
 
     get_variable(name: string): string {
-        return this._vars[name];
+        return this._vars.get(name);
     }
 
     set_variable(name: string, value: string): void {
-        this._vars[name] = value;
+        this._vars.set(name, value);
     }
 
     unset_variable(name: string): void {
-        delete this._vars[name];
+        this._vars.delete(name);
     }
 
 

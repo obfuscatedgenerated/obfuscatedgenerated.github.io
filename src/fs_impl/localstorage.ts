@@ -3,6 +3,7 @@ import { FileSystem, FSEventType, NonRecursiveDirectoryError, PathNotFoundError 
 // TODO: may get laggy with large files and many files or dirs
 // NOTE: not using implements (TS) so the real methods can be used
 // indexeddb fs is superior
+// TODO: unsolveable prototype pollution without banning filenames. tried using map, but recursive traversal wont work as the instances are distinct (not writing to the original state dict)
 export class LocalStorageFS extends FileSystem {
     get_unique_fs_type_name(): string {
         return "localstorage";
