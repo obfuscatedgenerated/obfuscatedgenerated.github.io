@@ -69,12 +69,24 @@ Additionally, fsedit uses:
 The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
 `.replace(/\n/g, NEWLINE);
 
-    // always overwrite the credits file
+    // only overwrite the file if it doesn't exist or the content is different
     const absolute_credits = fs.absolute("~/credits.txt");
-    fs.write_file(absolute_credits, credits_content, true);
-    fs.set_readonly(absolute_credits, true);
+    if (!fs.exists(absolute_credits) || fs.read_file(absolute_credits) !== credits_content) {
+        fs.write_file(absolute_credits, credits_content, true);
+        fs.set_readonly(absolute_credits, true);
+    }
 };
 
+
+const projects = {
+    "OllieOS": {
+        "info.txt": `OllieOS is the rebuild of my personal website. I chose to create an interactive terminal with a feature rich operating system.
+The terminal is built using xterm.js and the OS is built using TypeScript. The OS is designed to be modular, so that it can be easily extended.
+
+Project URL: https://ollieg.codes
+Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io`,
+    }
+};
 
 const setup_projects = (fs: FileSystem) => {
     // create projects directory if it doesn't exist
@@ -83,6 +95,26 @@ const setup_projects = (fs: FileSystem) => {
         fs.make_dir(absolute_projects);
     }
 
+    // for each key in projects, create a directory if it doesn't exist and write each file described in the nested object (key=filename, value=content)
+    for (const project_name in projects) {
+        const absolute_project = fs.absolute(`~/projects/${project_name}`);
+        if (!fs.dir_exists(absolute_project)) {
+            fs.make_dir(absolute_project);
+        }
+
+        const project = projects[project_name];
+        for (const file_name in project) {
+            const absolute_file = fs.absolute(`~/projects/${project_name}/${file_name}`);
+            const content = project[file_name].replace(/\n/g, NEWLINE);
+
+            // only overwrite the file if it doesn't exist or the content is different
+            if (!fs.exists(absolute_file) || fs.read_file(absolute_file) !== content) {
+                // replace newlines with NEWLINE for ease of writing
+                fs.write_file(absolute_file, content, true);
+                fs.set_readonly(absolute_file, true);
+            }
+        }
+    }
 };
 
 
