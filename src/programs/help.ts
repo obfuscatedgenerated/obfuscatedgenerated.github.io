@@ -27,11 +27,11 @@ export default {
             term.write(NEWLINE);
 
             // get all program names
-            const programs = Object.keys(data.registry.programs);
+            const programs = data.registry.listPrograms();
 
             // add usage suffix and styling to each program name
             const programs_fmt = programs.map((program) => {
-                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${data.registry.programs[program].usage_suffix}`;
+                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${data.registry.getProgram(program).usage_suffix}`;
             });
 
             // sort the programs alphabetically (usually already sorted alphabetically by Object.keys, but not guaranteed)
