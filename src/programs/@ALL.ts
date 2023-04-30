@@ -18,3 +18,4 @@ export { default as rm } from "./rm";
 export { default as bugreport } from "./bugreport";
 export { default as repo } from "./repo";
 export { default as rss } from "./rss";
+export { default as legacy } from "./legacy";

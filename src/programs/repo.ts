@@ -3,7 +3,7 @@ import type { SyncProgram } from "../types";
 export default {
     name: "repo",
     description: "Opens the GitHub repository for OllieOS.",
-    usage_suffix: "]",
+    usage_suffix: "",
     arg_descriptions: {
     },
     main: (data) => {
