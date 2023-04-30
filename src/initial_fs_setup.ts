@@ -39,7 +39,7 @@ const setup_rc_profile = (fs: FileSystem) => {
 };
 
 const setup_credits = (fs: FileSystem) => {
-    // create credits file if it doesn't exist
+    // create credits file
     const credits_content = `
 Credits
 =======
