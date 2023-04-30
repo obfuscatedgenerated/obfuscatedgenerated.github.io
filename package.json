@@ -1,5 +1,5 @@
 {
-  "name": "ogsys",
+  "name": "beta_ollieos",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -19,14 +19,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/obfuscatedgenerated/ogsys.git"
+    "url": "git+https://github.com/obfuscatedgenerated/beta_ollieos.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "obfuscatedgenerated",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/obfuscatedgenerated/ogsys/issues"
+    "url": "https://github.com/obfuscatedgenerated/beta_ollieos/issues"
   },
-  "homepage": "https://github.com/obfuscatedgenerated/ogsys#readme",
+  "homepage": "https://github.com/obfuscatedgenerated/beta_ollieos#readme",
   "dependencies": {
     "howler": "^2.2.3",
     "html-to-text": "^9.0.5",
