@@ -132,8 +132,12 @@ const save_file_in_editor = () => {
 
 
 const render_item = (dir: string, name: string) => {
-    const joined_path = fs.join(dir, name);
-    const abs_path = fs.absolute(joined_path);
+    const abs_path = fs.absolute(name);
+
+    // if the absolute path is the same as the absolute path of the dir, skip
+    if (abs_path === dir) {
+        return;
+    }
 
     const li = document.createElement("li");
     const icon = document.createElement("i");
@@ -178,14 +182,14 @@ const render_item = (dir: string, name: string) => {
 };
 
 render_directory = (dir: string) => {
+    // set the cwd
+    fs.set_cwd(fs.absolute(dir));
+
     // list files in the directory
     const dir_contents = fs.list_dir(dir);
 
     // clear the file tree
     file_tree.innerHTML = "";
-
-    // set the cwd
-    fs.set_cwd(fs.absolute(dir));
 
     // if this isn't root, add a link to go up a directory
     if (dir !== fs.get_root()) {
@@ -299,6 +303,9 @@ if (params.has("dir")) {
         alert(`Directory '${params.get("dir")}' does not exist.`);
         window.close();
     }
+
+    // set cwd
+    fs.set_cwd(params.get("dir"));
 
     render_directory(params.get("dir"));
 } else {

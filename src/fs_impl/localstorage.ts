@@ -316,6 +316,11 @@ export class LocalStorageFS extends FileSystem {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_part = state;
 
+        // if path ends with /, remove it
+        if (path.endsWith("/")) {
+            path = path.slice(0, -1);
+        }
+
         // split path into parts, if root, use single empty string to avoid doubling
         const parts = path === this._root ? [""] : path.split("/");
 

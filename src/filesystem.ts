@@ -227,6 +227,16 @@ export abstract class FileSystem {
     }
 
     set_cwd(path: string): void {
+        // if path ends with /, remove it
+        if (path.endsWith("/")) {
+            path = path.slice(0, -1);
+        }
+
+        // if path is empty, set to root
+        if (path === "") {
+            path = this._root;
+        }
+
         this._cwd = path;
         this._call_callbacks(FSEventType.SET_CWD, path);
     }
@@ -268,6 +278,11 @@ export abstract class FileSystem {
     }
 
     absolute(path: string): string {
+        // if path is blank, path is root
+        if (path === "") {
+            return this._root;
+        }
+
         // if path starts with cwd and doesn't contain .., it is absolute
         if (path.startsWith(this._cwd) && !path.includes("..")) {
             return path;
@@ -335,8 +350,13 @@ export abstract class FileSystem {
     }
 
     join(base_dir: string, path: string): string {
-        // join base_dir and path, keeping in mind that base_dir might not end with /
-        return base_dir + (base_dir.endsWith("/") ? "" : "/") + path;
+        // drop trailing /
+        if (base_dir.endsWith("/")) {
+            base_dir = base_dir.slice(0, base_dir.length - 1);
+        }
+
+        // join base_dir and path, using slash if path is not empty
+        return base_dir + (path === "" ? "" : "/" + path);
     }
 
     constructor() {

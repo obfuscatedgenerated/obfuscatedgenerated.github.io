@@ -162,8 +162,9 @@ export const register_builtin_key_handlers = (term: WrappedTerminal) => {
 export const change_prompt = (path: string, fs: FileSystem, term: WrappedTerminal) => {
     const { PREFABS, STYLE } = ANSI;
 
-    if (path === fs.get_home()) {
-        path = "~";
+    if (path.startsWith(fs.get_home())) {
+        // replace home with ~ at start of path only
+        path = path.replace(new RegExp(`^${fs.get_home()}`), "~");
     }
 
     // build result e.g. ~$ 
