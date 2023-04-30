@@ -16,4 +16,5 @@ export { default as imagine } from "./imagine";
 export { default as fsedit } from "./fsedit";
 export { default as rm } from "./rm";
 export { default as bugreport } from "./bugreport";
+export { default as repo } from "./repo";
 export { default as rss } from "./rss";
