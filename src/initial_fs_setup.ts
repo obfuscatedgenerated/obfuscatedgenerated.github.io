@@ -80,11 +80,14 @@ The source code is available on GitHub at https://github.com/obfuscatedgenerated
 
 const projects = {
     "OllieOS": {
-        "info.txt": `OllieOS is the rebuild of my personal website. I chose to create an interactive terminal with a feature rich operating system.
+        "info.txt": `
+
+OllieOS is the rebuild of my personal website. I chose to create an interactive terminal with a feature rich operating system.
 The terminal is built using xterm.js and the OS is built using TypeScript. The OS is designed to be modular, so that it can be easily extended.
 
 Project URL: https://ollieg.codes
-Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io`,
+Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
+`,
     }
 };
 
