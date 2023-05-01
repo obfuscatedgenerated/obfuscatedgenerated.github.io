@@ -255,7 +255,11 @@ document.getElementById("download-button").onclick = () => {
     const url = URL.createObjectURL(blob);
 
     // download the file
-    window.open(url, "_blank");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = current_abs_path.split("/").pop() as string;
+    a.click();
+    a.remove();
 }
 
 document.getElementById("delete-button").onclick = () => {
