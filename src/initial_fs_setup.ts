@@ -78,12 +78,27 @@ The source code is available on GitHub at https://github.com/obfuscatedgenerated
 };
 
 
-const fetch_file = async (url: string) => {
-    // fetch the file and return a uint8array
+const fetch_file = async (url: string, skip_cache: boolean) => {
+    // check if url exists in TTL cache
+    const ttl_cache = localStorage.getItem("fetch_ttl_cache");
+    const ttl_cache_obj = ttl_cache ? JSON.parse(ttl_cache) : {};
 
+    // if the url's TTL hasn't expired, don't fetch the file
+    // saves time acquiring heavy files at startup whilst still allowing for updates at some point
+    if (!skip_cache && ttl_cache_obj[url]) {
+        if (ttl_cache_obj[url] > Date.now()) {
+            return null;
+        }
+    }
+
+    // fetch the file and convert it to a Uint8Array
     const response = await fetch(url);
     const array_buffer = await response.arrayBuffer();
-    
+
+    // add the url to the TTL cache
+    ttl_cache_obj[url] = Date.now() + 1000 * 60 * 60 * 24 * 7; // 1 week
+    localStorage.setItem("fetch_ttl_cache", JSON.stringify(ttl_cache_obj));
+
     return new Uint8Array(array_buffer);
 };
 
@@ -131,7 +146,16 @@ const setup_projects = async (fs: FileSystem) => {
             // if the content is a fetchable URL, fetch it
             if (project[file_name].fetch) {
                 try {
-                    content = await fetch_file(content);
+                    // if the file doesn't exist, skip the TTL cache
+                    const skip_cache = !fs.exists(absolute_file);
+
+                    // fetch the file if TTL cache is expired or doesn't exist
+                    content = await fetch_file(content, skip_cache);
+
+                    if (!content) {
+                        // skip this file
+                        continue;
+                    }
                 } catch (e) {
                     console.error(`Failed to fetch ${file_name} for ${project_name}`);
                     console.error(e);
