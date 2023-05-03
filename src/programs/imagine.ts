@@ -32,14 +32,13 @@ const convert_file_data_to_image_data = (data: Uint8Array, mime: string) => {
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "<path> [-w <width>] [-u]",
+    usage_suffix: "<path> [-w <width>]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in columns. Defaults to the width of the image.",
-            "-u": "Path is an web URL instead of a local filesystem path."
+            "-w": "The width of the image in columns. Defaults to the width of the image."
         }
     },
     main: (data) => {
@@ -48,11 +47,6 @@ export default {
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
-
-        //if (!args.includes("-letmein")) {
-        //    term.write(`${PREFABS.error}This program is currently in development.${STYLE.reset_all}`);
-        //    return 1;
-        //}
 
         // get fs
         const fs = term.get_fs();
@@ -67,30 +61,16 @@ export default {
 
         // get the width of the image specified or the terminal width
         let width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : undefined;
-        const is_web_url = args.includes("-u");
-
-        let abs_path: string;
-        if (!is_web_url) {
-            // process the path
-            abs_path = fs.absolute(path);
-            if (!fs.exists(abs_path)) {
-                term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
-                return 1;
-            }
-
-        } else {
-            // check path is a valid URL
-            try {
-                new URL(path);
-                abs_path = path;
-            } catch (e) {
-                term.write(`${PREFABS.error}Invalid URL: ${path}${STYLE.reset_all}`);
-                return 1;
-            }
+        
+        // process the path
+        const abs_path = fs.absolute(path);
+        if (!fs.exists(abs_path)) {
+            term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
+            return 1;
         }
 
         // check path is a .png or .jpg
-        const ext = abs_path.slice(-4);
+        const ext = abs_path.slice(-4).toLowerCase();
         if (ext !== ".png" && ext !== ".jpg") {
             term.write(`${PREFABS.error}File is not a .png or .jpg: ${path}${STYLE.reset_all}`);
             return 1;

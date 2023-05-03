@@ -13,6 +13,7 @@ export { default as mefetch } from "./mefetch";
 export { default as reader } from "./reader";
 export { default as selfdestruct } from "./selfdestruct";
 export { default as imagine } from "./imagine";
+export { default as ascmagine } from "./ascmagine";
 export { default as fsedit } from "./fsedit";
 export { default as rm } from "./rm";
 export { default as bugreport } from "./bugreport";
