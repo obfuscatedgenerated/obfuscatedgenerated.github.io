@@ -73,9 +73,13 @@ ${STYLE.bold}Favourite Project${STYLE.reset_all + FG.cyan}: This website!
         `.replace(/\n/g, NEWLINE);
 }
 
-const stranger_info = (username: string, info: GHInfo | null) => {
+const stranger_info = (username: string, info: GHInfo | null, cols: number) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG } = ANSI;
+
+    // line wrap the bio and make sure newlines ARE NOT CRLF (to retain columns)
+    info.bio.replace(/\r\n/g, "\n");
+    info.bio = info.bio ? info.bio.replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n") : "";
 
     // TODO: messy, clean up
     // insert known data or move up a line if not known (to undo the newline added by the ternary operator)
@@ -143,7 +147,7 @@ export default {
         const ascii_pfp = await convert_to_ascii(avatar_url, asc_width);
 
         // text is written with \n as newlines for simplicity, replaced with NEWLINE
-        const text = MY_USERNAME === username ? my_info(info) : stranger_info(username, info);
+        const text = MY_USERNAME === username ? my_info(info) : stranger_info(username, info, term.cols);
 
         // reapply style each line as image will override it
         const txt_line_prefix = FG.cyan;
