@@ -100,7 +100,7 @@ Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
 `},
     },
     "mewsic": {
-        "image.png": { fetch: true, content: "https://github.com/obfuscatedgenerated/mewsic/blob/main/public/logo.png?raw=true" },
+        "image.png": { fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/mewsic/main/public/logo.png" },
         "info.txt": {
             fetch: false, content: `
 
