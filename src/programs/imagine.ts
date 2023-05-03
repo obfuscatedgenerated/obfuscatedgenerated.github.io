@@ -116,27 +116,32 @@ export default {
             }
 
             // do a HEAD request to get the mime type
-            const head_req = await fetch(url, { method: "HEAD" });
+            try {
+                const head_req = await fetch(url, { method: "HEAD" });
 
-            // if the HEAD request failed, try a GET request
-            if (!head_req.ok) {
-                console.log("HEAD request failed, trying GET request");
-                const get_req = await fetch(url);
+                // if the HEAD request failed, try a GET request
+                if (!head_req.ok) {
+                    console.log("HEAD request failed, trying GET request");
+                    const get_req = await fetch(url);
 
-                // if the GET request failed, error
-                if (!get_req.ok) {
-                    term.writeln(`${PREFABS.error}URL is not accessible: ${url}${STYLE.reset_all}`);
-                    return 1;
+                    // if the GET request failed, error
+                    if (!get_req.ok) {
+                        term.writeln(`${PREFABS.error}URL is not accessible: ${url}${STYLE.reset_all}`);
+                        return 1;
+                    }
+
+                    mime = get_req.headers.get("content-type");
+                } else {
+                    mime = head_req.headers.get("content-type");
                 }
 
-                mime = get_req.headers.get("content-type");
-            } else {
-                mime = head_req.headers.get("content-type");
-            }
-
-            // check the mime type is valid
-            if (["image/png", "image/jpeg", "image/gif"].indexOf(mime) === -1) {
-                term.writeln(`${PREFABS.error}URL does not point to a .png, .jpg/.jpeg or .gif: ${url}${STYLE.reset_all}`);
+                // check the mime type is valid
+                if (["image/png", "image/jpeg", "image/gif"].indexOf(mime) === -1) {
+                    term.writeln(`${PREFABS.error}URL does not point to a .png, .jpg/.jpeg or .gif: ${url}${STYLE.reset_all}`);
+                    return 1;
+                }
+            } catch (e) {
+                term.writeln(`${PREFABS.error}Error accessing URL: ${url}${STYLE.reset_all}`);
                 return 1;
             }
         }
