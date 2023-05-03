@@ -6,12 +6,22 @@ import { FileSystem } from "../filesystem";
 
 // other imports
 import { NEWLINE } from "../term_ctl";
+import Swal from "sweetalert2";
+
 
 const params = new URLSearchParams(window.location.search);
 
 if (!params.has("type")) {
-    alert("Missing 'type' query parameter.");
-    window.close();
+    Swal.fire({
+        title: "Parameter Error",
+        text: "Missing 'type' query parameter.",
+        icon: "error",
+
+        showConfirmButton: true,
+        confirmButtonText: "Close fsedit",
+    }).then(() => {
+        window.close();
+    });
 }
 
 // get the fs implementation
@@ -19,22 +29,36 @@ const fs_impl_name = params.get("type");
 const fs_impl = fs_impls[fs_impl_name];
 
 if (!fs_impl) {
-    alert(`FS implementation '${fs_impl_name}' not found.`);
-    window.close();
+    Swal.fire({
+        title: "Parameter Error",
+        text: `FS implementation '${fs_impl_name}' not found.`,
+        icon: "error",
+
+        showConfirmButton: true,
+        confirmButtonText: "Close fsedit",
+    }).then(() => {
+        window.close();
+    });
 }
 
 // instance the fs implementation
 // NOTE: cache will be separate from the main window, use direct methods on all files not completely controlled by fsedit
 const fs: FileSystem = new fs_impl();
 
-// TODO: replace all alerts and confirms with sweetalert2
-
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
 let is_locked = false;
 if (fs.exists_direct(lock_path)) {
-    alert("fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)");
-    window.close();
+    Swal.fire({
+        title: "Locked",
+        text: "fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)",
+        icon: "error",
+
+        showConfirmButton: true,
+        confirmButtonText: "Close fsedit",
+    }).then(() => {
+        window.close();
+    });
 }
 
 const lock_str = `locked at ${new Date().toISOString()}`;
@@ -155,10 +179,17 @@ const render_item = (dir: string, name: string) => {
 
     text.innerText = name;
     text.href = "#";
-    text.onclick = () => {
+    text.onclick = async () => {
         // check path still exists
         if (!fs.exists(abs_path)) {
-            alert(`Path '${abs_path}' no longer exists.`);
+            await Swal.fire({
+                title: "Error",
+                text: "The file or directory you are trying to access no longer exists.",
+                icon: "error",
+
+                showConfirmButton: true,
+                confirmButtonText: "Close",
+            });
 
             // re-render the directory
             render_directory(dir);
@@ -213,53 +244,107 @@ render_directory = (dir: string) => {
 
 
 // bind the exit button
-document.getElementById("exit-button").onclick = () => {
+document.getElementById("exit-button").onclick = async () => {
     if (!current_readonly) {
-        const save = confirm("Save changes before exiting?");
+        const res = await Swal.fire({
+            title: "Save Changes?",
+            text: "Do you want to save changes before exiting?",
+            icon: "question",
+
+            showConfirmButton: true,
+            confirmButtonText: "Save",
+            showDenyButton: true,
+            denyButtonText: "Don't Save",
+            showCancelButton: true,
+            cancelButtonText: "Cancel",
+        });
+
+        if (res.isDismissed) {
+            return;
+        }
+
+        const save = res.isConfirmed;
 
         if (save) {
             save_file_in_editor();
         } else {
-            // get confirmation
-            if (!confirm("Are you sure you want to exit without saving?")) {
-                return;
+            const res2 = await Swal.fire({
+                title: "Are you sure?",
+                text: "You will lose any unsaved changes.",
+                icon: "warning",
+
+                showConfirmButton: true,
+                confirmButtonText: "Exit",
+                showCancelButton: true,
+                cancelButtonText: "Cancel",
+            });
+
+            if (res2.isConfirmed) {
+                close_file_editor();
             }
         }
     }
-
+    
     // close the editor
     close_file_editor();
 }
+
 
 // bind the save button
 document.getElementById("save-button").onclick = () => {
     save_file_in_editor();
 
-    alert("File saved.");
+    Swal.fire({
+        title: "Success",
+        text: "File saved successfully.",
+        icon: "success",
+
+        showConfirmButton: true,
+        confirmButtonText: "Close",
+    });
 }
 
 // bind the download button
 document.getElementById("download-button").onclick = () => {
-    const download_direct = confirm("Download directly from filesystem? This ignores any unsaved edits made, but will be the latest version and most binary compatible. Additionally, line endings will be in the filesystem's format.")
+    Swal.fire({
+        title: "Download Direct?",
+        text: "Download directly from filesystem?\nThis ignores any unsaved edits made, but will be the latest version and most binary compatible.\nAdditionally, line endings will be in the filesystem's format.",
+        icon: "question",
 
-    let content: Uint8Array;
+        showConfirmButton: true,
+        confirmButtonText: "Download Directly",
+        showDenyButton: true,
+        denyButtonText: "Download From Editor",
+        denyButtonColor: "#3085d6",
+        showCloseButton: true,
 
-    if (download_direct) {
-        content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
-    } else {
-        content = new TextEncoder().encode(content_area.value);
-    }
+        allowOutsideClick: false,
+    }).then((result) => {
+        if (result.isDismissed) {
+            return;
+        }
 
-    // create a blob
-    const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
-    const url = URL.createObjectURL(blob);
+        const download_direct = result.isConfirmed;
 
-    // download the file
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = current_abs_path.split("/").pop() as string;
-    a.click();
-    a.remove();
+        let content: Uint8Array;
+
+        if (download_direct) {
+            content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
+        } else {
+            content = new TextEncoder().encode(content_area.value);
+        }
+
+        // create a blob
+        const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
+        const url = URL.createObjectURL(blob);
+
+        // download the file
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = current_abs_path.split("/").pop() as string;
+        a.click();
+        a.remove();
+    });
 }
 
 document.getElementById("delete-button").onclick = () => {
@@ -304,8 +389,16 @@ window.addEventListener("unload", () => {
 // render the initial directory
 if (params.has("dir")) {
     if (!fs.dir_exists(params.get("dir"))) {
-        alert(`Directory '${params.get("dir")}' does not exist.`);
-        window.close();
+        Swal.fire({
+            title: "Parameter Error",
+            text: "Directory specified does not exist.",
+            icon: "error",
+
+            showConfirmButton: true,
+            confirmButtonText: "Close fsedit",
+        }).then(() => {
+            window.close();
+        });
     }
 
     // set cwd

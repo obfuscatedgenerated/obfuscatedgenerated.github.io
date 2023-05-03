@@ -32,6 +32,7 @@
     "html-to-text": "^9.0.5",
     "imgtoascii": "github:obfuscatedgenerated/imgToAscii",
     "sixel": "^0.16.0",
+    "sweetalert2": "^11.4.8",
     "xterm": "^5.1.0",
     "xterm-addon-fit": "^0.7.0",
     "xterm-addon-image": "^0.4.0",
