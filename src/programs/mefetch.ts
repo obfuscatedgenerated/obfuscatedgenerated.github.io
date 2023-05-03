@@ -5,7 +5,7 @@ import { default as img2ascii } from "imgToAscii";
 
 
 const MY_USERNAME = "obfuscatedgenerated";
-const GH_USERNAME_REGEX =  /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+const GH_USERNAME_REGEX = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
 
 const username_to_avatar_url = (username: string): string => {
     return `https://avatars.githubusercontent.com/${username}`;
@@ -78,8 +78,9 @@ const stranger_info = (username: string, info: GHInfo | null, cols: number) => {
     const { STYLE, FG } = ANSI;
 
     // line wrap the bio and make sure newlines ARE NOT CRLF (to retain columns)
-    info.bio.replace(/\r\n/g, "\n");
-    info.bio = info.bio ? info.bio.replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n") : "";
+    if (info.bio) {
+        info.bio = info.bio.replace(/\r\n/g, "\n").replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n");
+    }
 
     // TODO: messy, clean up
     // insert known data or move up a line if not known (to undo the newline added by the ternary operator)
