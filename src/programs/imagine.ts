@@ -142,7 +142,7 @@ export default {
             }
         }
 
-        const { array: img_data, width: img_width, height: img_height } = await convert_to_image_data(url, mime);
+        const { array: img_data, width: img_width, height: img_height } = await convert_to_image_data(url);
 
         if (!width_arg) {
             width_arg = img_width;
