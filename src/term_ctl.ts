@@ -459,6 +459,34 @@ export class WrappedTerminal extends Terminal {
     }
 
 
+    copy() {
+        // copy the selected text to the clipboard
+        navigator.clipboard.writeText(this.getSelection()).then(() => {
+            // clear the selection
+            this.clearSelection();
+        });
+    }
+
+    paste() {
+        // read the clipboard
+        navigator.clipboard.readText().then((text) => {
+            // simulate key events for each character (lazy but it works great, no need to rewrite the key handler)
+            for (const char of text) {
+                this._handle_key_event({ key: char, domEvent: { code: `Key${char.toUpperCase()}` } } as KeyEvent);
+            }
+        });
+    }
+
+    copy_or_paste() {
+        // if there is a selection, copy it
+        if (this.hasSelection()) {
+            this.copy();
+        } else {
+            this.paste();
+        }
+    }
+
+
     constructor(fs: FileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: () => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 

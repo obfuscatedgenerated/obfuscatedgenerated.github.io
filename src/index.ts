@@ -82,6 +82,13 @@ async function main() {
     window.addEventListener("resize", () => {
         fit.fit();
     });
+
+    
+    // bind right click to copy/paste
+    window.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        term.copy_or_paste();
+    });
 }
 
 main();
