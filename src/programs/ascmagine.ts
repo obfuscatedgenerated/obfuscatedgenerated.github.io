@@ -65,7 +65,8 @@ export default {
             // attempt createImageBitmap on the file to determine if it's a canvas-compatible image in the browser
             if (typeof createImageBitmap === "function") {
                 try {
-                    await createImageBitmap(blob);
+                    // using tiny region at low res for efficiency
+                    await createImageBitmap(blob, 0, 0, 1, 1);
                 } catch (e) {
                     term.writeln(`${PREFABS.error}File is not a valid image: ${path}${STYLE.reset_all}`);
                     return 1;
