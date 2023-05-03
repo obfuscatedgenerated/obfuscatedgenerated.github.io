@@ -123,7 +123,7 @@ export default {
         }
 
         // get the image
-        const img = await convert_to_ascii(url, width_arg || term.cols - 2);
+        const img = await convert_to_ascii(url, width_arg || term.cols - 1);
 
         // write the image
         term.write(img);

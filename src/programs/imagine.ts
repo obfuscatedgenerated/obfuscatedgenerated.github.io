@@ -11,6 +11,7 @@ const convert_to_image_data = async (url: string) => {
 
     // create an image to draw the png data on
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.src = url;
 
     // wait for the image to load via promise
