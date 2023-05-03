@@ -4,14 +4,14 @@ import { ANSI } from "../term_ctl";
 import { image2sixel } from "sixel";
 
 
-const convert_file_data_to_image_data = async (data: Uint8Array, mime: string) => {
+const convert_to_image_data = async (url: string, mime: string) => {
     // create a canvas to draw the image on
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
     // create an image to draw the png data on
     const img = new Image();
-    img.src = URL.createObjectURL(new Blob([data], { type: mime }));
+    img.src = url;
 
     // wait for the image to load via promise
     await new Promise((resolve, reject) => {
@@ -34,18 +34,19 @@ const convert_file_data_to_image_data = async (data: Uint8Array, mime: string) =
     return { array: data_arr, width: img.width, height: img.height };
 };
 
-const MAX_COLORS = 256 * 3;
+const MAX_COLORS = 2048;
 
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "<path> [-w <width>]",
+    usage_suffix: "<path> [-w <width>] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in PIXELS. Defaults to the width of the image."
+            "-w": "The width of the image in PIXELS. Defaults to the width of the image.",
+            "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
     async_main: async (data) => {
@@ -62,32 +63,86 @@ export default {
         const path = args[0];
 
         if (!path) {
-            term.write(`${PREFABS.error}No path specified.${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}No path specified.${STYLE.reset_all}`);
             return 1;
         }
 
         // get the width of the image specified or the terminal width
         let width_arg = args.includes("-w") ? parseInt(args[args.indexOf("-w") + 1]) : undefined;
+        const is_web_url = args.includes("-u");
 
-        // process the path
-        const abs_path = fs.absolute(path);
-        if (!fs.exists(abs_path)) {
-            term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
-            return 1;
+        let url: string;
+        let mime: string;
+        if (!is_web_url) {
+            // process the path
+            url = fs.absolute(path);
+            if (!fs.exists(url)) {
+                term.writeln(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
+                return 1;
+            }
+
+            // get the extension
+            const ext = url.slice(-4).toLowerCase();
+
+            // get the mime type
+            switch (ext) {
+                case ".png":
+                    mime = "image/png";
+                    break;
+                case ".jpg":
+                case "jpeg":
+                    mime = "image/jpeg";
+                    break;
+                case ".gif":
+                    mime = "image/gif";
+                    break;
+                default:
+                    term.writeln(`${PREFABS.error}File is not known to be a .png, .jpg/.jpeg or .gif: ${url}${STYLE.reset_all}`);
+                    return 1;
+            }
+
+
+            // convert to blob URL
+            const content = fs.read_file(url, true) as Uint8Array;
+            url = URL.createObjectURL(new Blob([content]));
+
+        } else {
+            // check path is a valid URL
+            try {
+                new URL(path);
+                url = path;
+            } catch (e) {
+                term.writeln(`${PREFABS.error}Invalid URL: ${path}${STYLE.reset_all}`);
+                return 1;
+            }
+
+            // do a HEAD request to get the mime type
+            const head_req = await fetch(url, { method: "HEAD" });
+
+            // if the HEAD request failed, try a GET request
+            if (!head_req.ok) {
+                console.log("HEAD request failed, trying GET request");
+                const get_req = await fetch(url);
+
+                // if the GET request failed, error
+                if (!get_req.ok) {
+                    term.writeln(`${PREFABS.error}URL is not accessible: ${url}${STYLE.reset_all}`);
+                    return 1;
+                }
+
+                mime = get_req.headers.get("content-type");
+            } else {
+                mime = head_req.headers.get("content-type");
+            }
+
+            // check the mime type is valid
+            if (["image/png", "image/jpeg", "image/gif"].indexOf(mime) === -1) {
+                term.writeln(`${PREFABS.error}URL does not point to a .png, .jpg/.jpeg or .gif: ${url}${STYLE.reset_all}`);
+                return 1;
+            }
         }
 
-        // check path is a .png or .jpg
-        const ext = abs_path.slice(-4).toLowerCase();
-        if (ext !== ".png" && ext !== ".jpg") {
-            term.write(`${PREFABS.error}File is not a .png or .jpg: ${path}${STYLE.reset_all}`);
-            return 1;
-        }
-
-        const mime = ext === ".png" ? "image/png" : "image/jpeg";
-
-        // get the image data
-        const content = fs.read_file(abs_path, true) as Uint8Array;
-        const { array: img_data, width: img_width, height: img_height } = await convert_file_data_to_image_data(content, mime);
+        const { array: img_data, width: img_width, height: img_height } = await convert_to_image_data(url, mime);
 
         if (!width_arg) {
             width_arg = img_width;
@@ -118,7 +173,7 @@ export default {
             // write the sixel image to the terminal
             term.write(sixel);
         } catch (e) {
-            term.write(`${PREFABS.error}Failed to convert image to sixel.${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}Failed to convert image to sixel.${STYLE.reset_all}`);
             console.error(e);
             return 1;
         }

@@ -32,7 +32,7 @@ export default {
         const { args, term } = data;
 
         // extract from ANSI to make code less verbose
-        const { STYLE, PREFABS } = ANSI;
+        const { STYLE, PREFABS, FG } = ANSI;
 
         // get fs
         const fs = term.get_fs();
@@ -41,7 +41,7 @@ export default {
         const path = args[0];
 
         if (!path) {
-            term.write(`${PREFABS.error}No path specified.${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}No path specified.${STYLE.reset_all}`);
             return 1;
         }
 
@@ -54,12 +54,35 @@ export default {
             // process the path
             url = fs.absolute(path);
             if (!fs.exists(url)) {
-                term.write(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
+                term.writeln(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
                 return 1;
             }
 
-            // convert to base64 data URL
+            // convert to blob
             const content = fs.read_file(url, true) as Uint8Array;
+            const blob = new Blob([content]);
+
+            // attempt createImageBitmap on the file to determine if it's a canvas-compatible image in the browser
+            if (typeof createImageBitmap === "function") {
+                try {
+                    await createImageBitmap(blob);
+                } catch (e) {
+                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}${STYLE.reset_all}`);
+                    return 1;
+                }
+            } else {
+                term.writeln(`${FG.yellow}Warning: ${STYLE.reset_all}createImageBitmap is not supported in this browser. Falling back to list of trusted image formats.${STYLE.reset_all}`)
+                
+                const trusted_formats = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg"];
+                const ext = url.slice(-4).toLowerCase();
+
+                if (!(trusted_formats.includes(ext))) {
+                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}${STYLE.reset_all}`);
+                    return 1;
+                }
+            }
+
+            // create a blob URL
             url = URL.createObjectURL(new Blob([content]));
 
         } else {
@@ -68,7 +91,33 @@ export default {
                 new URL(path);
                 url = path;
             } catch (e) {
-                term.write(`${PREFABS.error}Invalid URL: ${path}${STYLE.reset_all}`);
+                term.writeln(`${PREFABS.error}Invalid URL: ${path}${STYLE.reset_all}`);
+                return 1;
+            }
+
+            // do a HEAD request to check the mime type
+            const head_req = await fetch(url, { method: "HEAD" });
+            let mime: string;
+
+            // if the HEAD request failed, try a GET request
+            if (!head_req.ok) {
+                console.log("HEAD request failed, trying GET request");
+                const get_req = await fetch(url);
+
+                // if the GET request failed, error
+                if (!get_req.ok) {
+                    term.writeln(`${PREFABS.error}URL is not accessible: ${url}${STYLE.reset_all}`);
+                    return 1;
+                }
+
+                mime = get_req.headers.get("content-type");
+            } else {
+                mime = head_req.headers.get("content-type");
+            }
+
+            // check the mime type is valid
+            if (!mime.startsWith("image/")) {
+                term.writeln(`${PREFABS.error}URL is not an image: ${url}${STYLE.reset_all}`);
                 return 1;
             }
         }
