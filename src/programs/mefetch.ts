@@ -126,7 +126,7 @@ export default {
         const username = args[0] || MY_USERNAME;
 
         // check if username is valid
-        if (!username.match(/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i)) {
+        if (!username.match(GH_USERNAME_REGEX)) {
             term.write(`${STYLE.bold}${FG.red}Invalid username.${STYLE.reset_all}\n`);
             return;
         }
