@@ -4,7 +4,7 @@ import { ANSI } from "../term_ctl";
 import { image2sixel } from "sixel";
 
 
-const convert_to_image_data = async (url: string, mime: string) => {
+const convert_to_image_data = async (url: string) => {
     // create a canvas to draw the image on
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
