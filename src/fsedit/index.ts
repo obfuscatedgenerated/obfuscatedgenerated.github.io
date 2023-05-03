@@ -243,119 +243,161 @@ render_directory = (dir: string) => {
 };
 
 
-// bind the exit button
-document.getElementById("exit-button").onclick = async () => {
-    if (!current_readonly) {
-        const res = await Swal.fire({
-            title: "Save Changes?",
-            text: "Do you want to save changes before exiting?",
-            icon: "question",
-
-            showConfirmButton: true,
-            confirmButtonText: "Save",
-            showDenyButton: true,
-            denyButtonText: "Don't Save",
-            showCancelButton: true,
-            cancelButtonText: "Cancel",
-        });
-
-        if (res.isDismissed) {
-            return;
-        }
-
-        const save = res.isConfirmed;
-
-        if (save) {
-            save_file_in_editor();
-        } else {
-            const res2 = await Swal.fire({
-                title: "Are you sure?",
-                text: "You will lose any unsaved changes.",
-                icon: "warning",
+const bind_buttons = (base: Document | Element) => {
+    // bind the exit button
+    (base.querySelector("#exit-button") as HTMLButtonElement).onclick = async () => {
+        if (!current_readonly) {
+            const res = await Swal.fire({
+                title: "Save Changes?",
+                text: "Do you want to save changes before exiting?",
+                icon: "question",
 
                 showConfirmButton: true,
-                confirmButtonText: "Exit",
+                confirmButtonText: "Save",
+                showDenyButton: true,
+                denyButtonText: "Don't Save",
                 showCancelButton: true,
                 cancelButtonText: "Cancel",
             });
 
-            if (res2.isConfirmed) {
-                close_file_editor();
+            if (res.isDismissed) {
+                return;
+            }
+
+            const save = res.isConfirmed;
+
+            if (save) {
+                save_file_in_editor();
+            } else {
+                const res2 = await Swal.fire({
+                    title: "Are you sure?",
+                    text: "You will lose any unsaved changes.",
+                    icon: "warning",
+
+                    showConfirmButton: true,
+                    confirmButtonText: "Exit",
+                    showCancelButton: true,
+                    cancelButtonText: "Cancel",
+                });
+
+                if (res2.isConfirmed) {
+                    close_file_editor();
+                }
             }
         }
+
+        // close the editor
+        close_file_editor();
     }
-    
-    // close the editor
-    close_file_editor();
-}
 
 
-// bind the save button
-document.getElementById("save-button").onclick = () => {
-    save_file_in_editor();
+    // bind the save button
+    (base.querySelector("#save-button") as HTMLButtonElement).onclick = () => {
+        save_file_in_editor();
 
+        Swal.fire({
+            title: "Success",
+            text: "File saved successfully.",
+            icon: "success",
+
+            showConfirmButton: true,
+            confirmButtonText: "Close",
+        });
+    }
+
+    // bind the download button
+    (base.querySelector("#download-button") as HTMLButtonElement).onclick = () => {
+        Swal.fire({
+            title: "Download Direct?",
+            html: "Download directly from filesystem?<br/>This ignores any unsaved edits made, but will be the latest version and most binary compatible.<br/>Additionally, line endings will be in the filesystem's format.",
+            icon: "question",
+
+            showConfirmButton: true,
+            confirmButtonText: "Download Directly",
+            showDenyButton: true,
+            denyButtonText: "Download From Editor",
+            denyButtonColor: "#3085d6",
+            showCloseButton: true,
+        }).then((result) => {
+            if (result.isDismissed) {
+                return;
+            }
+
+            const download_direct = result.isConfirmed;
+
+            let content: Uint8Array;
+
+            if (download_direct) {
+                content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
+            } else {
+                content = new TextEncoder().encode(content_area.value);
+            }
+
+            // create a blob
+            const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
+            const url = URL.createObjectURL(blob);
+
+            // download the file
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = current_abs_path.split("/").pop() as string;
+            a.click();
+            a.remove();
+        });
+    }
+
+    (base.querySelector("#delete-button") as HTMLButtonElement).onclick = () => {
+        alert("Not implemented yet.");
+    }
+
+    (base.querySelector("#rename-button") as HTMLButtonElement).onclick = () => {
+        alert("Not implemented yet.");
+    }
+};
+
+
+// bind the buttons
+bind_buttons(document);
+
+
+document.getElementById("single-file-button").onclick = () => {
+    // create a modal
     Swal.fire({
-        title: "Success",
-        text: "File saved successfully.",
-        icon: "success",
+        title: "File Actions",
+        html: "<div id='modal-file-buttons'></div>",
+        icon: "info",
 
-        showConfirmButton: true,
-        confirmButtonText: "Close",
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: "Close",
+
+        willOpen: (popup) => {
+            const file_buttons = document.getElementById("file-buttons") as HTMLDivElement;
+            const file_buttons_clone = file_buttons.cloneNode(true) as HTMLDivElement;
+
+            // change the style
+            file_buttons_clone.style.display = "block";
+            file_buttons_clone.style.flexDirection = "column";
+
+            // set the style of each sub button to not be block
+            for (const button of file_buttons_clone.querySelectorAll("button")) {
+                button.style.display = "inline-block";
+            }
+
+            // replace the div.vr with an <hr>
+            const hr = document.createElement("hr");
+            hr.style.margin = "2.5%";
+            file_buttons_clone.replaceChild(hr, file_buttons_clone.querySelector("div.vr") as HTMLDivElement);
+
+            // bind the buttons
+            bind_buttons(file_buttons_clone);
+
+            // copy the content into the div
+            popup.querySelector("#modal-file-buttons")?.appendChild(file_buttons_clone);
+        },
     });
 }
 
-// bind the download button
-document.getElementById("download-button").onclick = () => {
-    Swal.fire({
-        title: "Download Direct?",
-        text: "Download directly from filesystem?\nThis ignores any unsaved edits made, but will be the latest version and most binary compatible.\nAdditionally, line endings will be in the filesystem's format.",
-        icon: "question",
-
-        showConfirmButton: true,
-        confirmButtonText: "Download Directly",
-        showDenyButton: true,
-        denyButtonText: "Download From Editor",
-        denyButtonColor: "#3085d6",
-        showCloseButton: true,
-
-        allowOutsideClick: false,
-    }).then((result) => {
-        if (result.isDismissed) {
-            return;
-        }
-
-        const download_direct = result.isConfirmed;
-
-        let content: Uint8Array;
-
-        if (download_direct) {
-            content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
-        } else {
-            content = new TextEncoder().encode(content_area.value);
-        }
-
-        // create a blob
-        const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
-        const url = URL.createObjectURL(blob);
-
-        // download the file
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = current_abs_path.split("/").pop() as string;
-        a.click();
-        a.remove();
-    });
-}
-
-document.getElementById("delete-button").onclick = () => {
-    alert("Not implemented yet.");
-}
-
-document.getElementById("rename-button").onclick = () => {
-    alert("Not implemented yet.");
-}
-
-// TODO: bind other buttons
 // TODO: add file creation and uploading from main page
 
 
