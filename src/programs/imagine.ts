@@ -35,8 +35,6 @@ const convert_to_image_data = async (url: string) => {
     return { array: data_arr, width: img.width, height: img.height };
 };
 
-const MAX_COLORS = 2048;
-
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
@@ -169,7 +167,7 @@ export default {
 
         try {
             // convert the Uint8Array to a sixel image
-            const sixel = image2sixel(scaled_img_data, width_arg, new_height, MAX_COLORS);
+            const sixel = image2sixel(scaled_img_data, width_arg, new_height);
 
             // write the sixel image to the terminal
             term.write(sixel);
