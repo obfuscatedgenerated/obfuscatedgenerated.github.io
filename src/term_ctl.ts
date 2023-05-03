@@ -79,8 +79,8 @@ export const ANSI = {
 }
 
 
-// TODO: virtual directories and CWD handling
 // TODO: docstrings everywhere
+// TODO: this needs splitting up into multiple files
 
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
@@ -100,6 +100,9 @@ export class WrappedTerminal extends Terminal {
     _fs: FileSystem;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
+    _key_event_queue: KeyEvent[] = [];
+    _is_handling_key_events = false;
+
     _vars: Map<string, string> = new Map();
 
 
@@ -153,12 +156,17 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    insert_preline(newline = true): void {
+    async insert_preline(newline = true) {
         if (newline) {
             this.write(NEWLINE);
         }
 
-        this.write(this._preline);
+        // resolve a promise when writing is complete
+        await new Promise<void>((resolve) => {
+            this.write(this._preline, () => {
+                resolve();
+            });
+        });
     }
 
     // raw access to the preline vs setting just the prompt and having the suffix added
@@ -179,9 +187,9 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    next_line(): void {
+    async next_line() {
         this.reset_current_vars();
-        this.insert_preline();
+        await this.insert_preline();
     }
 
     // TODO: tab completion of commands, files and known flags
@@ -373,7 +381,8 @@ export class WrappedTerminal extends Terminal {
 
         // if there are any handlers, run them
         for (const entry of entries) {
-            entry.handler(e, this);
+            // await if the handler is async
+            await entry.handler(e, this);
 
             if (entry.block) {
                 // if the handler is blocking, don't go to next handler or display logic
@@ -410,6 +419,33 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
+    _enqueue_key_event = (e: KeyEvent) => {
+        this._key_event_queue.push(e);
+
+        // if the queue is not being handled, handle it
+        if (!this._is_handling_key_events) {
+            this._is_handling_key_events = true;
+            this._handle_key_event_queue();
+        }
+    }
+
+    _handle_key_event_queue = async () => {
+        // if there are no events in the queue, return
+        if (this._key_event_queue.length === 0) {
+            this._is_handling_key_events = false;
+            return;
+        }
+
+        if (this._is_handling_key_events) {
+            // handle the first event in the queue
+            await this._handle_key_event(this._key_event_queue.shift()!);
+
+            // handle the rest of the events in the queue
+            this._handle_key_event_queue();
+        }
+    }
+
+
     wait_for_keypress = async (): Promise<KeyEvent> => {
         // dispose of the current key handler (block bubbling)
         this._disposable_onkey.dispose();
@@ -420,7 +456,7 @@ export class WrappedTerminal extends Terminal {
                 this._disposable_onkey.dispose();
 
                 // re-register the original handler
-                this._disposable_onkey = this.onKey(this._handle_key_event);
+                this._disposable_onkey = this.onKey(this._enqueue_key_event);
 
                 // resolve the promise
                 resolve(e);
@@ -472,7 +508,31 @@ export class WrappedTerminal extends Terminal {
         navigator.clipboard.readText().then((text) => {
             // simulate key events for each character (lazy but it works great, no need to rewrite the key handler)
             for (const char of text) {
-                this._handle_key_event({ key: char, domEvent: { code: `Key${char.toUpperCase()}` } } as KeyEvent);
+                let dom_event_code = `Key${char.toUpperCase()}`;
+                let key = char;
+
+                if (char === "\r") {
+                    // skip, its CRLF
+                    continue;
+                }
+
+                if (char === "\n") {
+                    key = "\r";
+                    dom_event_code = "Enter";
+                }
+
+                if (char === " ") {
+                    dom_event_code = "Space";
+                }
+
+                this._key_event_queue.push(({ key, domEvent: { code: dom_event_code } } as KeyEvent));
+                console.log("Pasted:", key, dom_event_code);
+            }
+
+            // if the queue is not being handled, handle it
+            if (!this._is_handling_key_events) {
+                this._is_handling_key_events = true;
+                this._handle_key_event_queue();
             }
         });
     }
@@ -499,7 +559,7 @@ export class WrappedTerminal extends Terminal {
             register_builtin_fs_handlers(this);
         }
 
-        this._disposable_onkey = this.onKey(this._handle_key_event);
+        this._disposable_onkey = this.onKey(this._enqueue_key_event);
 
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);

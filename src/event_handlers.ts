@@ -8,16 +8,26 @@ import { FileSystem, FSEventType } from "./filesystem";
 
 // enter
 export const execute_next_line: KeyEventHandler = async (_e, term) => {
+    // pause handling key events
+    const was_handling_key_events = term._is_handling_key_events;
+    term._is_handling_key_events = false;
+
     if (term._current_line.length === 0) {
         // if the line is empty, just move to the next line
-        term.next_line();
+        await term.next_line();
         return;
     }
 
     term.write(NEWLINE);
     term._history.push(term._current_line);
     await term.execute(term._current_line);
-    term.next_line();
+    await term.next_line();
+
+    // resume handling key events
+    if (was_handling_key_events) {
+        term._is_handling_key_events = true;
+        term._handle_key_event_queue();
+    }
 }
 
 // backspace
