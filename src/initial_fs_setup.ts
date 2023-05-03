@@ -79,17 +79,12 @@ The source code is available on GitHub at https://github.com/obfuscatedgenerated
 
 
 const fetch_file = async (url: string) => {
-    const response = await fetch(url);
-    const blob = await response.blob();
+    // fetch the file and return a uint8array
 
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            resolve(reader.result as string);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
+    const response = await fetch(url);
+    const array_buffer = await response.arrayBuffer();
+    
+    return new Uint8Array(array_buffer);
 };
 
 const projects = {

@@ -242,16 +242,16 @@ document.getElementById("save-button").onclick = () => {
 document.getElementById("download-button").onclick = () => {
     const download_direct = confirm("Download directly from filesystem? This ignores any unsaved edits made, but will be the latest version and most binary compatible. Additionally, line endings will be in the filesystem's format.")
 
-    let content: string;
+    let content: Uint8Array;
 
     if (download_direct) {
-        content = fs.read_file_direct(current_abs_path, false) as string;
+        content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
     } else {
-        content = content_area.value;
+        content = new TextEncoder().encode(content_area.value);
     }
 
     // create a blob
-    const blob = new Blob([content], { type: "text/plain" });
+    const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
     const url = URL.createObjectURL(blob);
 
     // download the file
