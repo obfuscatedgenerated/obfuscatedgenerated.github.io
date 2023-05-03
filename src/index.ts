@@ -13,64 +13,67 @@ import { SoundRegistry } from "./sfx_registry";
 import { LocalStorageFS } from "./fs_impl/localstorage";
 import { initial_fs_setup } from "./initial_fs_setup";
 
-// create a program registry by importing all programs
-const prog_reg = new ProgramRegistry();
-for (const prog of Object.values(programs)) {
-    prog_reg.registerProgram(prog);
-}
-
-// create a sound registry
-const sfx_reg = new SoundRegistry();
-sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
-sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
-
-
-// create a filesystem
-const fs = new LocalStorageFS();
-
-// create initial files
-initial_fs_setup(fs);
-
-// create a terminal using the registry and filesystem
-const term = new WrappedTerminal(fs, prog_reg, sfx_reg, {
-    screenReaderMode: false,
-    cursorBlink: true,
-});
-
-// load addons
-const fit = new FitAddon();
-term.loadAddon(fit);
-
-term.loadAddon(new WebLinksAddon());
-
-term.loadAddon(new ImageAddon());
-
-// open the terminal
-const render = <HTMLElement>document.querySelector("#terminal");
-term.open(render);
-fit.fit();
-
-// focus the terminal
-term.focus();
-
-// if this is a small screen, show a message
-if (window.innerWidth < 600) {
-    const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${ANSI.STYLE.reset_all}`, term.cols);
-    term.writeln(wrapped);
-}
-
-term.insert_preline();
-
-
-// disable F1 help
-window.addEventListener("keydown", function (e) {
-    if (e.code === "F1") {
-        e.preventDefault();
+async function main() {
+    // create a program registry by importing all programs
+    const prog_reg = new ProgramRegistry();
+    for (const prog of Object.values(programs)) {
+        prog_reg.registerProgram(prog);
     }
-});
+
+    // create a sound registry
+    const sfx_reg = new SoundRegistry();
+    sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
+    sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
 
 
-// on resize, resize the terminal
-window.addEventListener("resize", () => {
+    // create a filesystem
+    const fs = new LocalStorageFS();
+
+    // create initial files
+    initial_fs_setup(fs);
+
+    // create a terminal using the registry and filesystem
+    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, {
+        screenReaderMode: false,
+        cursorBlink: true,
+    });
+
+    // load addons
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+
+    term.loadAddon(new WebLinksAddon());
+
+    term.loadAddon(new ImageAddon());
+
+    // open the terminal
+    const render = <HTMLElement>document.querySelector("#terminal");
+    term.open(render);
     fit.fit();
-});
+
+    // focus the terminal
+    term.focus();
+
+    // if this is a small screen, show a message
+    if (window.innerWidth < 600) {
+        const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${ANSI.STYLE.reset_all}`, term.cols);
+        term.writeln(wrapped);
+    }
+
+    term.insert_preline();
+
+    // disable F1 help
+    window.addEventListener("keydown", function (e) {
+        if (e.code === "F1") {
+            e.preventDefault();
+        }
+    });
+
+
+    // on resize, resize the terminal
+    window.addEventListener("resize", () => {
+        fit.fit();
+    });
+}
+
+main();

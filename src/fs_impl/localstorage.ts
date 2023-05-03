@@ -4,7 +4,6 @@ import { FileSystem, FSEventType, NonRecursiveDirectoryError, PathNotFoundError 
 // NOTE: not using implements (TS) so the real methods can be used
 // indexeddb fs is superior
 // TODO: unsolveable prototype pollution without banning filenames. tried using map, but recursive traversal wont work as the instances are distinct (not writing to the original state dict)
-// on the plus side, the base64 encoding seems to prevent this from happening since they arent strings, but the cache will disagree
 export class LocalStorageFS extends FileSystem {
     get_unique_fs_type_name(): string {
         return "localstorage";
@@ -136,10 +135,9 @@ export class LocalStorageFS extends FileSystem {
 
         // check if file exists
         if (current_part) {
-            // decode data from base64 to avoid errors with special characters
-            const b64 = atob(current_part);
-            const uint = new Uint8Array(b64.length);
-            uint.map((_, i) => uint[i] = b64.charCodeAt(i));
+            // get file contents
+            const array = current_part.split(",");
+            const uint = new Uint8Array(array.map((x) => parseInt(x)));
 
             if (as_uint) {
                 return uint;
@@ -188,11 +186,8 @@ export class LocalStorageFS extends FileSystem {
         }
 
         
-        // encode data with base64 to avoid errors with special characters
-        const b64 = btoa(uint.reduce((prev, byte) => prev + String.fromCharCode(byte), ""))
-
-        // write file to directory
-        current_dir[file_name] = b64;
+        // store data as comma separated string (so directories and files can be easily differentiated)
+        current_dir[file_name] = Array.from(uint).join(",");
         localStorage.setItem("fs", JSON.stringify(state));
     }
 

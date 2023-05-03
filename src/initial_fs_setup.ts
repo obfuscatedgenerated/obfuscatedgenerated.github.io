@@ -10,11 +10,11 @@ const setup_motd = (fs: FileSystem) => {
 
     // create motd file if it doesn't exist
     const motd_content = `┌─ Welcome to ${ANSI.STYLE.italic + ANSI.STYLE.bold + ANSI.FG.magenta}OllieOS...${ANSI.STYLE.reset_all} ───────────────────┐
-    │  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}        │
-    │  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}mefetch${ANSI.STYLE.no_italic + ANSI.FG.blue} for info about me.${ANSI.STYLE.reset_all}          │
-    │  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}cd projects${ANSI.STYLE.no_italic + ANSI.FG.blue} to view project info.${ANSI.STYLE.reset_all}   │
-    │  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}bugreport${ANSI.STYLE.no_italic + ANSI.FG.blue} to open the bug reporter.${ANSI.STYLE.reset_all} │
-    └───────────────────────────────────────────┘`.replace(/\n/g, NEWLINE);
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.no_italic + ANSI.FG.blue} for a list of commands.${ANSI.STYLE.reset_all}        │
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}mefetch${ANSI.STYLE.no_italic + ANSI.FG.blue} for info about me.${ANSI.STYLE.reset_all}          │
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}cd projects${ANSI.STYLE.no_italic + ANSI.FG.blue} to view project info.${ANSI.STYLE.reset_all}   │
+│  ${ANSI.STYLE.bold + ANSI.FG.blue}Type ${ANSI.PREFABS.program_name}bugreport${ANSI.STYLE.no_italic + ANSI.FG.blue} to open the bug reporter.${ANSI.STYLE.reset_all} │
+└───────────────────────────────────────────┘`.replace(/\n/g, NEWLINE);
 
     const absolute_motd = fs.absolute("/etc/motd.txt");
     if (!fs.exists(absolute_motd)) {
@@ -78,20 +78,43 @@ The source code is available on GitHub at https://github.com/obfuscatedgenerated
 };
 
 
+const fetch_file = async (url: string) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
+
 const projects = {
     "OllieOS": {
-        "info.txt": `
+        "info.txt": {
+            fetch: false, content: `
 
 OllieOS is the rebuild of my personal website. I chose to create an interactive terminal with a feature rich operating system.
 The terminal is built using xterm.js and the OS is built using TypeScript. The OS is designed to be modular, so that it can be easily extended.
 
 Project URL: https://ollieg.codes
 Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
-`,
-    }
+`},
+    },
+    "mewsic": {
+        "image.png": { fetch: true, content: "https://github.com/obfuscatedgenerated/mewsic/blob/main/public/logo.png?raw=true" },
+        "info.txt": {
+            fetch: false, content: `
+
+A PAW (purring audio workstation)
+        `},
+    },
 };
 
-const setup_projects = (fs: FileSystem) => {
+const setup_projects = async (fs: FileSystem) => {
     // create projects directory if it doesn't exist
     const absolute_projects = fs.absolute("~/projects");
     if (!fs.dir_exists(absolute_projects)) {
@@ -108,7 +131,20 @@ const setup_projects = (fs: FileSystem) => {
         const project = projects[project_name];
         for (const file_name in project) {
             const absolute_file = fs.absolute(`~/projects/${project_name}/${file_name}`);
-            const content = project[file_name].replace(/\n/g, NEWLINE);
+            let content = project[file_name].content;
+
+            // if the content is a fetchable URL, fetch it
+            if (project[file_name].fetch) {
+                try {
+                    content = await fetch_file(content);
+                } catch (e) {
+                    console.error(`Failed to fetch ${file_name} for ${project_name}`);
+                    console.error(e);
+
+                    // skip this file
+                    continue;
+                }
+            }
 
             // only overwrite the file if it doesn't exist or the content is different
             if (!fs.exists(absolute_file) || fs.read_file(absolute_file) !== content) {
