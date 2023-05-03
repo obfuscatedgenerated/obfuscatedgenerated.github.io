@@ -186,7 +186,7 @@ render_directory = (dir: string) => {
     fs.set_cwd(fs.absolute(dir));
 
     // list files in the directory
-    const dir_contents = fs.list_dir(dir);
+    const dir_contents = fs.list_dir(dir, true);
 
     // clear the file tree
     file_tree.innerHTML = "";

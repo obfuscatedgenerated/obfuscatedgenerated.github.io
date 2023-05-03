@@ -93,7 +93,7 @@ export class LocalStorageFS extends FileSystem {
         }
     }
 
-    list_dir(path: string): string[] {
+    list_dir(path: string, dirs_first = false): string[] {
         this._call_callbacks(FSEventType.LISTING_DIR, path);
 
         const state = JSON.parse(localStorage.getItem("fs"));
@@ -112,7 +112,19 @@ export class LocalStorageFS extends FileSystem {
         }
 
         // return list of files in directory
-        return Object.keys(current_dir);
+        const keys = Object.keys(current_dir);
+
+        if (dirs_first) {
+            for (const key of keys) {
+                // promote directories to the front of the list
+                if (current_dir[key] instanceof Object) {
+                    keys.splice(keys.indexOf(key), 1);
+                    keys.unshift(key);
+                }
+            }
+        }
+
+        return keys;
     }
 
 

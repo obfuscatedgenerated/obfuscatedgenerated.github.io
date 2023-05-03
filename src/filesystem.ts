@@ -209,7 +209,7 @@ export abstract class FileSystem {
     }
 
 
-    abstract list_dir(path: string): string[];
+    abstract list_dir(path: string, dirs_first?: boolean): string[];
     abstract make_dir(path: string): void;
     abstract delete_dir_direct(path: string, recursive: boolean): void;
     abstract move_dir(path: string, new_path: string): void;
