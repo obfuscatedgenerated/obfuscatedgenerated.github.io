@@ -130,6 +130,12 @@ export default {
         // get info from GitHub
         const info = await get_github_info(username);
 
+        // if info is null, then the user doesn't exist
+        if (info === null) {
+            term.write(`${STYLE.bold}${FG.red}User not found.${STYLE.reset_all}\n`);
+            return;
+        }
+
         // use local logo for efficiency if username is mine
         const avatar_url = MY_USERNAME === username ? "public/logo.png" : username_to_avatar_url(username);
 
