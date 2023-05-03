@@ -23,7 +23,7 @@ export default {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in columns. Defaults to the width of the terminal.",
+            "-w": "The width of the image in COLUMNS. Defaults to the width of the terminal.",
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },

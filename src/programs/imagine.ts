@@ -45,7 +45,7 @@ export default {
             "path": "The path to the image to view."
         },
         "Options:": {
-            "-w": "The width of the image in columns. Defaults to the width of the image."
+            "-w": "The width of the image in PIXELS. Defaults to the width of the image."
         }
     },
     async_main: async (data) => {
