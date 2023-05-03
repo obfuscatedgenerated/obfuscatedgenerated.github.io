@@ -526,7 +526,6 @@ export class WrappedTerminal extends Terminal {
                 }
 
                 this._key_event_queue.push(({ key, domEvent: { code: dom_event_code } } as KeyEvent));
-                console.log("Pasted:", key, dom_event_code);
             }
 
             // if the queue is not being handled, handle it
