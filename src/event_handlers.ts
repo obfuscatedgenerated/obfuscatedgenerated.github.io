@@ -6,6 +6,8 @@ import { FileSystem, FSEventType } from "./filesystem";
 
 //const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
 
+// TODO: replace private access with functions
+
 // enter
 export const execute_next_line: KeyEventHandler = async (_e, term) => {
     // pause handling key events
