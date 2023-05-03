@@ -459,7 +459,7 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    constructor(fs: FileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+    constructor(fs: FileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: () => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
         this._fs = fs;
@@ -480,6 +480,8 @@ export class WrappedTerminal extends Terminal {
         if (localStorage.getItem("reader") === "true") {
             this.execute("reader -s on");
         }
+
+        term_loaded_callback?.();
 
         // run .ollie_profile if it exists
         const absolute_profile = fs.absolute("~/.ollie_profile");

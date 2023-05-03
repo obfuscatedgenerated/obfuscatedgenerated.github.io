@@ -33,7 +33,15 @@ async function main() {
     initial_fs_setup(fs);
 
     // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, {
+    const term_loaded_callback = () => {
+        // delete the #loading_hint element
+        const loading_hint = document.getElementById("loading_hint");
+        if (loading_hint) {
+            loading_hint.remove();
+        }
+    };
+
+    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, term_loaded_callback, {
         screenReaderMode: false,
         cursorBlink: true,
     });
