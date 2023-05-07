@@ -97,19 +97,33 @@ async function main() {
 
     // if this is the user's first time, show a popup asking if they want to run the tour
     if (localStorage.getItem("visited") === null) {
-        Swal.fire({
+        const tour = await Swal.fire({
             title: "Welcome to OllieOS!",
-            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by typing <code>tour</code> into the terminal.</p>",
+            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by using the <code>tour</code> command.</p>",
             icon: "question",
             showCancelButton: true,
             confirmButtonText: "Yes",
             cancelButtonText: "No",
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                await term.execute("tour");
-                term.insert_preline();
-            }
         });
+
+        const reader = await Swal.fire({
+            title: "Screen Reader",
+            html: "<p>Would you like to enable the screen reader?</p><p>Due to a technical limitation, on-screen links will not be clickable in screen reader mode.</p><p>You can toggle the screen reader at any time with the <code>reader</code> command.</p>",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes",
+            cancelButtonText: "No",
+        });
+
+        if (reader.isConfirmed) {
+            await term.execute("reader");
+            term.insert_preline();
+        }
+
+        if (tour.isConfirmed) {
+            await term.execute("tour");
+            term.insert_preline();
+        }
 
         localStorage.setItem("visited", "");
     } else {
