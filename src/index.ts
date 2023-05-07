@@ -115,22 +115,22 @@ async function main() {
             cancelButtonText: "No",
         });
 
+        term.focus();
+
         if (reader.isConfirmed) {
             await term.execute("reader");
-            term.insert_preline();
         }
 
         if (tour.isConfirmed) {
             await term.execute("tour");
-            term.insert_preline();
         }
 
         localStorage.setItem("visited", "");
     } else {
-        term.insert_preline();
+        term.focus();
     }
-
-    term.focus();
+    
+    term.insert_preline();
 }
 
 main();
