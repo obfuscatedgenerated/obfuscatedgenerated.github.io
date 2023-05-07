@@ -13,6 +13,9 @@ export default {
         // extract from ANSI to make code less verbose
         const { FG, BG, STYLE } = ANSI;
 
+        // get fs
+        const fs = term.get_fs();
+
         // make sure the user really wants to do this
         term.writeln(`${BG.red + FG.white + STYLE.bold}WARNING: This will permanently erase the filesystem and other data, and restart the terminal.`);
         term.writeln("This data cannot be recovered. Are you sure you want to do this?");
@@ -34,6 +37,7 @@ export default {
         term.reset();
 
         term.writeln("Erasing filesystem and other data...");
+        fs.erase_all();
         localStorage.clear();
 
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);

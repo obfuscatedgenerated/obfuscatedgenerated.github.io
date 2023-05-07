@@ -14,6 +14,10 @@ export class IndexedDBFS extends FileSystem {
         return "indexeddb";
     }
 
+    erase_all(): void {
+        return;
+    }
+
     make_dir(path: string): void {
         const transaction = this._idb.transaction(["files"], "readwrite");
 

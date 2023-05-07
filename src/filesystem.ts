@@ -53,6 +53,7 @@ export abstract class FileSystem {
     _cwd = this._home;
 
     abstract get_unique_fs_type_name(): string;
+    abstract erase_all(): void;
 
     purge_cache(smart = false): void {
         if (smart) {

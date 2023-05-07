@@ -1,3 +1,4 @@
+import { ANSI } from "../term_ctl";
 import type { SyncProgram } from "../types";
 
 export default {
@@ -14,6 +15,9 @@ export default {
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
+
+        // extract from ANSI to make code less verbose
+        const { PREFABS, STYLE } = ANSI;
 
         // get sound registry
         const sfx_reg = term.get_sound_registry();
@@ -52,7 +56,7 @@ export default {
         sfx_reg.wait_to_play(sound_name);
 
         // print message
-        term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage.`);
+        term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
 
         // remove hint element if screen reader mode is on
         if (term.options.screenReaderMode) {

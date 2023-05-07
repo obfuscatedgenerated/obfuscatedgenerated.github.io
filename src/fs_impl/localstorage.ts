@@ -9,6 +9,11 @@ export class LocalStorageFS extends FileSystem {
         return "localstorage";
     }
 
+    erase_all(): void {
+        localStorage.removeItem("fs");
+        localStorage.removeItem("fs_readonly_paths");
+    }
+
     make_dir(path: string): void {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
