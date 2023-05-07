@@ -504,6 +504,7 @@ export class WrappedTerminal extends Terminal {
     }
 
     paste() {
+        // TODO: sometimes has issues with large text (queue consumption not restarted properly after execution)
         // read the clipboard
         navigator.clipboard.readText().then((text) => {
             // simulate key events for each character (lazy but it works great, no need to rewrite the key handler)
