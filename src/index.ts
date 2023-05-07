@@ -73,8 +73,6 @@ async function main() {
         term.writeln(wrapped);
     }
 
-    term.insert_preline();
-
 
     // disable F1 help
     window.addEventListener("keydown", function (e) {
@@ -114,6 +112,8 @@ async function main() {
         });
 
         localStorage.setItem("visited", "");
+    } else {
+        term.insert_preline();
     }
 
     term.focus();
