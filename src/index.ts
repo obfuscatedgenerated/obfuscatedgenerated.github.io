@@ -13,12 +13,16 @@ import { SoundRegistry } from "./sfx_registry";
 import { LocalStorageFS } from "./fs_impl/localstorage";
 import { initial_fs_setup } from "./initial_fs_setup";
 
+import Swal from "sweetalert2";
+
+
 async function main() {
     // create a program registry by importing all programs
     const prog_reg = new ProgramRegistry();
     for (const prog of Object.values(programs)) {
         prog_reg.registerProgram(prog);
     }
+
 
     // create a sound registry
     const sfx_reg = new SoundRegistry();
@@ -31,6 +35,7 @@ async function main() {
 
     // create initial files
     initial_fs_setup(fs);
+
 
     // create a terminal using the registry and filesystem
     const term_loaded_callback = () => {
@@ -46,6 +51,7 @@ async function main() {
         cursorBlink: true,
     });
 
+
     // load addons
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -54,13 +60,12 @@ async function main() {
 
     term.loadAddon(new ImageAddon());
 
+
     // open the terminal
     const render = <HTMLElement>document.querySelector("#terminal");
     term.open(render);
     fit.fit();
 
-    // focus the terminal
-    term.focus();
 
     // if this is a small screen, show a message
     if (window.innerWidth < 600) {
@@ -69,6 +74,7 @@ async function main() {
     }
 
     term.insert_preline();
+
 
     // disable F1 help
     window.addEventListener("keydown", function (e) {
@@ -83,12 +89,34 @@ async function main() {
         fit.fit();
     });
 
-    
+
     // bind right click to copy/paste
     window.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         term.copy_or_paste();
     });
+
+
+    // if this is the user's first time, show a popup asking if they want to run the tour
+    if (localStorage.getItem("visited") === null) {
+        Swal.fire({
+            title: "Welcome to OllieOS!",
+            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by typing <code>tour</code> into the terminal.</p>",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes",
+            cancelButtonText: "No",
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                await term.execute("tour");
+                term.insert_preline();
+            }
+        });
+
+        localStorage.setItem("visited", "");
+    }
+
+    term.focus();
 }
 
 main();

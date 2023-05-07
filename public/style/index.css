@@ -30,3 +30,16 @@ body {
     font-size: 20px;
     font-family: "Open Sans", Open Sans, Arial, sans-serif;
 }
+
+.swal2-popup {
+    font-family: "Open Sans", Open Sans, Arial, sans-serif !important;
+}
+
+.swal2-title {
+    font-family: "Ubuntu", Ubuntu, Arial, sans-serif;
+}
+
+.swal2-popup code {
+    font-family: monospace;
+    font-weight: bold;
+}
