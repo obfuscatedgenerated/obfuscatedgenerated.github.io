@@ -48,6 +48,8 @@ const setup = (term: WrappedTerminal, content: string, path: string, readonly: b
 
 
 // TODO: expose ANSI cursor control codes as functions in term_ctl
+// TODO: consider instead using a hidden textarea to store the character buffer, or using a queue and reimplementing the terminal's keypress handler
+// TODO: provide method in terminal to set up the above ^^^
 
 export default {
     name: "edit",

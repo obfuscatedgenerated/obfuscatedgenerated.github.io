@@ -201,7 +201,8 @@ export class WrappedTerminal extends Terminal {
         // TODO: double ampersand to run multiple commands only if previous succeeded
         // TODO: double pipe to run multiple commands only if previous failed
         // TODO: single pipe to pipe output of previous command to next command
-        // TODO: screen multiplexing
+        // TODO: screen multiplexing (background programs using promises, or perhaps something cool with passing data between tabs)
+        // TODO: allow certain control characters to be escaped e.g. $
 
         if (line.length === 0) {
             // if the line is empty, just move to the next line (additional check if called from external source)
