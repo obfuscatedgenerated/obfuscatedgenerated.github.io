@@ -163,11 +163,12 @@ const setup_projects = async (fs: FileSystem) => {
                     // skip this file
                     continue;
                 }
+            } else {
+                content = content.replace(/\n/g, NEWLINE);
             }
 
             // only overwrite the file if it doesn't exist or the content is different
             if (!fs.exists(absolute_file) || fs.read_file(absolute_file) !== content) {
-                // replace newlines with NEWLINE for ease of writing
                 fs.write_file(absolute_file, content, true);
                 fs.set_readonly(absolute_file, true);
             }
