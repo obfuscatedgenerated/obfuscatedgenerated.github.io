@@ -84,6 +84,41 @@ const rss = async (term: WrappedTerminal) => {
     await wait_block(term);
 };
 
+const fs = async (term: WrappedTerminal) => {
+    // extract from ANSI to make code less verbose
+    const { STYLE, PREFABS, FG } = ANSI;
+
+    term.reset();
+
+    term.writeln(`${STYLE.bold + FG.magenta}Filesystem`);
+    term.writeln(`==========${STYLE.reset_all}`);
+    term.write(NEWLINE);
+
+    term.writeln("OllieOS has a filesystem, which is used to store files and folders.");
+    term.writeln("The filesystem is persistent, so files and folders will not be deleted when the OS is restarted.");
+    term.write(NEWLINE);
+
+    term.writeln(`Let's use the ${PREFABS.program_name}ls${STYLE.reset_all} command to view the contents of the home directory.`);
+    term.write(NEWLINE);
+
+    await run_cmd(term, "ls");
+
+    term.writeln(`Looks like there's a file there called ${PREFABS.file_path}credits.txt${STYLE.reset_all}. Let's use the ${PREFABS.program_name}cat${STYLE.reset_all} command to view its contents.`);
+    term.write(NEWLINE);
+
+    await wait_block(term);
+    await run_cmd(term, "cat credits.txt");
+
+    term.writeln(`The ${PREFABS.program_name}cat${STYLE.reset_all} command is used to view the contents of one or more files.`);
+    term.writeln("If multiple files are specified, their contents will be concatenated together.");
+    term.write(NEWLINE);
+    
+    term.writeln(`There are many other commands that can be used to interact with the filesystem, such as ${PREFABS.program_name}cd${STYLE.reset_all}, ${PREFABS.program_name}fsedit${STYLE.reset_all}, ${PREFABS.program_name}rm${STYLE.reset_all}, and more.`);
+    term.writeln(NEWLINE);
+
+    await wait_block(term);
+};
+
 const help = async (term: WrappedTerminal) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
@@ -106,6 +141,7 @@ const help = async (term: WrappedTerminal) => {
     term.writeln(`For example, let's view the help text for the ${PREFABS.program_name}rss${STYLE.reset_all} command:`);
     term.write(NEWLINE);
 
+    await wait_block(term);
     await run_cmd(term, "help rss");
 
     await wait_block(term);
@@ -114,7 +150,7 @@ const help = async (term: WrappedTerminal) => {
 
 const end = async (term: WrappedTerminal) => {
     // extract from ANSI to make code less verbose
-    const { STYLE, FG } = ANSI;
+    const { STYLE, FG, PREFABS } = ANSI;
 
     term.reset();
 
@@ -122,7 +158,19 @@ const end = async (term: WrappedTerminal) => {
     term.writeln(`=========================${STYLE.reset_all}`);
     term.write(NEWLINE);
 
-    term.writeln("That's all for now! Thanks for using OllieOS.");
+    term.writeln("That's all for now!");
+    term.writeln("There is a lot more to explore, so feel free to play around with the OS and try out different commands.");
+    term.write(NEWLINE);
+
+    term.writeln("Things to try:");
+    term.writeln(` - Use ${PREFABS.program_name}mefetch${STYLE.reset_all}, passing your GitHub username as a parameter.`);
+    term.writeln(` - Use ${PREFABS.program_name}cd${STYLE.reset_all} to enter the ${PREFABS.dir_name}projects${STYLE.reset_all} directory, and then use ${PREFABS.program_name}ls${STYLE.reset_all} to view its contents.`);
+    term.writeln(` - Use ${PREFABS.program_name}imagine${STYLE.reset_all} and ${PREFABS.program_name}ascmagine${STYLE.reset_all} to view an image.`);
+    term.writeln(` - Use ${PREFABS.program_name}fsedit${STYLE.reset_all} to explore the filesystem.`);
+    term.writeln(` - Use ${PREFABS.program_name}webget${STYLE.reset_all} to download a file from the Internet into the OS.`);
+    term.write(NEWLINE);
+
+    term.writeln("Thanks for using OllieOS.");
     term.writeln("The OS will now restart.");
     term.write(NEWLINE);
 
@@ -145,6 +193,7 @@ export default {
 
         await mefetch(term);
         await rss(term);
+        await fs(term);
         await help(term);
 
         await end(term);
