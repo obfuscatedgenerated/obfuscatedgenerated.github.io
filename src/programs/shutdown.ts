@@ -4,7 +4,7 @@ import type { AsyncProgram } from "../types";
 export default {
     name: "shutdown",
     description: "Stops the OS.",
-    usage_suffix: "[-h] [-r] [-t <time>]",
+    usage_suffix: "[-h] [-r] [-t <time in ms>]",
     arg_descriptions: {
         "Flags:": {
             "-h": "Show this help message.",
