@@ -38,7 +38,7 @@ const convert_to_image_data = async (url: string) => {
 export default {
     name: "imagine",
     description: "Views images natively in the terminal.",
-    usage_suffix: "path [-w <width>] [-u]",
+    usage_suffix: "path [-w width] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."

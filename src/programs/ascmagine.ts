@@ -17,7 +17,7 @@ const convert_to_ascii = async (url: string, size: number): Promise<string> => {
 export default {
     name: "ascmagine",
     description: "Views images as ANSI/ASCII art.",
-    usage_suffix: "path [-w <width>] [-u]",
+    usage_suffix: "path [-w width] [-u]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the image to view."
