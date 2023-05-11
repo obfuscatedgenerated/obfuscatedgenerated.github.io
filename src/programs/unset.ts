@@ -2,27 +2,21 @@ import type { SyncProgram } from "../types";
 
 export default {
     name: "unset",
-    description: "Unset a variable.",
-    usage_suffix: "<variable>",
+    description: "Unsets a list of variables.",
+    usage_suffix: "[names...]",
     arg_descriptions: {
         "Arguments:": {
-            "variable": "The name of the bariable to unset."
+            "names": "The names of each variable to unset."
         }
     },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
-        // if there are no arguments, silently return
-        if (args.length === 0) {
-            return 0;
+        // for each variable name, unset it, with no regards to whether it exists or not
+        for (const name of args) {
+            term.unset_variable(name);
         }
-
-        // get the variable name
-        const variable = args[0];
-
-        // delete the variable
-        term.unset_variable(variable);
         
         return 0;
     }
