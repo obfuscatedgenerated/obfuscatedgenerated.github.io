@@ -299,7 +299,7 @@ export class WrappedTerminal extends Terminal {
         } else if ("async_main" in program) {
             // TODO: use callbacks
             try {
-                await (<AsyncProgram>program).async_main(data);
+                exit_code = await (<AsyncProgram>program).async_main(data);
             } catch (e) {
                 exit_code = -1;
                 this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
