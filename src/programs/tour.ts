@@ -163,7 +163,7 @@ const end = async (term: WrappedTerminal) => {
     term.write(NEWLINE);
 
     term.writeln("Things to try:");
-    term.writeln(` - Use ${PREFABS.program_name}mefetch${STYLE.reset_all}, passing your GitHub username as a parameter.`);
+    term.writeln(` - Use ${PREFABS.program_name}mefetch${STYLE.reset_all}, passing your GitHub username as an argument.`);
     term.writeln(` - Use ${PREFABS.program_name}cd${STYLE.reset_all} to enter the ${PREFABS.dir_name}projects${STYLE.reset_all} directory, and then use ${PREFABS.program_name}ls${STYLE.reset_all} to view its contents.`);
     term.writeln(` - Use ${PREFABS.program_name}imagine${STYLE.reset_all} and ${PREFABS.program_name}ascmagine${STYLE.reset_all} to view an image.`);
     term.writeln(` - Use ${PREFABS.program_name}fsedit${STYLE.reset_all} to explore the filesystem.`);
