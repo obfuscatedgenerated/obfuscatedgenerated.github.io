@@ -32,16 +32,18 @@ export default {
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
+        const registry = term.get_program_registry();
+
         // if no arguments are given, list all programs in 2 columns, depending on the terminal's columns
         if (args.length === 0 || args[0] === "-s") {
             const single_column = (args[0] === "-s");
 
             // get all program names
-            const programs = data.registry.listPrograms();
+            const programs = registry.listPrograms();
 
             // add usage suffix and styling to each program name
             const programs_fmt = programs.map((program) => {
-                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${data.registry.getProgram(program).usage_suffix}`;
+                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${registry.getProgram(program).usage_suffix}`;
             });
 
             // sort the programs alphabetically (usually already sorted alphabetically by Object.keys, but not guaranteed)
@@ -111,7 +113,7 @@ export default {
         }
 
         // if arguments are given, get help for the first argument
-        const program = data.registry.getProgram(args[0]);
+        const program = registry.getProgram(args[0]);
 
         if (program === undefined) {
             term.writeln(`${PREFABS.error}Could not resolve help for ${args[0]}.${STYLE.reset_all}`);

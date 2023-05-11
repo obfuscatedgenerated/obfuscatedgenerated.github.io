@@ -284,7 +284,6 @@ export class WrappedTerminal extends Terminal {
             term: this,
             args,
             unsubbed_args,
-            registry: this._prog_registry,
         }
 
         let exit_code = 0;
