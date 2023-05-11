@@ -5,7 +5,7 @@ import { NonRecursiveDirectoryError, PathNotFoundError } from "../filesystem";
 export default {
     name: "rm",
     description: "Deletes a file or directory.",
-    usage_suffix: "[-rf | -f] <path>",
+    usage_suffix: "[-rf | -f] path",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the file or directory to delete."

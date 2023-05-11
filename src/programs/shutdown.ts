@@ -4,12 +4,12 @@ import type { AsyncProgram } from "../types";
 export default {
     name: "shutdown",
     description: "Stops the OS.",
-    usage_suffix: "[-h] [-r] [-t <time in ms>]",
+    usage_suffix: "[-h] [-r] [-t ms]",
     arg_descriptions: {
         "Flags:": {
             "-h": "Show this help message.",
             "-r": "Reboot the terminal.",
-            "-t": "Set the time before shutdown in milliseconds. Default is 1000ms."
+            "-t": "Set the time before shutdown in milliseconds. Default is 1000."
         }
     },
     async_main: async (data) => {

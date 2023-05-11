@@ -54,7 +54,7 @@ const setup = (term: WrappedTerminal, content: string, path: string, readonly: b
 export default {
     name: "edit",
     description: "Edits the specified file.",
-    usage_suffix: "<path>",
+    usage_suffix: "path",
     arg_descriptions: {},
     async_main: async (data) => {
         // extract from data to make code less verbose

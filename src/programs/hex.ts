@@ -6,7 +6,7 @@ import { ANSI } from "../term_ctl";
 export default {
     name: "hex",
     description: "Reads a file as hexadecimal.",
-    usage_suffix: "[-h] <path> [-i]",
+    usage_suffix: "[-h] path [-i]",
     arg_descriptions: {
         "Arguments:": {
             "path": "The path to the file to read."

@@ -4,7 +4,7 @@ import { ANSI, NEWLINE } from "../term_ctl";
 export default {
     name: "webget",
     description: "Downloads a file from the World Wide Web.",
-    usage_suffix: "<url> <filepath> [-o] [-n] [-X <method>] [-H <header>] [-B <body>]",
+    usage_suffix: "url filepath [-o] [-n] [-X method] [-H header] [-B body]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to download from.",

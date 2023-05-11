@@ -81,7 +81,7 @@ const get_field = (doc: Document | Element, doc_type: DocType, field: string, as
 export default {
     name: "rss",
     description: "Reads from an RSS feed.",
-    usage_suffix: "[-h] [url] [-m <items>]",
+    usage_suffix: "[-h] [url] [-m items]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to the XML feed (plaintext feed recommended, unless the HTML is basic). Defaults to https://blog.ollieg.codes/rss/feed.xml"

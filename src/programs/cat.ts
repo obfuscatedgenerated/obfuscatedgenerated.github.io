@@ -4,7 +4,7 @@ import { ANSI } from "../term_ctl";
 export default {
     name: "cat",
     description: "Reads files and prints their contents to the terminal.",
-    usage_suffix: "[...filepaths]",
+    usage_suffix: "[filepaths...]",
     arg_descriptions: {
         "Arguments:": {
             "filepaths": "The paths of the files to read."

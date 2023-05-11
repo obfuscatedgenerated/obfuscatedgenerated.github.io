@@ -3,7 +3,7 @@ import type { SyncProgram } from "../types";
 export default {
     name: "echo",
     description: "Echos a string to the terminal.",
-    usage_suffix: "<string>",
+    usage_suffix: "string",
     arg_descriptions: {
         "Arguments:": {
             "string": "The string to echo."
