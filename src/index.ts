@@ -143,6 +143,8 @@ async function main() {
 
     term.loadAddon(new ImageAddon());
 
+    term.set_variable("VERSION", document.body.dataset.version);
+
 
     // open the terminal
     const render = <HTMLElement>document.querySelector("#terminal");
