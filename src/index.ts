@@ -16,6 +16,63 @@ import { initial_fs_setup } from "./initial_fs_setup";
 import Swal from "sweetalert2";
 
 
+const boot_screen = document.getElementById("boot_screen");
+
+
+async function check_first_time(term: WrappedTerminal) {
+    // if this is the user's first time, show a popup asking if they want to run the tour
+    if (localStorage.getItem("visited") === null) {
+        const tour = await Swal.fire({
+            title: "Welcome to OllieOS!",
+            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by using the <code>tour</code> command.</p>",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes",
+            cancelButtonText: "No",
+        });
+
+        const reader = await Swal.fire({
+            title: "Screen Reader",
+            html: "<p>Would you like to enable the screen reader?</p><p>Due to a technical limitation, on-screen links will not be clickable in screen reader mode.</p><p>You can toggle the screen reader at any time with the <code>reader</code> command.</p>",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes",
+            cancelButtonText: "No",
+        });
+
+        term.focus();
+
+        if (reader.isConfirmed) {
+            await term.execute("reader");
+        }
+
+        if (tour.isConfirmed) {
+            await term.execute("tour");
+        }
+
+        localStorage.setItem("visited", "");
+    } else {
+        term.focus();
+    }
+
+    term.insert_preline();
+}
+
+function loaded(term: WrappedTerminal) {
+    // fade out the boot screen
+    boot_screen.style.opacity = "0";
+
+    // after faded, keep it like that for 500 ms before shrinking it to 0% height
+    // then, run the tour if it's the user's first time
+    setTimeout(() => {
+        boot_screen.style.height = "0";
+        setTimeout(() => {
+            boot_screen.style.display = "none";
+            check_first_time(term);
+        }, 500);
+    }, 1000);
+}
+
 async function main() {
     // create a program registry by importing all programs
     const prog_reg = new ProgramRegistry();
@@ -38,15 +95,7 @@ async function main() {
 
 
     // create a terminal using the registry and filesystem
-    const term_loaded_callback = () => {
-        // delete the #loading_hint element
-        const loading_hint = document.getElementById("loading_hint");
-        if (loading_hint) {
-            loading_hint.remove();
-        }
-    };
-
-    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, term_loaded_callback, {
+    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, loaded, {
         screenReaderMode: false,
         cursorBlink: true,
     });
@@ -93,46 +142,9 @@ async function main() {
         e.preventDefault();
         term.copy_or_paste();
     });
-
-
-    // if this is the user's first time, show a popup asking if they want to run the tour
-    if (localStorage.getItem("visited") === null) {
-        const tour = await Swal.fire({
-            title: "Welcome to OllieOS!",
-            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by using the <code>tour</code> command.</p>",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-            cancelButtonText: "No",
-        });
-
-        const reader = await Swal.fire({
-            title: "Screen Reader",
-            html: "<p>Would you like to enable the screen reader?</p><p>Due to a technical limitation, on-screen links will not be clickable in screen reader mode.</p><p>You can toggle the screen reader at any time with the <code>reader</code> command.</p>",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-            cancelButtonText: "No",
-        });
-
-        term.focus();
-
-        if (reader.isConfirmed) {
-            await term.execute("reader");
-        }
-
-        if (tour.isConfirmed) {
-            await term.execute("tour");
-        }
-
-        localStorage.setItem("visited", "");
-    } else {
-        term.focus();
-    }
-    
-    term.insert_preline();
 }
 
-main();
+// add artificial delay to allow the boot screen to show for a second
+setTimeout(main, 1000);
 
 // TODO: better mobile experience

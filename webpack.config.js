@@ -15,7 +15,7 @@ function hb_build() {
     console.log("Compiling index");
     let index_template = fs.readFileSync("./src/index.handlebars", "utf8");
     let compiled = hb.compile(index_template);
-    let html = compiled({ title: "OllieOS", desc: "Ollie's Portfolio" });
+    let html = compiled({ title: "OllieOS", desc: "Ollie's Portfolio", version: require("./package.json").version });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
 
