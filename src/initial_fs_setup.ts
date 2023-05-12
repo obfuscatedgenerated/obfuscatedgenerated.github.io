@@ -102,6 +102,8 @@ const fetch_file = async (url: string, skip_cache: boolean) => {
     return new Uint8Array(array_buffer);
 };
 
+
+// this is messy since the multi-line string has specific formatting, could extract the strings or do some sort of strip
 const projects = {
     "OllieOS": {
         "info.txt": {
@@ -120,6 +122,77 @@ Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
             fetch: false, content: `
 
 A PAW (purring audio workstation)
+
+Project URL: https://mewsic.ollieg.codes
+Repo URL: https://github.com/obfuscatedgenerated/mewsic
+        `},
+    },
+    "ClickbaitDetector": {
+        "info.txt": {
+            fetch: false, content: `
+
+An AI written in Python with Tensorflow that detects clickbait.
+
+Repo URL: https://github.com/obfuscatedgenerated/ClickbaitDetector
+        `},
+    },
+    "ytWordCloud": {
+        "info.txt": {
+            fetch: false, content: `
+
+A Python program that generates a word cloud from the titles of a YouTube channel's videos.
+
+Repo URL: https://github.com/obfuscatedgenerated/ytWordCloud
+        `},
+        "example.png": {
+            fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/ytWordCloud/main/example.png"
+        },
+    },
+    "workitmakeit": {
+        "info.txt": {
+            fetch: false, content: `
+
+A collection of Cloudflare Workers for common tasks.
+
+Org URL: https://github.com/workitmakeit
+        `},
+        "email-validator.txt": {
+            fetch: false, content: `
+
+A Cloudflare Worker that sits as middleware before a form submission to validate the email address, with Mailgun as the email service.
+
+Repo URL: https://github.com/workitmakeit/email-validator
+        `},
+        "rss-update.txt": {
+            fetch: false, content: `
+
+A Cloudflare Worker (demo) to show posting blog updates to Mastodon.
+
+Repo URL: https://github.com/workitmakeit/rss-update
+        `},
+    },
+    "Virtuoso": {
+        "info.txt": {
+            fetch: false, content: `
+
+A virtual machine host for Discord powered by VMware.
+
+The bot manages a VMware instance to allow users to boot, view, and list virtual machines.
+With the Conductor component installed in the VM, users can control the VM from Discord.
+
+(URLs not public yet)
+        `},
+    },
+    "vscode-aura": {
+        "info.txt": {
+            fetch: false, content: `
+
+A VSCode extension to blink the lights of ASUS Aura Sync compatible devices depending on the problems in the project.
+
+Extension URL: https://marketplace.visualstudio.com/items?itemName=obfuscatedgenerated.vscode-aura
+Repo URL: https://github.com/obfuscatedgenerated/vscode-aura
+
+You may also be interested in https://github.com/obfuscatedgenerated/asus-aura-control
         `},
     },
 };
