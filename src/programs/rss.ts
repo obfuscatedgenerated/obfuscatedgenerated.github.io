@@ -81,14 +81,15 @@ const get_field = (doc: Document | Element, doc_type: DocType, field: string, as
 export default {
     name: "rss",
     description: "Reads from an RSS feed.",
-    usage_suffix: "[-h] [url] [-m items]",
+    usage_suffix: "[-h] [url] [-m items] [-x]",
     arg_descriptions: {
         "Arguments:": {
             "url": "The URL to the XML feed (plaintext feed recommended, unless the HTML is basic). Defaults to https://blog.ollieg.codes/rss/feed.xml"
         },
         "Flags:": {
             "-h": "Print this help message.",
-            "-m": "The maximum number of items to display. Defaults to no limit."
+            "-m": "The maximum number of items to display. Defaults to no limit.",
+            "-x": "Only display titles, links and publishing dates, not descriptions."
         }
     },
     async_main: async (data) => {
@@ -123,6 +124,8 @@ export default {
             // remove the flag and value from the args
             args.splice(index, 2);
         }
+
+        const no_content = args.includes("-x");
 
 
         // check if the user provided a URL
@@ -233,113 +236,120 @@ export default {
             // link
             const link = get_field(item, DocType.ITEM, "link") ?? "";
 
-            // description
-            let description = get_field(item, DocType.ITEM, "description") ?? "";
 
-            // if the description is html, attempt to convert it to plaintext
-            if (HTML_TAG_REGEX.test(description)) {
-                term.writeln(`${FG.gray}(interpreting description as HTML)${STYLE.reset_all}`)
-                term.write(NEWLINE);
+            let description = "";
+            if (!no_content) {
+                description = get_field(item, DocType.ITEM, "description") ?? "";
 
-                // reparse as html
-                description =  get_field(item, DocType.ITEM, "description", true) ?? "";
+                // if the description is html, attempt to convert it to plaintext
+                if (HTML_TAG_REGEX.test(description)) {
+                    term.writeln(`${FG.gray}(interpreting description as HTML)${STYLE.reset_all}`)
+                    term.write(NEWLINE);
 
-                // remove CDATA tags if present
-                description = description.replace(/<!\[CDATA\[|\]\]>/g, "");
+                    // reparse as html
+                    description = get_field(item, DocType.ITEM, "description", true) ?? "";
 
-                // parse the description using custom highlighters
-                description = convert_html_to_text(description,
-                    {
-                        formatters: {
-                            "ansi_formatter": (elem, walk, builder, options) => {
-                                builder.openBlock();
-                                builder.addInline(options.opener);
-                                walk(elem.children, builder);
-                                builder.addInline(STYLE.reset_all);
-                                builder.closeBlock();
-                            },
-                            "img_highlight": (elem, walk, builder, options) => {
-                                const img_fmt = builder.options.formatters["image"];
-                                if (img_fmt) {
-                                    builder.addInline(STYLE.bold + FG.magenta);
-                                    img_fmt(elem, walk, builder, options);
+                    // remove CDATA tags if present
+                    description = description.replace(/<!\[CDATA\[|\]\]>/g, "");
+
+                    // parse the description using custom highlighters
+                    description = convert_html_to_text(description,
+                        {
+                            formatters: {
+                                "ansi_formatter": (elem, walk, builder, options) => {
+                                    builder.openBlock();
+                                    builder.addInline(options.opener);
+                                    walk(elem.children, builder);
                                     builder.addInline(STYLE.reset_all);
+                                    builder.closeBlock();
+                                },
+                                "img_highlight": (elem, walk, builder, options) => {
+                                    const img_fmt = builder.options.formatters["image"];
+                                    if (img_fmt) {
+                                        builder.addInline(STYLE.bold + FG.magenta);
+                                        img_fmt(elem, walk, builder, options);
+                                        builder.addInline(STYLE.reset_all);
+                                    }
+                                },
+                                "a_highlight": (elem, walk, builder, options) => {
+                                    const a_fmt = builder.options.formatters["anchor"];
+                                    if (a_fmt) {
+                                        builder.addInline(STYLE.bold + FG.blue);
+                                        a_fmt(elem, walk, builder, options);
+                                        builder.addInline(STYLE.reset_all);
+                                    }
                                 }
                             },
-                            "a_highlight": (elem, walk, builder, options) => {
-                                const a_fmt = builder.options.formatters["anchor"];
-                                if (a_fmt) {
-                                    builder.addInline(STYLE.bold + FG.blue);
-                                    a_fmt(elem, walk, builder, options);
-                                    builder.addInline(STYLE.reset_all);
+                            selectors: [
+                                {
+                                    selector: "b",
+                                    format: "ansi_formatter",
+                                    options: {
+                                        opener: STYLE.bold
+                                    }
+                                },
+                                {
+                                    selector: "strong",
+                                    format: "ansi_formatter",
+                                    options: {
+                                        opener: STYLE.bold
+                                    }
+                                },
+                                {
+                                    selector: "i",
+                                    format: "ansi_formatter",
+                                    options: {
+                                        opener: STYLE.italic
+                                    }
+                                },
+                                {
+                                    selector: "em",
+                                    format: "ansi_formatter",
+                                    options: {
+                                        opener: STYLE.italic
+                                    }
+                                },
+                                {
+                                    selector: "u",
+                                    format: "ansi_formatter",
+                                    options: {
+                                        opener: STYLE.underline
+                                    }
+                                },
+                                {
+                                    selector: "img",
+                                    format: "img_highlight"
+                                },
+                                {
+                                    selector: "a",
+                                    format: "a_highlight"
                                 }
-                            }
-                        },
-                        selectors: [
-                            {
-                                selector: "b",
-                                format: "ansi_formatter",
-                                options: {
-                                    opener: STYLE.bold
-                                }
-                            },
-                            {
-                                selector: "strong",
-                                format: "ansi_formatter",
-                                options: {
-                                    opener: STYLE.bold
-                                }
-                            },
-                            {
-                                selector: "i",
-                                format: "ansi_formatter",
-                                options: {
-                                    opener: STYLE.italic
-                                }
-                            },
-                            {
-                                selector: "em",
-                                format: "ansi_formatter",
-                                options: {
-                                    opener: STYLE.italic
-                                }
-                            },
-                            {
-                                selector: "u",
-                                format: "ansi_formatter",
-                                options: {
-                                    opener: STYLE.underline
-                                }
-                            },
-                            {
-                                selector: "img",
-                                format: "img_highlight"
-                            },
-                            {
-                                selector: "a",
-                                format: "a_highlight"
-                            }
-                        ]
-                    }
-                );
+                            ]
+                        }
+                    );
+                }
+
+                // trim start and end whitespace
+                description = description.trim();
+
+                // replace newlines again in case the description was html
+                description = description.replace(/\r\n|\n/g, NEWLINE);
             }
 
-            // trim start and end whitespace
-            description = description.trim();
-
-            // replace newlines again in case the description was html
-            description = description.replace(/\r\n|\n/g, NEWLINE);
-
             // pubDate
-            const pubDate = get_field(item, DocType.ITEM, "pubDate") ?? "";
+            const date = get_field(item, DocType.ITEM, "date") ?? "";
 
             // print the item
             term.writeln(`${FG.green + STYLE.bold + STYLE.underline}${item_title}${STYLE.reset_all}`);
             term.writeln(`${FG.cyan}${link}${STYLE.reset_all}`);
-            term.writeln(`${FG.yellow}${pubDate}${STYLE.reset_all}`);
+            term.writeln(`${FG.yellow}${date}${STYLE.reset_all}`);
             term.write(NEWLINE);
-            term.writeln(`${description}`);
-            term.write(NEWLINE);
+
+            if (!no_content) {
+                term.writeln(`${description}`);
+                term.write(NEWLINE);
+            }
+
             term.writeln(`${FG.gray}------${STYLE.reset_all}`);
             term.write(NEWLINE);
         }
