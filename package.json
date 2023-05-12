@@ -1,6 +1,6 @@
 {
-  "name": "beta_ollieos",
-  "version": "1.0.0",
+  "name": "ollieos",
+  "version": "0.0.8",
   "description": "",
   "main": "server.js",
   "scripts": {
@@ -19,14 +19,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/obfuscatedgenerated/beta_ollieos.git"
+    "url": "git+https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io.git"
   },
   "author": "obfuscatedgenerated",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/obfuscatedgenerated/beta_ollieos/issues"
+    "url": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues"
   },
-  "homepage": "https://github.com/obfuscatedgenerated/beta_ollieos#readme",
+  "homepage": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io#readme",
   "dependencies": {
     "howler": "^2.2.3",
     "html-to-text": "^9.0.5",
