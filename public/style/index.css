@@ -90,6 +90,24 @@ body {
     align-items: center;
 }
 
+@media screen and (max-width: 600px) {
+    #boot_screen h2 {
+        font-size: 1.5em;
+    }
+
+    #boot_screen h4 {
+        font-size: 1em;
+    }
+
+    #boot_screen img {
+        width: 40%;
+    }
+
+    #boot_loader {
+        width: 40%;
+    }
+}
+
 .swal2-popup {
     font-family: "Open Sans", Open Sans, Arial, sans-serif !important;
 }
