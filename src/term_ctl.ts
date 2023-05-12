@@ -100,6 +100,7 @@ export class WrappedTerminal extends Terminal {
     _fs: FileSystem;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
+    _on_printable_handlers: KeyEventHandler[] = [];
     _key_event_queue: KeyEvent[] = [];
     _is_handling_key_events = false;
 
@@ -191,8 +192,6 @@ export class WrappedTerminal extends Terminal {
         this.reset_current_vars();
         await this.insert_preline();
     }
-
-    // TODO: tab completion of commands, files and known flags
 
 
     // returns success flag (or error if critical)
@@ -430,6 +429,19 @@ export class WrappedTerminal extends Terminal {
         } else {
             console.warn("Ignored key event:", e);
             // TODO: handle more special keys and sequences
+        }
+    }
+
+    /**
+     * Registers a handler that is called when any printable key is pressed.
+     * @param handler  - The handler to register
+     * @param high_priority - If true, the handler will be placed at the beginning of the handler list (cannot run before the default printable key handler)
+     */
+    register_on_printable_key_event_handler = (handler: KeyEventHandler, high_priority = false) => {
+        if (high_priority) {
+            this._on_printable_handlers.unshift(handler);
+        } else {
+            this._on_printable_handlers.push(handler);
         }
     }
 
