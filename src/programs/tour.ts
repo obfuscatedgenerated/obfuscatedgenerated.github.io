@@ -103,7 +103,7 @@ const fs = async (term: WrappedTerminal) => {
 
     await run_cmd(term, "ls");
 
-    term.writeln(`Looks like there's a file there called ${PREFABS.file_path}credits.txt${STYLE.reset_all}. Let's use the ${PREFABS.program_name}cat${STYLE.reset_all} command to view its contents.`);
+    term.writeln(`There's a file in the directory called ${PREFABS.file_path}credits.txt${STYLE.reset_all}. Let's use the ${PREFABS.program_name}cat${STYLE.reset_all} command to view its contents.`);
     term.write(NEWLINE);
 
     await wait_block(term);
