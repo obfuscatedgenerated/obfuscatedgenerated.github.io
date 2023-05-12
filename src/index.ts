@@ -18,6 +18,40 @@ import Swal from "sweetalert2";
 
 const boot_screen = document.getElementById("boot_screen");
 
+// insert boot loader bars depending on screen size (each bar should take 1/15th of the loader's width, ignoring margins)
+const loader = document.getElementById("boot_loader") as HTMLDivElement;
+const bar_count = Math.floor(loader.getBoundingClientRect().width / 15);
+for (let i = 0; i < bar_count; i++) {
+    const bar = document.createElement("div");
+    bar.classList.add("boot_loader_bar");
+
+    // make first 3 bars visible
+    if (i < 3) {
+        bar.style.visibility = "visible";
+    }
+
+    loader.appendChild(bar);
+}
+
+// animate the loader bars (3 block width, scrolling across the loader with wraparound)
+let tail_bar_idx = 0;
+const loader_interval = setInterval(() => {
+    const bars = document.querySelectorAll(".boot_loader_bar") as NodeListOf<HTMLDivElement>;
+
+    // hide the tail bar
+    bars[tail_bar_idx].style.visibility = "hidden";
+
+    // show the next bar
+    bars[(tail_bar_idx + 3) % bars.length].style.visibility = "visible";
+
+    // increment the tail bar index, wrapping around if necessary
+    tail_bar_idx = (tail_bar_idx + 1) % bars.length;
+
+    // if the boot screen is hidden, stop the animation
+    if (boot_screen.style.opacity === "0") {
+        clearInterval(loader_interval);
+    }
+}, 100);
 
 async function check_first_time(term: WrappedTerminal) {
     // if this is the user's first time, show a popup asking if they want to run the tour
@@ -144,7 +178,7 @@ async function main() {
     });
 }
 
-// add artificial delay to allow the boot screen to show for a second
-setTimeout(main, 1000);
+// add artificial delay to allow the boot screen to show for a bit
+setTimeout(main, 3000);
 
 // TODO: better mobile experience

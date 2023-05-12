@@ -53,9 +53,30 @@ body {
     margin-bottom: 4.5em;
 }
 
-#boot_screen progress {
+#boot_loader {
     width: 20%;
+    height: fit-content;
     margin-bottom: 10vh;
+
+    -webkit-appearance: none;
+    appearance: none;
+
+    border: #fff 2px solid;
+    border-radius: 5px;
+    background: transparent;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.1em;
+}
+
+.boot_loader_bar {
+    width: 75%;
+    height: 2.5vh;
+    background: linear-gradient(to bottom, #00f, #0066ff, #fff, #0066ff, #00f);
+    visibility: hidden;
 }
 
 #boot_footer {
