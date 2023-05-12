@@ -196,7 +196,7 @@ export class WrappedTerminal extends Terminal {
 
 
     // returns success flag (or error if critical)
-    execute = async (line: string): Promise<boolean> => {
+    execute = async (line: string, edit_doc_title = true): Promise<boolean> => {
         // TODO: semicolon to run multiple commands regardless of success
         // TODO: double ampersand to run multiple commands only if previous succeeded
         // TODO: double pipe to run multiple commands only if previous failed
@@ -286,6 +286,12 @@ export class WrappedTerminal extends Terminal {
             unsubbed_args,
         }
 
+        let old_title = "";
+        if (edit_doc_title) {
+            old_title = document.title;
+            document.title = command;
+        }
+
         let exit_code = 0;
         if ("main" in program) {
             try {
@@ -305,6 +311,10 @@ export class WrappedTerminal extends Terminal {
                 console.error(e);
             }
         } else {
+            if (edit_doc_title) {
+                document.title = old_title;
+            }
+
             throw new Error("Invalid program type");
         }
 
@@ -314,6 +324,10 @@ export class WrappedTerminal extends Terminal {
 
         // set the history index to 0
         this._current_history_index = 0;
+
+        if (edit_doc_title) {
+            document.title = old_title;
+        }
 
         return true;
     }
