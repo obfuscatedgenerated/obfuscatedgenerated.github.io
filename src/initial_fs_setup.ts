@@ -117,7 +117,7 @@ Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
 `},
     },
     "mewsic": {
-        "image.png": { fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/mewsic/main/public/logo.png" },
+        "icon.png": { fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/mewsic/main/public/logo.png" },
         "info.txt": {
             fetch: false, content: `
 
@@ -156,6 +156,9 @@ A collection of Cloudflare Workers for common tasks.
 
 Org URL: https://github.com/workitmakeit
         `},
+        "logo.png": {
+            fetch: true, content: "https://avatars.githubusercontent.com/workitmakeit"
+        },
         "email-validator.txt": {
             fetch: false, content: `
 
@@ -182,6 +185,9 @@ With the Conductor component installed in the VM, users can control the VM from 
 
 (URLs not public yet)
         `},
+        "logo.png": {
+            fetch: true, content: "https://avatars.githubusercontent.com/VirtuosoVM"
+        },
     },
     "vscode-aura": {
         "info.txt": {
