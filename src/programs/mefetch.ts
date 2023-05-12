@@ -43,14 +43,14 @@ const convert_to_ascii = async (url: string, size: number): Promise<string> => {
 }
 
 
-const my_info = (info: GHInfo | null) => {
+const my_info = (info: GHInfo | null, version_str: string) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG, PREFABS } = ANSI;
 
     return `
 ${STYLE.bold}obfuscatedgenerated
 -------------------
-${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS
+${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
 ${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: Ollie
 ${STYLE.bold}Pronouns${STYLE.reset_all + FG.cyan}: he/him
@@ -73,7 +73,7 @@ ${STYLE.bold}Favourite Project${STYLE.reset_all + FG.cyan}: This website!
         `.replace(/\n/g, NEWLINE);
 }
 
-const stranger_info = (username: string, info: GHInfo | null, cols: number) => {
+const stranger_info = (username: string, info: GHInfo | null, cols: number, version_str: string) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG } = ANSI;
 
@@ -87,7 +87,7 @@ const stranger_info = (username: string, info: GHInfo | null, cols: number) => {
     return `
 ${STYLE.bold}${username}
 ${"-".repeat(username.length)}
-${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS
+${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
 ${info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${info.name}` : "\x1b[1A"}
 ${info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${info.location}` : "\x1b[1A"}
@@ -116,6 +116,9 @@ export default {
 
         // extract from ANSI to make code less verbose
         const { STYLE, FG } = ANSI;
+
+        // get version string
+        const version_str = term.get_variable("VERSION");
 
         // restrict to first 3 quarters of screen
         const max_columns = Math.floor(term.cols * 0.75);
@@ -148,7 +151,7 @@ export default {
         const ascii_pfp = await convert_to_ascii(avatar_url, asc_width);
 
         // text is written with \n as newlines for simplicity, replaced with NEWLINE
-        const text = MY_USERNAME === username ? my_info(info) : stranger_info(username, info, term.cols);
+        const text = MY_USERNAME === username ? my_info(info, version_str) : stranger_info(username, info, term.cols, version_str);
 
         // reapply style each line as image will override it
         const txt_line_prefix = FG.cyan;

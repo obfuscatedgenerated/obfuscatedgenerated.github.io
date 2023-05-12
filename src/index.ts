@@ -143,6 +143,8 @@ async function main() {
 
     term.loadAddon(new ImageAddon());
 
+
+    // set the version variable ($VERSION)
     term.set_variable("VERSION", document.body.dataset.version);
 
 
