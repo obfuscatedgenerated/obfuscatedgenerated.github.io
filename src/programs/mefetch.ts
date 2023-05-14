@@ -55,7 +55,7 @@ ${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 ${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: Ollie
 ${STYLE.bold}Pronouns${STYLE.reset_all + FG.cyan}: he/him
 ${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: UK
-${STYLE.bold}Interests${STYLE.reset_all + FG.cyan}: Programming, Music, Photography, 3D Stuff
+${STYLE.bold}Interests${STYLE.reset_all + FG.cyan}: Programming, Games, Photography, 3D Stuff
 
 ${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: https://ollieg.codes
 ${STYLE.bold}Blog${STYLE.reset_all + FG.cyan}: https://blog.ollieg.codes (or use the ${PREFABS.program_name}rss${STYLE.reset_all + FG.cyan} command)
