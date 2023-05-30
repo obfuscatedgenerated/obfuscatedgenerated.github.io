@@ -194,13 +194,22 @@ With the Conductor component installed in the VM, users can control the VM from 
             fetch: false, content: `
 
 A VSCode extension to blink the lights of ASUS Aura Sync compatible devices depending on the problems in the project.
+This project is no longer maintained.
 
-Extension URL: https://marketplace.visualstudio.com/items?itemName=obfuscatedgenerated.vscode-aura
 Repo URL: https://github.com/obfuscatedgenerated/vscode-aura
 
 You may also be interested in https://github.com/obfuscatedgenerated/asus-aura-control
         `},
     },
+    "MagicMOTD": {
+        "info.txt": {
+            fetch: false, content: `
+
+A BungeeCord proxy plugin that replaces the MOTD with dynamic messages!
+
+Repo URL: https://github.com/obfuscatedgenerated/MagicMOTD
+        `},
+    }
 };
 
 const setup_projects = async (fs: FileSystem) => {
