@@ -209,6 +209,9 @@ A BungeeCord proxy plugin that replaces the MOTD with dynamic messages!
 
 Repo URL: https://github.com/obfuscatedgenerated/MagicMOTD
         `},
+        "logo.png": {
+            fetch: true, content: "https://www.spigotmc.org/data/resource_icons/110/110063.jpg"
+        },
     }
 };
 
