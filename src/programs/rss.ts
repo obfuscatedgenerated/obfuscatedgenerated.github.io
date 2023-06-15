@@ -323,6 +323,10 @@ export default {
                                 {
                                     selector: "a",
                                     format: "a_highlight"
+                                },
+                                {
+                                    selector: "table",
+                                    format: "dataTable"
                                 }
                             ]
                         }
