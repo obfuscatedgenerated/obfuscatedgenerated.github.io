@@ -3,9 +3,11 @@ import type { SyncProgram } from "../types";
 
 export default {
     name: "cd",
-    description: "Change directory or print current directory.",
+    description: "Change directory.",
     usage_suffix: "[path]",
-    arg_descriptions: {},
+    arg_descriptions: {
+        path: "Path to directory to change to. If no path is given, change to home directory."
+    },
     main: (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
@@ -17,9 +19,9 @@ export default {
         const fs = term.get_fs();
 
         
-        // if no arguments, print current directory
+        // if no arguments, go to home directory
         if (args.length === 0) {
-            term.writeln(PREFABS.dir_name + fs.get_cwd() + STYLE.reset_all);
+            fs.set_cwd(fs.get_home());
             return 0;
         }
 
