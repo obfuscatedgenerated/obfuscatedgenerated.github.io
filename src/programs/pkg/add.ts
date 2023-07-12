@@ -129,3 +129,4 @@ export const add_subcommand = async (data: ProgramMainData) => {
     term.writeln(`${FG.green}Mounted!${STYLE.reset_all}`);
     return 0;
 }
+// TODO: decompose into smaller functions
