@@ -186,3 +186,4 @@ async function main() {
 setTimeout(main, 3000);
 
 // TODO: better mobile experience
+// TODO: disable load screen in dev mode

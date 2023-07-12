@@ -22,6 +22,7 @@ export { default as repo } from "./repo";
 export { default as rss } from "./rss";
 export { default as legacy } from "./legacy";
 export { default as tour } from "./tour";
+export { default as pkg } from "./pkg/index";
 // TODO: mv, mkdir, touch
 // TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)
 // TODO: video player from files or youtube using ascii video streaming or some super duper optimised sixel
