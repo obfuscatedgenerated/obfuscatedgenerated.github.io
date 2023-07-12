@@ -148,7 +148,7 @@ export const tab_completion: KeyEventHandler = (_e, term) => {
     if (!term._current_line.includes(" ")) {
         // get the program registry
         const registry = term.get_program_registry();
-        const programs = registry.listProgramNames();
+        const programs = registry.listProgramNames(true, true);
 
         // check for existing matches
         let match: string;
