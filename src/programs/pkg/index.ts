@@ -18,7 +18,7 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
     }
 
     for (const path of pathnames) {
-        if (".?#".includes(path)) {
+        if (path.includes("/") || path.includes("\\") || path.includes("..")) {
             throw new Error("Unsafe pathname: " + path);
         }
 
@@ -45,6 +45,7 @@ export const repo_query = {
     // returns null if not found, otherwise returns the contents of the file
     get_pkg_json: async (pkg: string) => {
         pkg = encodeURI(pkg);
+        pkg = pkg.replace(/\./g, "%2E");
 
         // repo/pkgs/pkg/
         const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, "pkg.json"]);
@@ -65,6 +66,8 @@ export const repo_query = {
     get_pkg_contents: async (pkg: string, version: string) => {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
+        pkg = pkg.replace(/\./g, "%2E");
+        version = version.replace(/\./g, "%2E");
 
         // repo/pkgs/pkg/version/
         const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, "contents.txt"]);
@@ -86,6 +89,9 @@ export const repo_query = {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
         filepath = encodeURI(filepath);
+        pkg = pkg.replace(/\./g, "%2E");
+        version = version.replace(/\./g, "%2E");
+        filepath = filepath.replace(/\./g, "%2E");
 
         // repo/pkgs/pkg/version/filepath
         const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, filepath]);
