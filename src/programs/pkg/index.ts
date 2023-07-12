@@ -19,7 +19,7 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
 
     for (const path of pathnames) {
         if (".?#".includes(path)) {
-            throw new Error("Unsafe pathname");
+            throw new Error("Unsafe pathname: " + path);
         }
 
         urlpath += (path === "" ? "" : "/" + path);
@@ -42,9 +42,9 @@ export const repo_query = {
         return await response.text();
     },
 
-    pkg_exists: async (pkg: string) => {
-        // TODO: NOT WORKING! NEEDS TO BE ESCAPED SO . IS NOT ALLOWED
-        pkg = encodeURIComponent(pkg);
+    // returns null if not found, otherwise returns the contents of the file
+    get_pkg_json: async (pkg: string) => {
+        pkg = encodeURI(pkg);
 
         // repo/pkgs/pkg/
         const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, "pkg.json"]);
@@ -52,19 +52,19 @@ export const repo_query = {
         const response = await fetch(url.toString());
         if (!response.ok) {
             if (response.status === 404) {
-                return false;
+                return null;
             }
 
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return true;
+        return await response.json();
     },
 
-    pkg_at_version_exists: async (pkg: string, version: string) => {
-        // TODO: NOT WORKING! NEEDS TO BE ESCAPED SO . IS NOT ALLOWED
-        pkg = encodeURIComponent(pkg);
-        version = encodeURIComponent(version);
+    // returns null if not found, otherwise returns the contents of the file
+    get_pkg_contents: async (pkg: string, version: string) => {
+        pkg = encodeURI(pkg);
+        version = encodeURI(version);
 
         // repo/pkgs/pkg/version/
         const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, "contents.txt"]);
@@ -72,28 +72,34 @@ export const repo_query = {
         const response = await fetch(url.toString());
         if (!response.ok) {
             if (response.status === 404) {
-                return false;
+                return null;
             }
 
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return true;
+        return await response.text();
     },
 
-    get_pkg_json: async (pkg: string) => {
-        // TODO: NOT WORKING! NEEDS TO BE ESCAPED SO . IS NOT ALLOWED
-        pkg = encodeURIComponent(pkg);
+    // gets a file within a package or returns null if not found
+    get_pkg_file: async (pkg: string, version: string, filepath: string) => {
+        pkg = encodeURI(pkg);
+        version = encodeURI(version);
+        filepath = encodeURI(filepath);
 
-        // repo/pkgs/pkg/pkg.json
-        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, "pkg.json"]);
+        // repo/pkgs/pkg/version/filepath
+        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, filepath]);
 
         const response = await fetch(url.toString());
         if (!response.ok) {
+            if (response.status === 404) {
+                return null;
+            }
+
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return await response.json();
+        return await response.text();
     }
 }
 
@@ -144,6 +150,9 @@ export default {
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             case "info":
+                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
+                break;
+            case "browse":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             default:
