@@ -112,11 +112,11 @@ export default {
     usage_suffix: "[-h] [subcommand] [arguments]",
     arg_descriptions: {
         "Subcommands:": {
-            "add": `Installs a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <package>`,
-            "remove": `Uninstalls a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <package>`,
-            "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list`,
-            "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>`,
-            "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse`,
+            "add": `Installs a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <package>${STYLE.reset_all}`,
+            "remove": `Uninstalls a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <package>${STYLE.reset_all}`,
+            "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list${STYLE.reset_all}`,
+            "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>${STYLE.reset_all}`,
+            "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
         },
         "Arguments:": {
             "-h": "Displays this help message.",
