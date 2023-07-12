@@ -1,6 +1,6 @@
 import { IDisposable, ITerminalOptions, Terminal } from "xterm";
 
-import { ProgramRegistry } from "./prog_registry";
+import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
 import type { FileSystem } from "./filesystem";
 
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, SyncProgram, AsyncProgram } from "./types";
@@ -613,6 +613,12 @@ export class WrappedTerminal extends Terminal {
             for (const line of content.split(NEWLINE)) {
                 this.execute(line);
             }
+        }
+
+        // mount all programs in any subdirectory of /usr/bin
+        const usr_bin = fs.absolute("/usr/bin");
+        if (fs.exists(usr_bin)) {
+            recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
         }
 
         term_loaded_callback?.(this);

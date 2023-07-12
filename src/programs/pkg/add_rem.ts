@@ -1,5 +1,5 @@
 import { repo_query } from ".";
-import { build_registrant_from_js } from "../../prog_registry";
+import { mount_and_register_with_output } from "../../prog_registry";
 
 import { ANSI } from "../../term_ctl";
 import { ProgramMainData, ProgramRegistrant } from "../../types"
@@ -115,45 +115,18 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
     term.writeln(`${FG.cyan}Mounting package...${STYLE.reset_all}`);
 
-    // build each program into a ProgramRegistrant
-    const program_registrants = new Array<ProgramRegistrant>();
+    const prog_reg = term.get_program_registry();
 
+    // mount each program
     for (const [file, value] of file_map) {
         if (!file.endsWith(".js")) {
             continue;
         }
 
-        let reg: ProgramRegistrant;
-
-        try {
-            reg = await build_registrant_from_js(value)
-        } catch (e) {
-            term.writeln(`${PREFABS.error}Failed to mount program '${file}'.${STYLE.reset_all}`);
-            term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
-            term.writeln(`${PREFABS.error}Skipping...${STYLE.reset_all}`);
-            continue;
-        }
-
-        program_registrants.push(reg);
-    }
-
-    // register each program
-    // TODO: check for name clash in advance, or at least catch and deregister other programs
-    const prog_reg = term.get_program_registry();
-    for (const registrant of program_registrants) {
-        try {
-            prog_reg.registerProgram(registrant);
-        } catch (e) {
-            term.writeln(`${PREFABS.error}Failed to mount program '${registrant.program.name}'.${STYLE.reset_all}`);
-            term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
-            term.writeln(`${PREFABS.error}Skipping...${STYLE.reset_all}`);
-            continue;
-        }
+        mount_and_register_with_output(file, value, prog_reg, term);
     }
 
     term.writeln(`${FG.green}Mounted!${STYLE.reset_all}`);
-
-    // TODO: mount all at startup
     return 0;
 }
 
