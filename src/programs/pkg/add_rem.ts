@@ -2,7 +2,7 @@ import { repo_query } from ".";
 import { mount_and_register_with_output } from "../../prog_registry";
 
 import { ANSI } from "../../term_ctl";
-import { ProgramMainData, ProgramRegistrant } from "../../types"
+import { ProgramMainData } from "../../types"
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;

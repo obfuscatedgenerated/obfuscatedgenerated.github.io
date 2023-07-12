@@ -103,21 +103,32 @@ export const repo_query = {
     }
 }
 
+// extract from ANSI to make code less verbose
+const { STYLE, PREFABS } = ANSI;
+
 export default {
     name: "pkg",
     description: "The package manager for OllieOS.",
     usage_suffix: "[-h] [subcommand] [arguments]",
     arg_descriptions: {
         "Subcommands:": {
-            "add": "Installs a package.",
-            "remove": "Uninstalls a package.",
-            "list": "Lists all installed packages.",
-            "info": "Displays information about a package.",
+            "add": `Installs a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <package>`,
+            "remove": `Uninstalls a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <package>`,
+            "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list`,
+            "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>`,
+            "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse`,
         },
         "Arguments:": {
             "-h": "Displays this help message.",
-            "For add, remove, info:": {
-                "package": "The package to install/remove/query.",
+            "For add:": {
+                "package": "The package to install. If you wish to install a specific version, use the format 'package@version'.",
+            },
+            "For remove:": {
+                "package": "The package to uninstall.",
+            },
+            "For info:": {
+                "-r": "Always fetch the latest information from the repository.",
+                "package": "The package to get information about.",
             },
         }
     },
@@ -126,9 +137,6 @@ export default {
 
         // extract from data to make code less verbose
         const { args, term } = data;
-
-        // extract from ANSI to make code less verbose
-        const { STYLE, PREFABS } = ANSI;
 
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}Missing subcommand.`)
