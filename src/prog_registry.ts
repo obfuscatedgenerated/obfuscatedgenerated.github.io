@@ -111,6 +111,8 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     if (program.main !== undefined && program.async_main !== undefined) {
         throw new Error("Program has both a synchronous and asynchronous main function.");
     }
+
+    program = program as Program;
         
     // can't check what it takes and returns because javascript!
     // just register it and the user can deal with the error if it doesn't work
