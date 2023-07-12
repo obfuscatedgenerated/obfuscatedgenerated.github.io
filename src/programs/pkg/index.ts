@@ -117,7 +117,7 @@ export default {
         "Arguments:": {
             "-h": "Displays this help message.",
             "For add, remove, info:": {
-                "package": "The package to install/remove.",
+                "package": "The package to install/remove/query.",
             },
         }
     },

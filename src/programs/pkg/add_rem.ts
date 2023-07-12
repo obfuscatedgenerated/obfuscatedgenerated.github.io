@@ -3,12 +3,12 @@ import { repo_query } from ".";
 import { ANSI } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 
+// extract from ANSI to make code less verbose
+const { STYLE, PREFABS, FG } = ANSI;
+
 export const add_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
-
-    // extract from ANSI to make code less verbose
-    const { STYLE, PREFABS, FG } = ANSI;
 
     const pkg = args[1];
 
@@ -112,7 +112,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
     term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
 
-    term.writeln(`${FG.magenta}Mount now?${STYLE.reset_all} [Y/n]`);
+    term.writeln(`${FG.cyan}Mounting package...${STYLE.reset_all}`);
 
     return 0;
 }
@@ -121,6 +121,10 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
 
 export const remove_subcommand = async (data: ProgramMainData) => {
-    data.term.writeln("remove_subcommand");
+    // extract from data to make code less verbose
+    const { args, term } = data;
+
+    term.writeln(`${FG.cyan}Unmounting package...${STYLE.reset_all}`);
+
     return 0;
 }
