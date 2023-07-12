@@ -62,3 +62,61 @@ export class ProgramRegistry {
         return this.listProgramRegistrants(includes_builtin, includes_mounted).map((program_reg) => program_reg.program);
     }
 }
+
+const encode_js_to_url = (js_code: string): string => {
+    const encoded = encodeURIComponent(js_code);
+    return `data:text/javascript;charset=utf-8,${encoded}`;
+}
+
+export const build_registrant_from_js = async (js_code: string, built_in = false): Promise<ProgramRegistrant> => {
+    // note: the webpackIgnore bypasses webpack's import() function and uses the browser's native import() function
+    // this is because webpack's import() function does not support data urls
+
+    const data_url = encode_js_to_url(js_code);
+    // note: risk to user, show warning
+    const imp = await import(/* webpackIgnore: true */data_url);
+    let program = imp.default;
+
+    if (program === undefined) {
+        throw new Error("Program is not the default export.");
+    }
+
+    // validate program
+    if (typeof program !== "object") {
+        throw new Error("Program is not an object.");
+    }
+
+    program = program as object;
+
+    if (typeof program.name !== "string") {
+        throw new Error("Program does not have a name.");
+    }
+
+    if (typeof program.description !== "string") {
+        throw new Error("Program does not have a description.");
+    }
+
+    if (typeof program.usage_suffix !== "string") {
+        throw new Error("Program does not have a usage suffix.");
+    }
+
+    if (typeof program.arg_descriptions !== "object") {
+        throw new Error("Program does not have argument descriptions.");
+    }
+
+    if (!program.main && !program.async_main) {
+        throw new Error("Program does not have a main function.");
+    }
+
+    if (program.main !== undefined && program.async_main !== undefined) {
+        throw new Error("Program has both a synchronous and asynchronous main function.");
+    }
+        
+    // can't check what it takes and returns because javascript!
+    // just register it and the user can deal with the error if it doesn't work
+
+    return {
+        program,
+        built_in,
+    };
+}

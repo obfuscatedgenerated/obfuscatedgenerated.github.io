@@ -141,6 +141,8 @@ export default {
             return 0;
         }
 
+        // TODO: support multiple packages at once
+
         switch (args[0]) {
             case "add":
                 return await add_subcommand(data);
