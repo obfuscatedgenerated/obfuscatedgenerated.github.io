@@ -129,15 +129,3 @@ export const add_subcommand = async (data: ProgramMainData) => {
     term.writeln(`${FG.green}Mounted!${STYLE.reset_all}`);
     return 0;
 }
-
-
-
-
-export const remove_subcommand = async (data: ProgramMainData) => {
-    // extract from data to make code less verbose
-    const { args, term } = data;
-
-    term.writeln(`${FG.cyan}Unmounting package...${STYLE.reset_all}`);
-
-    return 0;
-}
