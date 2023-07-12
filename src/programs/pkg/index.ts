@@ -128,10 +128,10 @@ export default {
         "Arguments:": {
             "-h": "Displays this help message.",
             "For add:": {
-                "package": "The package to install. If you wish to install a specific version, use the format 'package@version'.",
+                "packages": "The packages to install, separated by spaces. If you wish to install a specific version, use the format 'package@version'.",
             },
             "For remove:": {
-                "package": "The package to uninstall.",
+                "packages": "The packages to uninstall, separated by spaces.",
             },
             "For info:": {
                 "-r": "Always fetch the latest information from the repository.",
