@@ -118,11 +118,11 @@ export default {
     usage_suffix: "[-h] [subcommand] [arguments]",
     arg_descriptions: {
         "Subcommands:": {
-            "add": `Installs a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <package>${STYLE.reset_all}`,
-            "remove": `Uninstalls a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <package>${STYLE.reset_all}`,
+            "add": `Installs a list of packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <packages...>${STYLE.reset_all}`,
+            "remove": `Uninstalls a list of packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <packages...>${STYLE.reset_all}`,
             "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list${STYLE.reset_all}`,
             "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>${STYLE.reset_all}`,
-            "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read <package>${STYLE.reset_all}`,
+            "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read [-r] <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
         },
         "Arguments:": {
@@ -138,6 +138,7 @@ export default {
                 "package": "The package to get information about.",
             },
             "For read:": {
+                "-r": "Always fetch the latest information from the repository.",
                 "package": "The package to read the long description of.",
             },
         }
