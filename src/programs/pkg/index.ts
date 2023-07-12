@@ -116,6 +116,7 @@ export default {
             "remove": `Uninstalls a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <package>${STYLE.reset_all}`,
             "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list${STYLE.reset_all}`,
             "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>${STYLE.reset_all}`,
+            "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
         },
         "Arguments:": {
@@ -129,6 +130,9 @@ export default {
             "For info:": {
                 "-r": "Always fetch the latest information from the repository.",
                 "package": "The package to get information about.",
+            },
+            "For read:": {
+                "package": "The package to read the long description of.",
             },
         }
     },
@@ -161,6 +165,9 @@ export default {
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             case "info":
+                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
+                break;
+            case "read":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             case "browse":
