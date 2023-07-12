@@ -17,6 +17,11 @@ export interface Program {
     arg_descriptions: arg_descriptions,
 }
 
+export interface ProgramRegistrant {
+    program: Program,
+    built_in: boolean,
+}
+
 export interface SyncProgram extends Program {
     main: ProgramMain,
 }

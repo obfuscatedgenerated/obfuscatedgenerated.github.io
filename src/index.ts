@@ -111,7 +111,10 @@ async function main() {
     // create a program registry by importing all programs
     const prog_reg = new ProgramRegistry();
     for (const prog of Object.values(programs)) {
-        prog_reg.registerProgram(prog);
+        prog_reg.registerProgram({
+            program: prog,
+            built_in: true,
+        });
     }
 
 

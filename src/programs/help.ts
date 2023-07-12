@@ -3,8 +3,13 @@ import type { SyncProgram, arg_descriptions } from "../types";
 
 
 // deferred to prevent double printing of header if program has to re-execute itself
-const header = (term) => {
+const header = (term, includes_mounted: boolean) => {
     // write header
+
+    if (!includes_mounted) {
+        term.writeln(`${ANSI.STYLE.italic}(Only built-in programs are included. Use the -m flag to include only mounted programs, or the -a flag to include all.)${ANSI.STYLE.reset_all}`);
+    }
+
     term.writeln(`For help on a specific command, type ${ANSI.PREFABS.program_name}help${ANSI.STYLE.reset_all} [command].`)
     term.writeln(`The exit code of the most recently executed program is stored in the ${ANSI.PREFABS.variable_name}$?${ANSI.STYLE.reset_all} variable.`)
     term.writeln(`You can set variables with the syntax ${ANSI.PREFABS.variable_name}variable${ANSI.STYLE.reset_all}=value and unset them with ${ANSI.PREFABS.program_name}unset${ANSI.STYLE.reset_all}.`)
@@ -16,13 +21,15 @@ const header = (term) => {
 export default {
     name: "help",
     description: "List programs or get help for a specific program.",
-    usage_suffix: "[command | -s]",
+    usage_suffix: "[command | -s] [-a | -m]",
     arg_descriptions: {
         "Arguments:": {
             "command": "The name of the program to get help for.",
         },
         "Flags:": {
             "-s": "Single-column mode. Forces the program list to be displayed in a single column.",
+            "-a": "All programs. Includes all programs, built-in and mounted.",
+            "-m": "Mounted programs. Includes only mounted programs.",
         },
     },
     main: (data) => {
@@ -34,12 +41,37 @@ export default {
 
         const registry = term.get_program_registry();
 
-        // if no arguments are given, list all programs in 2 columns, depending on the terminal's columns
-        if (args.length === 0 || args[0] === "-s") {
-            const single_column = (args[0] === "-s");
+        let single_column = false;
+        let includes_mounted = false;
+        let includes_builtin = true;
 
-            // get all program names
-            const programs = registry.listPrograms();
+        // parse and remove flags from args
+        for (let i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "-s":
+                    single_column = true;
+                    args.splice(i, 1);
+                    i--;
+                    break;
+                case "-a":
+                    includes_mounted = true;
+                    includes_builtin = true;
+                    args.splice(i, 1);
+                    i--;
+                    break;
+                case "-m":
+                    includes_mounted = true;
+                    includes_builtin = false;
+                    args.splice(i, 1);
+                    i--;
+                    break;
+            }
+        }
+
+        // if no arguments remain, use list mode
+        if (args.length === 0) {
+            // get program names
+            const programs = registry.listProgramNames(includes_builtin, includes_mounted);
 
             // add usage suffix and styling to each program name
             const programs_fmt = programs.map((program) => {
@@ -53,7 +85,7 @@ export default {
             if (single_column) {
                 // FORMAT THE PROGRAMS INTO 1 COLUMN
 
-                header(term);
+                header(term, includes_mounted);
                 term.writeln(programs_fmt.join(NEWLINE));
             } else {
                 // FORMAT THE PROGRAMS INTO 2 COLUMNS
@@ -78,7 +110,7 @@ export default {
                 if (min_padding_length < 0) {
                     term.writeln("Terminal too small to display programs in 2 columns. Re-executing in single-column mode.");
                     term.write(NEWLINE);
-                    term.execute("help -s");
+                    term.execute(`help -s ${includes_mounted ? "-m" : ""} ${includes_builtin ? "-a" : ""}`);
                     return 0;
                 }
 
@@ -105,14 +137,14 @@ export default {
 
 
                 // write the programs to the terminal
-                header(term);
+                header(term, includes_mounted);
                 term.writeln(paired_programs.join(NEWLINE));
             }
 
             return 0;
         }
 
-        // if arguments are given, get help for the first argument
+        // if an argument remains, get help for it
         const program = registry.getProgram(args[0]);
 
         if (program === undefined) {
