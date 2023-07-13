@@ -150,6 +150,19 @@ export const add_subcommand = async (data: ProgramMainData) => {
             mount_and_register_with_output(file, value, prog_reg, term);
         }
 
+        // send message if pkg.json has deps
+        // TODO: implement automatic dependency installation
+        if (pkg_json.deps && pkg_json.deps.length > 0) {
+            term.writeln(`${FG.yellow + STYLE.bold}Note: automatic dependency installation is not yet implemented.`);
+            term.writeln(`Please install the following dependencies manually:${STYLE.reset_all + FG.magenta}`);
+
+            for (const dep of pkg_json.deps) {
+                term.writeln(`-  ${dep}`);
+            }
+
+            term.writeln(`${STYLE.reset_all}`);
+        }
+
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
     }
 
