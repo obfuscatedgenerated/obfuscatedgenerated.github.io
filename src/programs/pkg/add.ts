@@ -26,6 +26,9 @@ export const add_subcommand = async (data: ProgramMainData) => {
     let error_count = 0;
     // returns 0 for success, 1 for failure, 2 for fatal error
 
+    const fs = term.get_fs();
+    const prog_reg = term.get_program_registry();
+
     // iter over remaining args
     const total_pkgs = unique_args.length;
     while (unique_args.length >= 1) {
@@ -75,7 +78,6 @@ export const add_subcommand = async (data: ProgramMainData) => {
         const pkg_dir = `/usr/bin/${pkg_name}`;
 
         // check version file
-        const fs = term.get_fs();
         if (fs.exists(`${pkg_dir}/VERSION`)) {
             const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
 
@@ -132,14 +134,12 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
         // write each file
         for (const [file, value] of file_map) {
-            fs.write_file(`${pkg_dir}/${file}`, value);
+            fs.write_file(`${pkg_dir}/${file}`, value, true);
         }
 
         term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
 
         term.writeln(`${FG.cyan}Mounting package...${STYLE.reset_all}`);
-
-        const prog_reg = term.get_program_registry();
 
         // mount each program
         for (const [file, value] of file_map) {
@@ -147,7 +147,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
                 continue;
             }
 
-            mount_and_register_with_output(file, value, prog_reg, term);
+            await mount_and_register_with_output(file, value, prog_reg, term);
         }
 
         // send message if pkg.json has deps
@@ -168,7 +168,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
     term.writeln(`${NEWLINE}${FG.magenta + STYLE.bold}========================${STYLE.reset_all}${NEWLINE}`);
 
-    if (error_count) {
+    if (error_count > 0) {
         term.writeln(`${PREFABS.error}Failed to install ${error_count} package(s).${STYLE.reset_all}`);
         term.writeln(`${FG.green}Successfully installed ${total_pkgs - error_count} package(s).${STYLE.reset_all}`);
         term.writeln(`${FG.cyan}Total packages: ${total_pkgs}${STYLE.reset_all}`);

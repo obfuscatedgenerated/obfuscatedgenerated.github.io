@@ -5,6 +5,7 @@ import { ANSI } from "./term_ctl";
 export class ProgramRegistry {
     _program_regs: Map<string, ProgramRegistrant> = new Map();
 
+    
     registerProgram(program_reg: ProgramRegistrant) {
         const program = program_reg.program;
 
@@ -14,6 +15,7 @@ export class ProgramRegistry {
 
         this._program_regs.set(program.name, program_reg);
     }
+
 
     getProgramRegistrant(name: string): ProgramRegistrant | undefined {
         return this._program_regs.get(name);
@@ -27,6 +29,7 @@ export class ProgramRegistry {
 
         return program_reg.program;
     }
+
 
     listProgramRegistrants(includes_builtin = true, includes_mounted = false): ProgramRegistrant[] {
         const arr = Array.from(this._program_regs.values());
@@ -62,6 +65,19 @@ export class ProgramRegistry {
 
     listPrograms(includes_builtin = true, includes_mounted = false): Program[] {
         return this.listProgramRegistrants(includes_builtin, includes_mounted).map((program_reg) => program_reg.program);
+    }
+
+
+    forceUnregister(name: string) {
+        this._program_regs.delete(name);
+    }
+
+    unregister(name: string) {
+        if (!this._program_regs.has(name)) {
+            throw new Error(`Program with name ${name} does not exist.`);
+        }
+
+        this.forceUnregister(name);
     }
 }
 
@@ -125,6 +141,12 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     };
 }
 
+export const determine_program_name_from_js = async (js_code: string): Promise<string> => {
+    const reg = await build_registrant_from_js(js_code);
+    return reg.program.name;
+}
+
+
 // mounts and registers a program and outputs errors to the terminal
 export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: any) => {
     const { PREFABS, STYLE } = ANSI;
@@ -132,7 +154,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
     let reg: ProgramRegistrant;
 
     try {
-        reg = await build_registrant_from_js(content)
+        reg = await build_registrant_from_js(content);
     } catch (e) {
         term.writeln(`${PREFABS.error}Failed to prepare program from '${filename}'.${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);

@@ -1,4 +1,5 @@
 import { add_subcommand } from "./add";
+import { remove_subcommand } from "./remove";
 
 import { ANSI } from "../../term_ctl";
 import type { AsyncProgram } from "../../types";
@@ -166,8 +167,7 @@ export default {
             case "add":
                 return await add_subcommand(data);
             case "remove":
-                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
-                break;
+                return await remove_subcommand(data);
             case "list":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;

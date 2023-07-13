@@ -60,7 +60,6 @@ export class LocalStorageFS extends FileSystem {
 
             // delete directory if it's the last part
             if (part_idx === parts.length - 1) {
-                console.log("deleting", absolute_path);
                 delete current_dir[part];
                 this._call_callbacks(FSEventType.DELETED_DIR, absolute_path);
             }
