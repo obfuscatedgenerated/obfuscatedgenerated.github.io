@@ -2,7 +2,7 @@ import type { KeyEventHandler } from "./types";
 import { NEWLINE, ANSI } from "./term_ctl";
 import type { WrappedTerminal } from "./term_ctl";
 
-import { FileSystem, FSEventType } from "./filesystem";
+import { AbstractFileSystem, FSEventType } from "./filesystem";
 
 //const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
 
@@ -253,7 +253,7 @@ export const register_builtin_key_handlers = (term: WrappedTerminal) => {
 }
 
 // on set cwd
-export const change_prompt = (path: string, fs: FileSystem, term: WrappedTerminal) => {
+export const change_prompt = (path: string, fs: AbstractFileSystem, term: WrappedTerminal) => {
     const { PREFABS, STYLE } = ANSI;
 
     if (path.startsWith(fs.get_home())) {

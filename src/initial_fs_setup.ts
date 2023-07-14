@@ -1,7 +1,7 @@
-import { FileSystem } from "./filesystem";
+import { AbstractFileSystem } from "./filesystem";
 import { ANSI, NEWLINE } from "./term_ctl";
 
-const setup_motd = (fs: FileSystem) => {
+const setup_motd = (fs: AbstractFileSystem) => {
     // create etc directory if it doesn't exist
     const absolute_etc = fs.absolute("/etc");
     if (!fs.dir_exists(absolute_etc)) {
@@ -22,7 +22,7 @@ const setup_motd = (fs: FileSystem) => {
     }
 };
 
-const setup_rc_profile = (fs: FileSystem) => {
+const setup_rc_profile = (fs: AbstractFileSystem) => {
     // create .ollie_profile file if it doesn't exist
     const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}`;
     const absolute_profile = fs.absolute("~/.ollie_profile");
@@ -38,7 +38,7 @@ const setup_rc_profile = (fs: FileSystem) => {
     }
 };
 
-const setup_credits = (fs: FileSystem) => {
+const setup_credits = (fs: AbstractFileSystem) => {
     // create credits file
     const credits_content = `
 Credits
@@ -215,7 +215,7 @@ Repo URL: https://github.com/obfuscatedgenerated/MagicMOTD
     }
 };
 
-const setup_projects = async (fs: FileSystem) => {
+const setup_projects = async (fs: AbstractFileSystem) => {
     // create projects directory if it doesn't exist
     const absolute_projects = fs.absolute("~/projects");
     if (!fs.dir_exists(absolute_projects)) {
@@ -268,7 +268,7 @@ const setup_projects = async (fs: FileSystem) => {
 };
 
 
-export const initial_fs_setup = (fs: FileSystem) => {
+export const initial_fs_setup = (fs: AbstractFileSystem) => {
     setup_motd(fs);
     setup_rc_profile(fs);
     setup_credits(fs);
