@@ -1,10 +1,10 @@
 const express = require("express");
 const app = express();
 
-var blacklisted = [];
+const blocklisted = [];
 
 app.get("*", function (req, res, next) {
-  var matched = blacklisted.some(re => re.test(req.originalUrl.replace(/\?.*$/, '')))
+  var matched = blocklisted.some(re => re.test(req.originalUrl.replace(/\?.*$/, '')))
   if (matched) {
     var ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     res.status(403);
