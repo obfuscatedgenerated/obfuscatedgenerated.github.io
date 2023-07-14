@@ -1,6 +1,6 @@
 import type { Program, ProgramRegistrant } from "./types";
 import type { FileSystem } from "./filesystem";
-import { ANSI } from "./term_ctl";
+import { ANSI, WrappedTerminal } from "./term_ctl";
 
 export class ProgramRegistry {
     _program_regs: Map<string, ProgramRegistrant> = new Map();
@@ -148,7 +148,7 @@ export const determine_program_name_from_js = async (js_code: string): Promise<s
 
 
 // mounts and registers a program and outputs errors to the terminal
-export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: any) => {
+export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: WrappedTerminal) => {
     const { PREFABS, STYLE } = ANSI;
 
     let reg: ProgramRegistrant;
@@ -172,7 +172,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
 }
 
 // recurses through a directory and mounts and registers all programs in it as well as its subdirectories
-export const recurse_mount_and_register_with_output = (fs: FileSystem, dir_path: string, prog_registry: ProgramRegistry, term: any) => {
+export const recurse_mount_and_register_with_output = (fs: FileSystem, dir_path: string, prog_registry: ProgramRegistry, term: WrappedTerminal) => {
     const entries = fs.list_dir(dir_path);
 
     for (const entry of entries) {
