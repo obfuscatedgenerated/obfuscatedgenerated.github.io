@@ -1,4 +1,4 @@
-import { FileSystem, FSEventType, PathNotFoundError, NonRecursiveDirectoryError } from "../filesystem";
+import { AbstractFileSystem, FSEventType, PathNotFoundError, NonRecursiveDirectoryError } from "../filesystem";
 
 const DB_NAME = "ollieos_idb_fs";
 const DB_VERSION = 1;
@@ -7,7 +7,7 @@ const DB_VERSION = 1;
 
 // NOTE: https://github.com/ebidel/idb.filesystem.js
 
-export class IndexedDBFS extends FileSystem {
+export class IndexedDBFS extends AbstractFileSystem {
     _idb: IDBDatabase;
 
     get_unique_fs_type_name(): string {

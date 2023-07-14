@@ -1,7 +1,7 @@
 import { IDisposable, ITerminalOptions, Terminal } from "xterm";
 
 import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
-import type { FileSystem } from "./filesystem";
+import type { AbstractFileSystem } from "./filesystem";
 
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, SyncProgram, AsyncProgram } from "./types";
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
@@ -97,7 +97,7 @@ export class WrappedTerminal extends Terminal {
 
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
-    _fs: FileSystem;
+    _fs: AbstractFileSystem;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     _on_printable_handlers: KeyEventHandler[] = [];
@@ -115,7 +115,7 @@ export class WrappedTerminal extends Terminal {
         return this._sfx_registry;
     }
 
-    get_fs(): FileSystem {
+    get_fs(): AbstractFileSystem {
         return this._fs;
     }
 
@@ -573,7 +573,7 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    constructor(fs: FileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: (term: WrappedTerminal) => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: (term: WrappedTerminal) => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
         this._fs = fs;

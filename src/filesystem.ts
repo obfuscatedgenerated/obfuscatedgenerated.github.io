@@ -39,9 +39,9 @@ export enum FSEventType {
     CHECKING_DIR_EXISTS,
 }
 
-export type FSEventHandler = (data: string, fs: FileSystem) => void;
+export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
-export abstract class FileSystem {
+export abstract class AbstractFileSystem {
     //TODO: dry
     _initialised = false;
 

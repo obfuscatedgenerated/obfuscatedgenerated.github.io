@@ -2,7 +2,7 @@
 import * as fs_impls from "../fs_impl/@ALL";
 
 // import the fs interface
-import { FileSystem } from "../filesystem";
+import { AbstractFileSystem } from "../filesystem";
 
 // other imports
 import { NEWLINE } from "../term_ctl";
@@ -43,7 +43,7 @@ if (!fs_impl) {
 
 // instance the fs implementation
 // NOTE: cache will be separate from the main window, use direct methods on all files not completely controlled by fsedit
-const fs: FileSystem = new fs_impl();
+const fs: AbstractFileSystem = new fs_impl();
 
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
