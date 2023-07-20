@@ -7,6 +7,8 @@ import { ProgramMainData } from "../../types"
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
 
+// TODO: remove first if it is an upgrade
+
 export const add_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
