@@ -17,14 +17,15 @@ function hb_build() {
     let compiled = hb.compile(index_template);
     const package = require("./package.json");
     let version = package.version;
-    let unpkg_deps = package.dependencies;
+    let deps = package.dependencies;
+    let unpkg_deps = {};
 
     // can't do imgtoascii
-    delete unpkg_deps["imgtoascii"];
+    delete deps["imgtoascii"];
 
     // replace version field of dependencies with unpkg link at specific version
-    for (let dep in unpkg_deps) {
-        unpkg_deps[dep] = `https://unpkg.com/${dep}@${unpkg_deps[dep]}`;
+    for (let dep in deps) {
+        unpkg_deps[dep] = `https://unpkg.com/${dep}@${deps[dep]}`;
     }
 
     let unpkg_imp_map = {"imports": unpkg_deps};
