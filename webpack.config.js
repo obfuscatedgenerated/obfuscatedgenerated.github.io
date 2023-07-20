@@ -15,8 +15,19 @@ function hb_build() {
     console.log("Compiling index");
     let index_template = fs.readFileSync("./src/index.handlebars", "utf8");
     let compiled = hb.compile(index_template);
-    let version = require("./package.json").version;
-    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version});
+    const package = require("./package.json");
+    let version = package.version;
+    let unpkg_deps = package.dependencies;
+
+    // replace version field of dependencies with unpkg link at specific version
+    for (let dep in unpkg_deps) {
+        unpkg_deps[dep] = `https://unpkg.com/${dep}@${unpkg_deps[dep]}`;
+    }
+
+    let unpkg_imp_map = {"imports": unpkg_deps};
+    unpkg_imp_map = JSON.stringify(unpkg_imp_map);
+
+    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, unpkg_imp_map });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
 

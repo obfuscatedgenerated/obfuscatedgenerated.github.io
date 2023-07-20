@@ -25,6 +25,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preload" as="image" href="public/logo.png" />
     <title>{{title}}</title>
+
+    <!-- provided for mounted programs to solve issue of not needing to bundle all deps, but no need to provide from the bundle -->
+    <script type="importmap">
+        {{{unpkg_imp_map}}}
+    </script>
 </head>
 
 <body data-version="{{version}}">
