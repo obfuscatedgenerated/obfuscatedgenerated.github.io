@@ -19,6 +19,9 @@ function hb_build() {
     let version = package.version;
     let unpkg_deps = package.dependencies;
 
+    // can't do imgtoascii
+    delete unpkg_deps["imgtoascii"];
+
     // replace version field of dependencies with unpkg link at specific version
     for (let dep in unpkg_deps) {
         unpkg_deps[dep] = `https://unpkg.com/${dep}@${unpkg_deps[dep]}`;
