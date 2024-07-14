@@ -116,38 +116,38 @@ Project URL: https://ollieg.codes
 Repo URL: https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io
 `},
     },
-    "mewsic": {
-        "icon.png": { fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/mewsic/main/public/logo.png" },
-        "info.txt": {
-            fetch: false, content: `
+//     "mewsic": {
+//         "icon.png": { fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/mewsic/main/public/logo.png" },
+//         "info.txt": {
+//             fetch: false, content: `
 
-A PAW (purring audio workstation)
+// A PAW (purring audio workstation)
 
-Project URL: https://mewsic.ollieg.codes
-Repo URL: https://github.com/obfuscatedgenerated/mewsic
-        `},
-    },
-    "ClickbaitDetector": {
-        "info.txt": {
-            fetch: false, content: `
+// Project URL: https://mewsic.ollieg.codes
+// Repo URL: https://github.com/obfuscatedgenerated/mewsic
+//         `},
+//     },
+//     "ClickbaitDetector": {
+//         "info.txt": {
+//             fetch: false, content: `
 
-An AI written in Python with Tensorflow that detects clickbait.
+// An AI written in Python with Tensorflow that detects clickbait.
 
-Repo URL: https://github.com/obfuscatedgenerated/ClickbaitDetector
-        `},
-    },
-    "ytWordCloud": {
-        "info.txt": {
-            fetch: false, content: `
+// Repo URL: https://github.com/obfuscatedgenerated/ClickbaitDetector
+//         `},
+//     },
+//     "ytWordCloud": {
+//         "info.txt": {
+//             fetch: false, content: `
 
-A Python program that generates a word cloud from the titles of a YouTube channel's videos.
+// A Python program that generates a word cloud from the titles of a YouTube channel's videos.
 
-Repo URL: https://github.com/obfuscatedgenerated/ytWordCloud
-        `},
-        "example.png": {
-            fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/ytWordCloud/main/example.png"
-        },
-    },
+// Repo URL: https://github.com/obfuscatedgenerated/ytWordCloud
+//         `},
+//         "example.png": {
+//             fetch: true, content: "https://raw.githubusercontent.com/obfuscatedgenerated/ytWordCloud/main/example.png"
+//         },
+//     },
     "workitmakeit": {
         "info.txt": {
             fetch: false, content: `
@@ -183,7 +183,8 @@ A virtual machine host for Discord powered by VMware.
 The bot manages a VMware instance to allow users to boot, view, and list virtual machines.
 With the Conductor component installed in the VM, users can control the VM from Discord.
 
-(URLs not public yet)
+This project has been paused for an extended time.
+(URLs not public)
         `},
         "logo.png": {
             fetch: true, content: "https://avatars.githubusercontent.com/VirtuosoVM"
@@ -210,7 +211,30 @@ A BungeeCord proxy plugin that replaces the MOTD with dynamic messages!
 Repo URL: https://github.com/obfuscatedgenerated/MagicMOTD
         `},
         "logo.png": {
-            fetch: true, content: "https://www.spigotmc.org/data/resource_icons/110/110063.jpg"
+            fetch: true, content: "https://ollieg.codes/public/magicmotd.jpg"
+        },
+    },
+    "BadgeDropper": {
+        "info.txt": {
+            fetch: false, content: `
+
+An in development game where badges drawn by talented artists are dropped and collected.
+
+An early prototype will be available as soon as it is deemed playable.
+(URLs not currently public)
+        `}
+    },
+    "BitBuddies": {
+        "info.txt": {
+            fetch: false, content: `
+
+A Discord app that allows users to create and manage their own virtual pets.
+
+Development has temporarily been paused to focus on BadgeDropper.
+(URLs not currently public)
+        `},
+        "logo.png": {
+            fetch: true, content: "https://ollieg.codes/public/bitbuddies.png"
         },
     }
 };
