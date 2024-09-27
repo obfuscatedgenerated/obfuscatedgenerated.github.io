@@ -63,15 +63,15 @@ export const repo_query = {
         return await response.json();
     },
 
-    // returns null if not found, otherwise returns the contents of the file
-    get_pkg_contents: async (pkg: string, version: string) => {
+    // returns null if not found, otherwise returns the meta.json file as an object
+    get_pkg_meta: async (pkg: string, version: string) => {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
         pkg = pkg.replace(/\./g, "%2E");
         version = version.replace(/\./g, "%2E");
 
         // repo/pkgs/pkg/version/
-        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, "contents.txt"]);
+        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, "meta.json"]);
 
         const response = await fetch(url.toString());
         if (!response.ok) {
@@ -82,7 +82,7 @@ export const repo_query = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return await response.text();
+        return await response.json();
     },
 
     // gets a file within a package or returns null if not found
