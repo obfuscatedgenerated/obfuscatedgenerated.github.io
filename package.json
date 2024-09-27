@@ -2,6 +2,7 @@
   "name": "ollieos",
   "version": "0.9.7",
   "description": "",
+  "private": true,
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
