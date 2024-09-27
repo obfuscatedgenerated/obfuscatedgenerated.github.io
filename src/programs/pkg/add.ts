@@ -1,18 +1,18 @@
-import { repo_query } from ".";
-import { mount_and_register_with_output } from "../../prog_registry";
+import {repo_query} from ".";
+import {mount_and_register_with_output} from "../../prog_registry";
 
-import { ANSI, NEWLINE } from "../../term_ctl";
-import { ProgramMainData } from "../../types"
+import {ANSI, NEWLINE} from "../../term_ctl";
+import {ProgramMainData} from "../../types"
 
 // extract from ANSI to make code less verbose
-const { STYLE, PREFABS, FG } = ANSI;
+const {STYLE, PREFABS, FG} = ANSI;
 
-// TODO: remove first if it is an upgrade
+// we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
 
 export const add_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const {args, term} = data;
 
     // remove subcommand name
     args.shift();
@@ -78,6 +78,53 @@ export const add_subcommand = async (data: ProgramMainData) => {
             continue;
         }
 
+        const pkg_dir = `/usr/bin/${pkg_name}`;
+
+        // check version file if already installed
+        if (fs.exists(`${pkg_dir}/VERSION`)) {
+            const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
+
+            if (installed_version === pkg_version) {
+                // if exact version already installed, skip
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg_name}@${pkg_version} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
+                continue;
+            } else {
+                // uninstall old version
+                term.writeln(`${FG.yellow}Uninstalling old ${pkg_name}@${pkg_version}...${STYLE.reset_all}`);
+
+                //const remove_data = { term, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name] };
+                //const remove_exit_code = await remove_subcommand(remove_data);
+                //if (remove_exit_code !== 0) {
+                //    term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
+                //    error_count++;
+                //    term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+                //    continue;
+                //}
+
+                // TODO: this is less safe, slower, less clean, and silly. we should import remove subcommand and call it properly once we know it works
+                // TODO: use specific version specifier in remove subcommand when supported
+                const remove_exit_success = await term.execute(`pkg remove ${pkg_name}`);
+
+                if (!remove_exit_success) {
+                    term.writeln(`${PREFABS.error}Fatal error when uninstalling old version.${STYLE.reset_all}`);
+                    error_count++;
+                    term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+                    continue;
+                }
+
+                // get exit code in another silly way
+                const exit_code = parseInt(term.get_variable("?"));
+                if (exit_code !== 0) {
+                    term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
+                    error_count++;
+                    term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+                    continue;
+                }
+
+                //fs.delete_file(`${pkg_dir}/VERSION`);
+            }
+        }
+
         // firstly, install dependencies
         if (meta.deps && meta.deps.length > 0) {
             term.writeln(`${FG.magenta + STYLE.bold}Installing dependencies...${STYLE.reset_all}`);
@@ -90,7 +137,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
             const virtual_args = meta.deps;
             virtual_args.unshift("add");
 
-            const virtual_data = { term, args: virtual_args, unsubbed_args: virtual_args };
+            const virtual_data = {term, args: virtual_args, unsubbed_args: virtual_args};
             const virtual_exit_code = await add_subcommand(virtual_data);
 
             if (virtual_exit_code !== 0) {
@@ -99,18 +146,6 @@ export const add_subcommand = async (data: ProgramMainData) => {
                 term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
                 continue;
                 // TODO: remove partial installation
-            }
-        }
-
-        const pkg_dir = `/usr/bin/${pkg_name}`;
-
-        // check version file
-        if (fs.exists(`${pkg_dir}/VERSION`)) {
-            const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
-
-            if (installed_version === pkg_version) {
-                term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
-                continue;
             }
         }
 
@@ -188,7 +223,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
     }
 
     term.writeln(`${FG.green}Successfully installed all ${total_pkgs} package(s).${STYLE.reset_all}`);
-    
+
     return 0;
 }
 // TODO: decompose into smaller functions

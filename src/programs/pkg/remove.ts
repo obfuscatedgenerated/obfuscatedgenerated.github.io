@@ -24,6 +24,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
     let unique_args = [...new Set(args)];
 
     // if any args contain @, trim to before @ and show warning
+    // TODO: accept version specifier and check that the requested version is the one installed before removing
     for (const arg of unique_args) {
         if (arg.includes("@")) {
             term.writeln(`${FG.yellow}Warning: ${arg} contains a version specifier.`);

@@ -616,6 +616,7 @@ export class WrappedTerminal extends Terminal {
         }
 
         // mount all programs in any subdirectory of /usr/bin
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
         const usr_bin = fs.absolute("/usr/bin");
         if (fs.exists(usr_bin)) {
             recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
