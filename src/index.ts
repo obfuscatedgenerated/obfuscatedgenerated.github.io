@@ -1,9 +1,9 @@
 import { ANSI, WrappedTerminal, NEWLINE } from "./term_ctl";
-import "xterm/css/xterm.css";
+import "@xterm/xterm/css/xterm.css";
 
-import { FitAddon } from "xterm-addon-fit";
-import { WebLinksAddon } from "xterm-addon-web-links";
-import { ImageAddon } from "xterm-addon-image";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { ImageAddon } from "@xterm/addon-image";
 
 import { ProgramRegistry } from "./prog_registry";
 import * as programs from "./programs/@ALL";
