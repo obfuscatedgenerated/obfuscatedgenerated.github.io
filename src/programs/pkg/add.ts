@@ -41,7 +41,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         // if in the format of pkg@version, split it up
         const pkg_split = pkg.split("@");
         if (pkg_split.length > 2) {
-            term.writeln(`${PREFABS.error}Invalid package name.`);
+            term.writeln(`${PREFABS.error}Invalid package name: ${pkg}`);
             term.writeln(`Try 'pkg -h' for more information.${STYLE.reset_all}`);
             return 2;
         }
@@ -56,7 +56,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         if (!pkg_json) {
             term.writeln(`${PREFABS.error}Package '${pkg_name}' not found.${STYLE.reset_all}`);
             error_count++;
-            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
         }
 
@@ -73,8 +73,31 @@ export const add_subcommand = async (data: ProgramMainData) => {
         if (!meta) {
             term.writeln(`${PREFABS.error}Version '${pkg_version}' of '${pkg_name}' not found.${STYLE.reset_all}`);
             error_count++;
-            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
+        }
+
+        // firstly, install dependencies
+        if (meta.deps && meta.deps.length > 0) {
+            term.writeln(`${FG.magenta + STYLE.bold}Installing dependencies...${STYLE.reset_all}`);
+
+            // simulate a call to this function with the deps as arguments
+            // TODO: is it worth doing this properly and decomposing each stage to a function and calling it?
+            // TODO: clearer logs
+            // TODO: unshifting add is silly, should this func be changed to accept args with add removed?
+            const virtual_args = meta.deps;
+            virtual_args.unshift("add");
+
+            const virtual_data = { term, args: virtual_args, unsubbed_args: virtual_args };
+            const virtual_exit_code = await add_subcommand(virtual_data);
+
+            if (virtual_exit_code !== 0) {
+                term.writeln(`${PREFABS.error}Failed to install dependencies.${STYLE.reset_all}`);
+                error_count++;
+                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+                continue;
+                // TODO: remove partial installation
+            }
         }
 
         const pkg_dir = `/usr/bin/${pkg_name}`;
@@ -86,7 +109,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
             if (installed_version === pkg_version) {
                 term.writeln(`${PREFABS.error}Already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
                 error_count++;
-                term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
                 continue;
             }
         }
@@ -98,7 +121,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         if (content_list.length === 0 || content_list.length === 1 && content_list[0] === "") {
             term.writeln(`${PREFABS.error}Empty package.${STYLE.reset_all}`);
             error_count++;
-            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
         }
 
@@ -117,7 +140,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
             if (!file_contents) {
                 term.writeln(`${PREFABS.error}Not found.${STYLE.reset_all}`);
                 error_count++;
-                term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
                 continue;
             }
 
@@ -127,7 +150,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         // add pkg.json to file map
         file_map.set("pkg.json", JSON.stringify(pkg_json));
 
-        term.writeln(`${FG.yellow}Installing...${STYLE.reset_all}`);
+        term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
 
         fs.make_dir(pkg_dir);
 
@@ -141,7 +164,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
         term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
 
-        term.writeln(`${FG.cyan}Mounting package...${STYLE.reset_all}`);
+        term.writeln(`${FG.cyan}Mounting package ${pkg_name}...${STYLE.reset_all}`);
 
         // mount each program
         for (const [file, value] of file_map) {
@@ -150,14 +173,6 @@ export const add_subcommand = async (data: ProgramMainData) => {
             }
 
             await mount_and_register_with_output(file, value, prog_reg, term);
-        }
-
-        if (meta.deps && meta.deps.length > 0) {
-            term.writeln(`${FG.magenta + STYLE.bold}Installing deps...${STYLE.reset_all}`);
-            // TODO: recrusive execute, but dont trust deps fields as it could be command injection
-            // test for now..
-            term.writeln(meta.deps.join(", "));
-            term.writeln(`${STYLE.reset_all}`);
         }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);

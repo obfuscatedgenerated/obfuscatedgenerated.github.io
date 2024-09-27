@@ -5,6 +5,8 @@ import { ProgramMainData } from "../../types"
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
 
+// TODO: resolve unused deps?
+
 export const remove_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
