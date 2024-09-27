@@ -109,10 +109,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
             const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
 
             if (installed_version === pkg_version) {
-                term.writeln(`${PREFABS.error}Already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
-                // TODO: make this return a different error or act as a warning, so we dont cancel installation if a dep is already installed
-                error_count++;
-                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
                 continue;
             }
         }
