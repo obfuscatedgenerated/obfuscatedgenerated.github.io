@@ -85,6 +85,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
             // TODO: is it worth doing this properly and decomposing each stage to a function and calling it?
             // TODO: clearer logs
             // TODO: unshifting add is silly, should this func be changed to accept args with add removed?
+            // TODO: parallelism with promise.all???
             const virtual_args = meta.deps;
             virtual_args.unshift("add");
 
