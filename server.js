@@ -67,5 +67,5 @@ app.use((err, req, res, next) => {
   res.type('txt').send('Internal server error');
 })
 
-app.listen(3005);
+app.listen(3005, "127.0.0.1");
 console.log("Live @ 3005");

@@ -3,3 +3,5 @@
 index.html
 /public/script/
 /fsedit/index.html
+/.idea/
+*.iml
