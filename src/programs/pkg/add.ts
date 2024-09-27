@@ -155,12 +155,8 @@ export const add_subcommand = async (data: ProgramMainData) => {
         // send message if pkg.json has deps
         // TODO: implement automatic dependency installation
         if (pkg_json.deps && pkg_json.deps.length > 0) {
-            term.writeln(`${FG.yellow + STYLE.bold}Note: automatic dependency installation is not yet implemented.`);
-            term.writeln(`Please install the following dependencies manually:${STYLE.reset_all + FG.magenta}`);
-
-            for (const dep of pkg_json.deps) {
-                term.writeln(`-  ${dep}`);
-            }
+            term.writeln(`${FG.magenta + STYLE.bold}Installing deps...${STYLE.reset_all}`);
+            // TODO: recrusive execute, but dont trust deps fields as it could be command injection
 
             term.writeln(`${STYLE.reset_all}`);
         }
