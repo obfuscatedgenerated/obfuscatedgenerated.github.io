@@ -158,7 +158,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
     } catch (e) {
         term.writeln(`${PREFABS.error}Failed to prepare program from '${filename}'.${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
-        term.writeln(`${PREFABS.error}Skipping...${STYLE.reset_all}`);
+        term.writeln(`${PREFABS.error}Skipping mount...${STYLE.reset_all}`);
         return;
     }
 
@@ -167,7 +167,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
     } catch (e) {
         term.writeln(`${PREFABS.error}Failed to mount program '${reg.program.name}'.${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
-        term.writeln(`${PREFABS.error}Skipping...${STYLE.reset_all}`);
+        term.writeln(`${PREFABS.error}Skipping mount...${STYLE.reset_all}`);
     }
 }
 
