@@ -33,6 +33,7 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
 
 export const repo_query = {
     // GETs a file path relative to the repo root
+    // TODO: why did i write this and not use it?? all other fetches are just this but returning null for a 404?? am i stupid?? it's being exported so maybe i had a reason
     api_call: async (filepath: string) => {
         const url = new URL(filepath, repo_url_obj);
 

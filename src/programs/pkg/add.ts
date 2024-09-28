@@ -3,6 +3,7 @@ import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
 import {ProgramMainData} from "../../types"
+import {remove_subcommand} from "./remove";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS, FG} = ANSI;
@@ -92,29 +93,9 @@ export const add_subcommand = async (data: ProgramMainData) => {
                 // uninstall old version
                 term.writeln(`${FG.yellow}Uninstalling old ${pkg_name}@${pkg_version}...${STYLE.reset_all}`);
 
-                //const remove_data = { term, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name] };
-                //const remove_exit_code = await remove_subcommand(remove_data);
-                //if (remove_exit_code !== 0) {
-                //    term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
-                //    error_count++;
-                //    term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
-                //    continue;
-                //}
-
-                // TODO: this is less safe, slower, less clean, and silly. we should import remove subcommand and call it properly once we know it works
-                // TODO: use specific version specifier in remove subcommand when supported
-                const remove_exit_success = await term.execute(`pkg remove ${pkg_name}`);
-
-                if (!remove_exit_success) {
-                    term.writeln(`${PREFABS.error}Fatal error when uninstalling old version.${STYLE.reset_all}`);
-                    error_count++;
-                    term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
-                    continue;
-                }
-
-                // get exit code in another silly way
-                const exit_code = parseInt(term.get_variable("?"));
-                if (exit_code !== 0) {
+                const remove_data = {term, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name]};
+                const remove_exit_code = await remove_subcommand(remove_data);
+                if (remove_exit_code !== 0) {
                     term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
                     error_count++;
                     term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
