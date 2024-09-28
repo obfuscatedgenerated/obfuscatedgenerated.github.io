@@ -214,7 +214,6 @@ export default {
                         break;
                     }
 
-                    // TODO: crashing program
 
                     // determine cursor position
                     const cursor_x = term.buffer.normal.cursorX;
@@ -239,17 +238,19 @@ export default {
                     // write the rest of the line
                     term.write(line_after);
 
-                    // clear text past the cursor
-                    term.write(" ".repeat(next_line.length));
+                    if (next_line) {
+                        // clear text past the cursor
+                        term.write(" ".repeat(next_line.length));
 
-                    // move the cursor down one line and to the beginning of the line
-                    term.write("\x1b[1B\x1b[1G");
+                        // move the cursor down one line and to the beginning of the line
+                        term.write("\x1b[1B\x1b[1G");
 
-                    // write the line
-                    term.write(next_line);
+                        // write the line
+                        term.write(next_line);
 
-                    // move the cursor up one line and to the end of the line
-                    term.write("\x1b[1A\x1b[1G");
+                        // move the cursor up one line and to the end of the line
+                        term.write("\x1b[1A\x1b[1G");
+                    }
                 }
                     break;
                 case "Backspace": {
