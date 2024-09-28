@@ -28,6 +28,13 @@ function hb_build() {
         unpkg_deps[dep] = `https://unpkg.com/${dep}@${deps[dep]}`;
     }
 
+    // inject a fake dep, xterm, that points to @xterm/xterm to help support older compiled ollieos programs
+    // alias other renamed modules to their new names
+    unpkg_deps["xterm"] = `https://unpkg.com/@xterm/xterm@${deps["@xterm/xterm"]}`;
+    unpkg_deps["xterm-addon-fit"] = `https://unpkg.com/@xterm/addon-fit@${deps["@xterm/addon-fit"]}`;
+    unpkg_deps["xterm-addon-image"] = `https://unpkg.com/@xterm/addon-image@${deps["@xterm/addon-image"]}`;
+    unpkg_deps["xterm-addon-web-links"] = `https://unpkg.com/@xterm/addon-web-links@${deps["@xterm/addon-web-links"]}`;
+
     let unpkg_imp_map = {"imports": unpkg_deps};
     unpkg_imp_map = JSON.stringify(unpkg_imp_map);
 

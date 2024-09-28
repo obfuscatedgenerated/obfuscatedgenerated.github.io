@@ -1,4 +1,4 @@
-import { IDisposable, ITerminalOptions, Terminal } from "xterm";
+import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
 
 import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
 import type { AbstractFileSystem } from "./filesystem";
