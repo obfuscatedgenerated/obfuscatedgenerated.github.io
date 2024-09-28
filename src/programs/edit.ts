@@ -50,6 +50,7 @@ const setup = (term: WrappedTerminal, content: string, path: string, readonly: b
 // TODO: expose ANSI cursor control codes as functions in term_ctl
 // TODO: consider instead using a hidden textarea to store the character buffer, or using a queue and reimplementing the terminal's keypress handler
 // TODO: provide method in terminal to set up the above ^^^
+// TODO: none of this accounts for scrolling!! use of cursorPos will not function properly if the terminal is scrolled
 
 export default {
     name: "edit",
@@ -148,9 +149,11 @@ export default {
                     // determine the cursor's x position
                     const cursor_x = term.buffer.normal.cursorX;
 
-                    // if the cursor is past the end of the line, move it to the end of the line
-                    if (cursor_x > line_length) {
-                        term.scrollLines(-1);
+                    // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
+                    if (cursor_x >= line_length) {
+                        term.write("\b".repeat(cursor_x - line_length));
+                    } else {
+                        term.write("\x1b[C".repeat(line_length - cursor_x));
                     }
                 }
                     break;
@@ -178,9 +181,11 @@ export default {
                     // determine the cursor's x position
                     const cursor_x = term.buffer.normal.cursorX;
 
-                    // if the cursor is past the end of the line, move it to the end of the line
-                    if (cursor_x > line_length) {
-                        term.scrollLines(1);
+                    // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
+                    if (cursor_x >= line_length) {
+                        term.write("\b".repeat(cursor_x - line_length));
+                    } else {
+                        term.write("\x1b[C".repeat(line_length - cursor_x));
                     }
                 }
                     break;
@@ -208,6 +213,8 @@ export default {
                     if (readonly) {
                         break;
                     }
+
+                    // TODO: crashing program
 
                     // determine cursor position
                     const cursor_x = term.buffer.normal.cursorX;
@@ -251,11 +258,14 @@ export default {
                         break;
                     }
 
-                    // TODO: this is all just fucked :)
-
                     // get the current cursor position
                     const cursor_x = term.buffer.normal.cursorX;
                     const cursor_y = term.buffer.normal.cursorY;
+
+                    // do nothing at the start of the file
+                    if (cursor_x === 0 && cursor_y === 2) {
+                        break;
+                    }
 
                     // if at the beginning of the line, remove the newline
                     if (cursor_x === 0) {
@@ -276,6 +286,8 @@ export default {
 
                         break;
                     }
+
+                    // TODO: not handling last char of a line properly
 
                     // otherwise, remove the character to the left of the cursor
                     const left = split_content[cursor_y - 2].slice(0, cursor_x - 2);
@@ -322,8 +334,8 @@ export default {
                             term.write(key.key);
                         } else {
                             // otherwise, insert it and shift the rest of the line
-                            const left = split_content[cursor_y - 2].slice(0, cursor_x - 1);
-                            const right = split_content[cursor_y - 2].slice(cursor_x - 1);
+                            const left = split_content[cursor_y - 2].slice(0, cursor_x);
+                            const right = split_content[cursor_y - 2].slice(cursor_x);
 
                             split_content[cursor_y - 2] = left + key.key + right;
 
