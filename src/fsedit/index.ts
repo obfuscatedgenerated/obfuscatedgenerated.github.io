@@ -75,8 +75,13 @@ const file_tree = document.getElementById("file-tree") as HTMLDivElement;
 const title = document.getElementById("title") as HTMLHeadingElement;
 const file_name = document.getElementById("file-name") as HTMLHeadingElement;
 
-// save a reference to the textarea
+// save a reference to the textarea and track a dirty flag
+let dirty = false;
 const content_area = document.getElementById("file-content") as HTMLTextAreaElement;
+
+content_area.oninput = () => {
+    dirty = true;
+}
 
 
 let render_directory: (dir: string) => void;
@@ -119,6 +124,7 @@ const render_file_editor = (abs_path: string, name: string) => {
 
     // set the content area value
     content_area.value = content;
+    dirty = false;
 
     // set the current path
     current_abs_path = abs_path;
@@ -247,7 +253,7 @@ render_directory = (dir: string) => {
 const bind_buttons = (base: Document | Element) => {
     // bind the exit button
     (base.querySelector("#exit-button") as HTMLButtonElement).onclick = async () => {
-        if (!current_readonly) {
+        if (!current_readonly && dirty) {
             const res = await Swal.fire({
                 title: "Save Changes?",
                 text: "Do you want to save changes before exiting?",
