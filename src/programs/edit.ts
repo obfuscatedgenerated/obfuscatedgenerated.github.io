@@ -53,6 +53,7 @@ const setup = (term: WrappedTerminal, content: string, path: string, readonly: b
 // TODO: consider instead using a hidden textarea to store the character buffer, or using a queue and reimplementing the terminal's keypress handler
 // TODO: provide method in terminal to set up the above ^^^
 // TODO: none of this accounts for scrolling!! use of cursorPos will not function properly if the terminal is scrolled
+// TODO: it would be nice to not "cheat" at enter and backspace, but to actually handle them properly. this is fine for now i guess
 
 export default {
     name: "edit",
@@ -216,7 +217,6 @@ export default {
                         break;
                     }
 
-                    //debugger;
 
                     // determine cursor position
                     const cursor_x = term.buffer.normal.cursorX;
@@ -233,6 +233,18 @@ export default {
                     // insert the new line into the content, between the before_newline and after_newline
                     split_content.splice(cursor_y - HEADER, 1, before_newline, after_newline);
 
+                    // the code below to redraw selectively is a mess and doesn't work properly for all cases, but is improving
+                    // for now, just to get edit in a somewhat working state, we'll just clear the screen and redraw everything (debug redraw but restoring cursor position)
+
+                    // debug redraw
+                    term.reset();
+                    setup(term, split_content.join(NEWLINE), path, readonly);
+
+                    // move the cursor to the start of the new line
+                    term.write(`\x1b[${cursor_y + 2};1H`);
+
+                    break;
+
                     // clear text past the cursor
                     term.write(" ".repeat(line.length - cursor_x));
 
@@ -241,7 +253,7 @@ export default {
 
                     // we are now on the new line. clear it using the old line length and write the new content from after_newline
                     // TODO: could just clear what overruns the new content, but the logic is more confusing. clearing everything is simpler but less efficient
-                    term.write(" ".repeat(old_split_content[cursor_y - HEADER].length));
+                    term.write(" ".repeat(old_split_content[cursor_y - HEADER].length)); // doesnt work for all cases, sometime leaves longer line stray
                     term.write("\x1b[1G")
                     term.write(after_newline);
 
@@ -262,8 +274,10 @@ export default {
                     }
 
                     // move the cursor back to the original line at the start of the new line
-                    // TODO: acts weird when redrawing multiple lines
-                    term.write(`\x1b[${lines_redrawn - 1}A\x1b[1G`);
+                    term.write("\x1b[1G");
+                    if (lines_redrawn > 0) {
+                        term.write(`\x1b[${lines_redrawn}A`);
+                    }
                 }
                     break;
                 case "Backspace": {
@@ -283,8 +297,23 @@ export default {
 
                     // if at the beginning of the line, remove the newline
                     if (cursor_x === 0) {
+                        // move previous line's content to the end of the current line
+                        const newline_content = split_content[cursor_y - HEADER];
+                        split_content[cursor_y - HEADER - 1] += newline_content;
+
                         split_content.splice(cursor_y - HEADER, 1);
-                        split_content[cursor_y - 3] += split_content[cursor_y - HEADER];
+
+                        // the code below to handle backspacing a newline ever only partly worked
+                        // for now, just to get edit in a somewhat working state, we'll just clear the screen and redraw everything (debug redraw but restoring cursor position)
+
+                        // debug redraw
+                        term.reset();
+                        setup(term, split_content.join(NEWLINE), path, readonly);
+
+                        // move the cursor to the previous line to the right length across (N from the end where N is the length of the line we just merged, newline_content)
+                        term.write(`\x1b[${cursor_y};${split_content[cursor_y - 3].length - newline_content.length + 1}G`);
+
+                        break;
 
                         // move the cursor up one line
                         term.write("\x1b[1A");
@@ -297,6 +326,8 @@ export default {
 
                         // move the cursor back to the original position
                         term.write(`\x1b[${split_content[cursor_y - HEADER].length + 1}D`);
+
+                        // TODO: redraw following lines properly
 
                         break;
                     }
@@ -369,7 +400,7 @@ export default {
         if (saved) {
             term.writeln(`${FG.green}File saved!${STYLE.reset_all}`);
         } else {
-            // TODO: cant exit without saving, crashes the program
+            // TODO: cant exit without saving, crashes the program when trying to set readonly status
             term.writeln(`${FG.red}Exited without saving!${STYLE.reset_all}`);
         }
 
