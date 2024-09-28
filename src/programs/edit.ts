@@ -287,11 +287,10 @@ export default {
                         break;
                     }
 
-                    // TODO: not handling last char of a line properly
 
                     // otherwise, remove the character to the left of the cursor
-                    const left = split_content[cursor_y - 2].slice(0, cursor_x - 2);
-                    const right = split_content[cursor_y - 2].slice(cursor_x - 1);
+                    const left = split_content[cursor_y - 2].slice(0, cursor_x - 1);
+                    const right = split_content[cursor_y - 2].slice(cursor_x);
 
                     split_content[cursor_y - 2] = left + right;
 
@@ -304,10 +303,11 @@ export default {
                     // move the cursor back to the original position
                     term.write(`\x1b[${right.length + 1}D`);
 
-                    // if the line is now empty, remove it
-                    if (split_content[cursor_y - 2] === "") {
+                    // if the line is now empty, remove it, unless it's the first line
+                    if (cursor_y !== 2 && split_content[cursor_y - 2] === "") {
                         split_content.splice(cursor_y - 2, 1);
                         term.write("\x1b[1M");
+                        break;
                     }
 
                     // if the cursor is now past the end of the line, move it to the end of the line
