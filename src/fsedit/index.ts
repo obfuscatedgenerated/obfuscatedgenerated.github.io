@@ -150,6 +150,7 @@ const save_file_in_editor = () => {
     content = content.replace(/(?:\r\n|\r|\n)/g, NEWLINE);
 
     // save the file
+    // TODO: removing from cache not always working??
     fs.remote_remove_from_cache(current_abs_path);
     fs.write_file_direct(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
 }
