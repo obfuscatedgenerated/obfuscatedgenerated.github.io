@@ -88,7 +88,7 @@ export default {
             readonly = fs.is_readonly(path);
 
             // lock the file by making it read-only
-            // TODO: the user can lock the file permanently if they close the tab, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
+            // TODO: the user can lock the file permanently if edit crashes, they close the tab, reload, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
             fs.set_readonly(path, true);
         }
 
@@ -314,7 +314,8 @@ export default {
                         setup(term, split_content.join(NEWLINE), path, readonly);
 
                         // move the cursor to the previous line to the right length across (N from the end where N is the length of the line we just merged, newline_content)
-                        term.write(`\x1b[${cursor_y};${split_content[cursor_y - 3].length - newline_content.length + 1}G`);
+                        // TODO: why isn't this working in all cases??????????????????????????????????
+                        term.write(`\x1b[${cursor_y};${split_content[cursor_y - HEADER - 1].length - newline_content.length + 1}G`);
 
                         break;
 
@@ -322,7 +323,7 @@ export default {
                         term.write("\x1b[1A");
 
                         // move the cursor to the end of the line
-                        term.write(`\x1b[${split_content[cursor_y - 3].length + 1}G`);
+                        term.write(`\x1b[${split_content[cursor_y - HEADER - 1].length + 1}G`);
 
                         // write the rest of the line
                         term.write(split_content[cursor_y - HEADER]);
