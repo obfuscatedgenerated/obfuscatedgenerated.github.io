@@ -94,7 +94,7 @@ export default {
 
         // temporary note
         // TODO: remove when scrolling is implemented properly
-        term.writeln(`${FG.yellow}Note: This program is still in development and is cannot handle text longer than the screen!${NEWLINE}If you just need to read a longer file, use ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow}.${NEWLINE}If you need to edit a longer file, use the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI.${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
+        term.writeln(`${FG.yellow}Note: This program is still in development and has numerous issues, including no scrolling!${NEWLINE}Consider using ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow} or the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI for your purposes.${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
         await term.wait_for_keypress();
 
         // setup the screen
