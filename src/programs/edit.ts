@@ -94,7 +94,7 @@ export default {
 
         // temporary note
         // TODO: remove when scrolling is implemented properly
-        term.writeln(`${FG.yellow}Note: This program is still in development and has numerous issues, including no scrolling!${NEWLINE}Consider using ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow} or the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI for your purposes.${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
+        term.writeln(`${FG.yellow}Note: This program is still in development and has numerous issues, including no scrolling!${NEWLINE}Pressing F2 to redraw may help some visual issues, but not any file writing related issues.${NEWLINE}Consider using ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow} or the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI for your purposes.${NEWLINE}Please don't report issues in this program unless you know a fix :)${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
         await term.wait_for_keypress();
 
         // setup the screen
