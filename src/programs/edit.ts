@@ -88,12 +88,13 @@ export default {
             readonly = fs.is_readonly(path);
 
             // lock the file by making it read-only
+            // TODO: the user can lock the file permanently if they close the tab, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
             fs.set_readonly(path, true);
         }
 
         // temporary note
-        // TODO: remove
-        term.writeln(`${FG.yellow}Note: This program is still in development and is very broken!${NEWLINE}If you just need to read a file, use ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow}.${NEWLINE}If you need to edit a file, use the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI.${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
+        // TODO: remove when scrolling is implemented properly
+        term.writeln(`${FG.yellow}Note: This program is still in development and is cannot handle text longer than the screen!${NEWLINE}If you just need to read a longer file, use ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow}.${NEWLINE}If you need to edit a longer file, use the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI.${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
         await term.wait_for_keypress();
 
         // setup the screen
@@ -110,7 +111,9 @@ export default {
             switch (key.domEvent.code) {
                 case "Escape":
                     // revert the file to its original read-only status
-                    fs.set_readonly(path, readonly);
+                    if (fs.exists(path)) {
+                        fs.set_readonly(path, readonly);
+                    }
 
                     exit_code = 0;
                     break;
