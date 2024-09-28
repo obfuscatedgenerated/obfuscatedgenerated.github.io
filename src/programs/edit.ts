@@ -1,6 +1,8 @@
 import type { AsyncProgram } from "../types";
 import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../term_ctl";
 
+const HEADER = 2;
+
 const setup = (term: WrappedTerminal, content: string, path: string, readonly: boolean) => {
     // extract from ANSI to make code less verbose
     const { STYLE, BG, FG } = ANSI;
@@ -144,7 +146,7 @@ export default {
                     term.write(key.key);
 
                     // determine the current line's length (sub 2 for header, sub 1 for moving up)
-                    const line_length = split_content[cursor_y - 3].length;
+                    const line_length = split_content[cursor_y - HEADER - 1].length;
 
                     // determine the cursor's x position
                     const cursor_x = term.buffer.normal.cursorX;
@@ -167,7 +169,7 @@ export default {
                         break;
                     }
 
-                    if (cursor_y === split_content.length + 1) { // (add 2 for header, sub 1 for 0-indexing)
+                    if (cursor_y === split_content.length + HEADER - 1) { // (add 2 for header, sub 1 for 0-indexing)
                         // we're at the bottom of the file, so we can't move down
                         break;
                     }
@@ -176,7 +178,7 @@ export default {
                     term.write(key.key);
 
                     // determine the current line's length (sub 2 for header, add 1 for moving down)
-                    const line_length = split_content[cursor_y - 1].length;
+                    const line_length = split_content[cursor_y - HEADER + 1].length;
 
                     // determine the cursor's x position
                     const cursor_x = term.buffer.normal.cursorX;
@@ -199,7 +201,7 @@ export default {
                     const cursor_y = term.buffer.normal.cursorY;
 
                     // determine the current line's length (sub 2 for header)
-                    const line_length = split_content[cursor_y - 2].length;
+                    const line_length = split_content[cursor_y - HEADER].length;
 
                     if (cursor_x < line_length) {
                         // pass through to the terminal
@@ -214,20 +216,22 @@ export default {
                         break;
                     }
 
+                    //debugger;
 
                     // determine cursor position
                     const cursor_x = term.buffer.normal.cursorX;
-                    const cursor_y = term.buffer.normal.cursorY;
+                    let cursor_y = term.buffer.normal.cursorY;
 
                     // split the current line at the cursor position
-                    const line = split_content[cursor_y - 2];
-                    const next_line = split_content[cursor_y - 1];
+                    const line = split_content[cursor_y - HEADER];
 
-                    const line_before = line.slice(0, cursor_x);
-                    const line_after = line.slice(cursor_x);
+                    const before_newline = line.slice(0, cursor_x);
+                    const after_newline = line.slice(cursor_x);
 
-                    // insert the new line into the content
-                    split_content.splice(cursor_y - 2, 1, line_before, line_after);
+                    const old_split_content = split_content.slice();
+
+                    // insert the new line into the content, between the before_newline and after_newline
+                    split_content.splice(cursor_y - HEADER, 1, before_newline, after_newline);
 
                     // clear text past the cursor
                     term.write(" ".repeat(line.length - cursor_x));
@@ -235,22 +239,31 @@ export default {
                     // move the cursor down one line and to the beginning of the line
                     term.write("\x1b[1B\x1b[1G");
 
-                    // write the rest of the line
-                    term.write(line_after);
+                    // we are now on the new line. clear it using the old line length and write the new content from after_newline
+                    // TODO: could just clear what overruns the new content, but the logic is more confusing. clearing everything is simpler but less efficient
+                    term.write(" ".repeat(old_split_content[cursor_y - HEADER].length));
+                    term.write("\x1b[1G")
+                    term.write(after_newline);
 
-                    if (next_line) {
-                        // clear text past the cursor
-                        term.write(" ".repeat(next_line.length));
+                    // adjust cursor y to reflect the real newline being handled
+                    cursor_y++;
 
-                        // move the cursor down one line and to the beginning of the line
+                    // clear all the lines below the new cursor position, then write the new content into them
+                    // TODO: could just clear what overruns the new content, but the logic is more confusing. clearing everything is simpler but less efficient
+                    let lines_redrawn = 0;
+                    for (let i = cursor_y - HEADER + 1; i < split_content.length; i++) {
                         term.write("\x1b[1B\x1b[1G");
-
-                        // write the line
-                        term.write(next_line);
-
-                        // move the cursor up one line and to the end of the line
-                        term.write("\x1b[1A\x1b[1G");
+                        if (old_split_content[i]) {
+                            term.write(" ".repeat(old_split_content[i].length));
+                            term.write("\x1b[1G");
+                        }
+                        term.write(split_content[i]);
+                        lines_redrawn++;
                     }
+
+                    // move the cursor back to the original line at the start of the new line
+                    // TODO: acts weird when redrawing multiple lines
+                    term.write(`\x1b[${lines_redrawn - 1}A\x1b[1G`);
                 }
                     break;
                 case "Backspace": {
@@ -270,8 +283,8 @@ export default {
 
                     // if at the beginning of the line, remove the newline
                     if (cursor_x === 0) {
-                        split_content.splice(cursor_y - 2, 1);
-                        split_content[cursor_y - 3] += split_content[cursor_y - 2];
+                        split_content.splice(cursor_y - HEADER, 1);
+                        split_content[cursor_y - 3] += split_content[cursor_y - HEADER];
 
                         // move the cursor up one line
                         term.write("\x1b[1A");
@@ -280,20 +293,20 @@ export default {
                         term.write(`\x1b[${split_content[cursor_y - 3].length + 1}G`);
 
                         // write the rest of the line
-                        term.write(split_content[cursor_y - 2]);
+                        term.write(split_content[cursor_y - HEADER]);
 
                         // move the cursor back to the original position
-                        term.write(`\x1b[${split_content[cursor_y - 2].length + 1}D`);
+                        term.write(`\x1b[${split_content[cursor_y - HEADER].length + 1}D`);
 
                         break;
                     }
 
 
                     // otherwise, remove the character to the left of the cursor
-                    const left = split_content[cursor_y - 2].slice(0, cursor_x - 1);
-                    const right = split_content[cursor_y - 2].slice(cursor_x);
+                    const left = split_content[cursor_y - HEADER].slice(0, cursor_x - 1);
+                    const right = split_content[cursor_y - HEADER].slice(cursor_x);
 
-                    split_content[cursor_y - 2] = left + right;
+                    split_content[cursor_y - HEADER] = left + right;
 
                     // move the cursor back one space
                     term.write("\b");
@@ -305,15 +318,15 @@ export default {
                     term.write(`\x1b[${right.length + 1}D`);
 
                     // if the line is now empty, remove it, unless it's the first line
-                    if (cursor_y !== 2 && split_content[cursor_y - 2] === "") {
-                        split_content.splice(cursor_y - 2, 1);
+                    if (cursor_y !== 2 && split_content[cursor_y - HEADER] === "") {
+                        split_content.splice(cursor_y - HEADER, 1);
                         term.write("\x1b[1M");
                         break;
                     }
 
                     // if the cursor is now past the end of the line, move it to the end of the line
-                    if (cursor_x > split_content[cursor_y - 2].length) {
-                        term.write(`\x1b[${split_content[cursor_y - 2].length + 1}G`);
+                    if (cursor_x > split_content[cursor_y - HEADER].length) {
+                        term.write(`\x1b[${split_content[cursor_y - HEADER].length + 1}G`);
                     }
                 }
                     break;
@@ -330,15 +343,15 @@ export default {
                     // if the key is a printable character, write it in
                     if (!NON_PRINTABLE_REGEX.test(key.key)) {
                         // if at the end of the line, append to the line
-                        if (cursor_x === split_content[cursor_y - 2].length + 1) {
-                            split_content[cursor_y - 2] += key.key;
+                        if (cursor_x === split_content[cursor_y - HEADER].length + 1) {
+                            split_content[cursor_y - HEADER] += key.key;
                             term.write(key.key);
                         } else {
                             // otherwise, insert it and shift the rest of the line
-                            const left = split_content[cursor_y - 2].slice(0, cursor_x);
-                            const right = split_content[cursor_y - 2].slice(cursor_x);
+                            const left = split_content[cursor_y - HEADER].slice(0, cursor_x);
+                            const right = split_content[cursor_y - HEADER].slice(cursor_x);
 
-                            split_content[cursor_y - 2] = left + key.key + right;
+                            split_content[cursor_y - HEADER] = left + key.key + right;
 
                             // overwrite the line
                             term.write(key.key + right);
@@ -356,6 +369,7 @@ export default {
         if (saved) {
             term.writeln(`${FG.green}File saved!${STYLE.reset_all}`);
         } else {
+            // TODO: cant exit without saving, crashes the program
             term.writeln(`${FG.red}Exited without saving!${STYLE.reset_all}`);
         }
 
