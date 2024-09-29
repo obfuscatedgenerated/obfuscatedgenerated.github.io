@@ -82,6 +82,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         const pkg_dir = `/usr/bin/${pkg_name}`;
 
         // check version file if already installed
+        // TODO: switch to pkg graph?
         if (fs.exists(`${pkg_dir}/VERSION`)) {
             const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
 
