@@ -23,6 +23,7 @@ export const list_subcommand = async (data: ProgramMainData) => {
     const pkg_names = graph_query.list_pkgs(only_top_level);
 
     // print each package, marking top level packages in green and dependencies in gray
+    // TODO: mark top level packages that are also dependencies in another color?
     for (const pkg_name of pkg_names) {
         const info = graph_query.get_pkg_info(pkg_name);
         term.writeln(`${STYLE.bold}${info.top_level ? FG.green : FG.gray}${pkg_name}${STYLE.no_bold_or_dim}@${info.version}${STYLE.reset_all}`);
