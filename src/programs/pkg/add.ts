@@ -116,7 +116,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
 
         // firstly, install dependencies
         if (meta.deps && meta.deps.size > 0) {
-            term.writeln(`${FG.magenta + STYLE.bold}Installing dependencies...${STYLE.reset_all}`);
+            term.writeln(`${NEWLINE + FG.magenta + STYLE.bold}Installing dependencies...${STYLE.reset_all}`);
 
             // simulate a call to this function with the deps as arguments
             // TODO: is it worth doing this properly and decomposing each stage to a function and calling it?
@@ -137,6 +137,8 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
                 continue;
                 // TODO: remove partial installation
             }
+
+            term.writeln(`${FG.magenta + STYLE.bold}Dependencies installed.${STYLE.reset_all + NEWLINE}`);
         }
 
         term.writeln(`${FG.yellow}Enumerating contents...${STYLE.reset_all}`);
