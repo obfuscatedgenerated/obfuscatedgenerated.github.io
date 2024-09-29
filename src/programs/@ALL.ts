@@ -26,4 +26,5 @@ export { default as pkg } from "./pkg";
 // TODO: mv, mkdir, touch
 // TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)
 // TODO: video player from files or youtube using ascii video streaming or some super duper optimised sixel
+// TODO: bonus programs such as the video player can be packages now! i think everything else should stay embedded, as well as mv, mkdir, touch when they are added
 
