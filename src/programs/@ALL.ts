@@ -24,8 +24,9 @@ export { default as legacy } from "./legacy";
 export { default as tour } from "./tour";
 export { default as pkg } from "./pkg";
 export { default as touch } from "./touch";
-// TODO: mv, mkdir
+export { default as mkdir } from "./mkdir";
+// TODO: mv
 // TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)
 // TODO: video player from files or youtube using ascii video streaming or some super duper optimised sixel
-// TODO: bonus programs such as the video player can be packages now! i think everything else should stay embedded, as well as mv, mkdir when they are added
+// TODO: bonus programs such as the video player can be packages now! i think everything else should stay embedded, as well as mv when its added
 
