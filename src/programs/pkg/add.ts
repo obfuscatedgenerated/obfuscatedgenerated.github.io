@@ -92,6 +92,8 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
 
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg_name}@${pkg_version} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
 
+                // TODO: this errors if the dep is already installed as the top level package isn't installed yet! the caller needs to do this?
+                // TODO: or should we redesign graph_query to handle this? could just add a skip dep check flag to add_pkg_dependent
                 if (depended_by) {
                     graph_query.add_pkg_dependent(fs, pkg_name, depended_by);
                     term.writeln(`${FG.yellow}(dep graph updated)${STYLE.reset_all}`);

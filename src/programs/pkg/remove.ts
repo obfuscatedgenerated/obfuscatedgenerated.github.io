@@ -1,6 +1,7 @@
 import { determine_program_name_from_js } from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
+import {graph_query} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -10,9 +11,6 @@ const { STYLE, PREFABS, FG } = ANSI;
 export const remove_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
-
-    term.writeln("reminder: implement graph writing in remove! you'll break stuff if you don't!");
-    return 1;
 
     // remove subcommand name
     args.shift();
@@ -102,11 +100,24 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             }
         }
 
+        term.writeln(`${FG.yellow}Updating graph...${STYLE.reset_all}`);
+
+        try {
+            // TODO: does this handle deps properly?
+            // TODO: what order should this be called? probably before deleting the dir but should it be before unmount? prob not?
+            graph_query.remove_pkg(fs, pkg);
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            continue;
+
+            // TODO: should it remount?
+        }
+
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
         fs.delete_dir(pkg_dir, true);
         fs.purge_cache();
-
-        // TODO: do graph queries! and test it!
 
         term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
     }

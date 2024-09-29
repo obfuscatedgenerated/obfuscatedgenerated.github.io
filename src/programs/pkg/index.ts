@@ -341,6 +341,12 @@ export const graph_query = {
         //     graph[dependent_name].deps = graph[dependent_name].deps.filter((dep) => dep !== pkg);
         // }
 
+        // remove this package from its dependencies' dependents
+        for (const dep of graph[pkg].deps) {
+            const dep_name = dep.split("@")[0];
+            graph[dep_name].dependents.delete(`${pkg}@${graph[pkg].version}` as PkgAtVersion);
+        }
+
         // TODO: feels like something is missing? oh well, we'll find out when we test it
 
         // remove this package from the graph
