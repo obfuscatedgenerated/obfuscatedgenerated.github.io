@@ -1,4 +1,4 @@
-import { determine_program_name_from_js } from "../../prog_registry";
+import {determine_program_name_from_js, mount_and_register_with_output} from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query} from "./index";
@@ -109,10 +109,20 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         } catch (e) {
             term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
             error_count++;
+
+            // TODO: how do we get the file map again? need to do all the same stuff add command does??? maybe make functions!!
+            // term.writeln(`${FG.cyan}Remounting programs...${STYLE.reset_all}`);
+            //
+            // for (const [file, value] of file_map) {
+            //     if (!file.endsWith(".js")) {
+            //         continue;
+            //     }
+            //
+            //     await mount_and_register_with_output(file, value, prog_reg, term);
+            // }
+
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
             continue;
-
-            // TODO: need to remount!
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
