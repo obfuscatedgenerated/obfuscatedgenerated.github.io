@@ -63,18 +63,26 @@ const STYLE = {
     positive: "\x1B[27m"
 }
 
+const CURSOR = {
+    // TODO: move cursor manipulation from edit to substitution functions here
+    invisible: "\x1B[?25l",
+    visible: "\x1B[?25h",
+}
+
 const PREFABS = {
     program_name: FG.cyan + STYLE.italic + STYLE.bold,
     error: FG.red + STYLE.bold,
     variable_name: FG.yellow + STYLE.bold,
     file_path: FG.green + STYLE.bold,
     dir_name: FG.blue + STYLE.bold,
+    secret: STYLE.hidden + CURSOR.invisible,
 }
 
 export const ANSI = {
     FG,
     BG,
     STYLE,
+    CURSOR,
     PREFABS
 }
 
@@ -489,6 +497,31 @@ export class WrappedTerminal extends Terminal {
                 resolve(e);
             });
         });
+    }
+
+    get_text = async (max_length?: number): Promise<string> => {
+        let text = "";
+
+        while (true) {
+            const e = await this.wait_for_keypress();
+
+            if (e.key === "\r") {
+                // if the key is enter, return the text
+                return text;
+            } else if (e.key === "\x7F") {
+                // if the key is backspace, remove the last character
+                if (text.length > 0) {
+                    text = text.slice(0, -1);
+                    this.write("\b \b");
+                }
+            } else if (e.key.match(NON_PRINTABLE_REGEX) === null) {
+                // if the key is printable, add it to the text
+                if (max_length === undefined || text.length < max_length) {
+                    text += e.key;
+                    this.write(e.key);
+                }
+            }
+        }
     }
 
 
