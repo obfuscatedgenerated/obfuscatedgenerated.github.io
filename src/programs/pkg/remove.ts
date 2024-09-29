@@ -11,6 +11,9 @@ export const remove_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
 
+    term.writeln("reminder: implement graph writing in remove! you'll break stuff if you don't!");
+    return 1;
+
     // remove subcommand name
     args.shift();
 
