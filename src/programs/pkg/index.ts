@@ -136,7 +136,7 @@ interface PkgGraphEntry {
     version: string;
     deps: Set<PkgAtVersion>;
     dependents: Set<PkgAtVersion>;
-    installed_as_top_level: boolean; // as in, specified by the user at install time
+    top_level: boolean; // as in, specified by the user at install time
 }
 
 const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
@@ -178,7 +178,7 @@ export const graph_query = {
         const pkgs = Object.keys(graph);
 
         if (only_top_level) {
-            return pkgs.filter((pkg) => graph[pkg].installed_as_top_level);
+            return pkgs.filter((pkg) => graph[pkg].top_level);
         }
 
         return pkgs;
@@ -213,7 +213,7 @@ export const graph_query = {
     },
 
     // installs a NEW package. if this is not a top level package, you must specify an initial dependent. you cannot modify an existing package unless you use the defined functions.
-    install_new_pkg: (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, installed_as_top_level: boolean, dependended_by?: PkgAtVersion) => {
+    install_new_pkg: (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: PkgAtVersion) => {
         // TODO: resolve what to do if the package is already installed rather than exploding, makes using it a lot simpler
 
         if (graph[pkg]) {
@@ -221,7 +221,7 @@ export const graph_query = {
         }
 
         // TODO: we could assume top level based on if dependended_by is provided, but that's not very precise. top level packages may be dependencies!
-        if (!installed_as_top_level && !dependended_by) {
+        if (!top_level && !dependended_by) {
             throw new Error(`Package ${pkg} is not installed as a top-level package but does not have a dependent it was installed by.`);
         }
 
@@ -234,7 +234,7 @@ export const graph_query = {
         graph[pkg] = {
             version,
             deps,
-            installed_as_top_level,
+            top_level,
             dependents
         };
 
@@ -248,7 +248,7 @@ export const graph_query = {
             throw new Error(`Package ${pkg} is not installed.`);
         }
 
-        graph[pkg].installed_as_top_level = true;
+        graph[pkg].top_level = true;
 
         // write to file
         fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
@@ -264,7 +264,7 @@ export const graph_query = {
             throw new Error(`Package ${pkg} has no dependents and cannot be demoted. Use add_pkg_dependent FIRST.`);
         }
 
-        graph[pkg].installed_as_top_level = false;
+        graph[pkg].top_level = false;
 
         // write to file
         fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
@@ -358,7 +358,7 @@ export const graph_query = {
 
     // lists all packages that are not installed as top level and have no dependents
     list_unused_pkgs: () => {
-        return Object.keys(graph).filter((pkg) => !graph[pkg].installed_as_top_level && graph[pkg].dependents.size === 0);
+        return Object.keys(graph).filter((pkg) => !graph[pkg].top_level && graph[pkg].dependents.size === 0);
     }
 }
 
