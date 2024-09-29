@@ -92,13 +92,11 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
 
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg_name}@${pkg_version} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
 
-                // TODO: this errors if the dep is already installed as the top level package isn't installed yet! the caller needs to do this?
-                // TODO: or should we redesign graph_query to handle this? could just add a skip dep check flag to add_pkg_dependent
-                // TODO: it isn't safe to skip the dependent check, as the method also adds the dependency to the dependent so must already be in the graph
-                if (depended_by) {
-                    graph_query.add_pkg_dependent(fs, pkg_name, depended_by);
-                    term.writeln(`${FG.yellow}(dep graph updated)${STYLE.reset_all}`);
-                }
+                // cant do this here as top level package isn't installed yet. it's the caller's job to do this. it wouldn't be safe to refactor the method in a way that allows this
+                // if (depended_by) {
+                //     graph_query.add_pkg_dependent(fs, pkg_name, depended_by);
+                //     term.writeln(`${FG.yellow}(dep graph updated)${STYLE.reset_all}`);
+                // }
 
                 continue;
             } else {
@@ -189,6 +187,24 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         } catch (e) {
             term.writeln(`${PREFABS.error}Failed to add to graph: ${e.message}${STYLE.reset_all}`);
             error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // if there were dependencies, add this package as a dependent to each of them
+        try {
+            if (meta.deps && meta.deps.size > 0) {
+                for (const dep of meta.deps) {
+                    const dep_name = dep.split("@")[0];
+                    graph_query.add_pkg_dependent(fs, dep_name, pkg_at_version as PkgAtVersion);
+                }
+            }
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Failed to update dependencies: ${e.message}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Rolling back graph...${STYLE.reset_all}`);
+            // TODO: safety check? is it safer to capture the entire graph before starting and then rollback to that? add a capture and rollback method to graph_query?
+            graph_query.remove_pkg(fs, pkg_name);
             term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
         }
