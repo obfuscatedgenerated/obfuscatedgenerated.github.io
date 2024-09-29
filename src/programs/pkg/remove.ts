@@ -103,6 +103,8 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         fs.delete_dir(pkg_dir, true);
         fs.purge_cache();
 
+        // TODO: do graph queries!
+
         term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
     }
 

@@ -1,4 +1,4 @@
-import {repo_query} from ".";
+import {graph_query, repo_query} from ".";
 import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
@@ -83,8 +83,8 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
         // check version file if already installed
         // TODO: switch to pkg graph?
-        if (fs.exists(`${pkg_dir}/VERSION`)) {
-            const installed_version = fs.read_file(`${pkg_dir}/VERSION`);
+        if (graph_query.pkg_is_installed(pkg_name)) {
+            const installed_version = graph_query.get_pkg_version(pkg_name);
 
             if (installed_version === pkg_version) {
                 // if exact version already installed, skip
@@ -102,8 +102,6 @@ export const add_subcommand = async (data: ProgramMainData) => {
                     term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
                     continue;
                 }
-
-                //fs.delete_file(`${pkg_dir}/VERSION`);
             }
         }
 
@@ -171,8 +169,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
 
         fs.make_dir(pkg_dir);
 
-        // write version file
-        fs.write_file(`${pkg_dir}/VERSION`, pkg_version);
+        // TODO: do graph queries!
 
         // write each file
         for (const [file, value] of file_map) {

@@ -127,6 +127,8 @@ interface PkgGraphEntry {
 // TODO: untested! will be soon
 let graph: { [pkg_name: string]: PkgGraphEntry } = {};
 export const graph_query = {
+    // TODO: graph consistency checks / repair function
+
     // gets the graph entry for a package
     get_pkg: (pkg: string): PkgGraphEntry => {
         return graph[pkg];
