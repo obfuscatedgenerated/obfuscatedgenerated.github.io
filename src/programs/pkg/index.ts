@@ -377,6 +377,7 @@ export default {
             "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>${STYLE.reset_all}`,
             "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read [-r] <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
+            "clean": `Removes all packages that are not top level and have no dependents (and are therefore unused): ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} clean [-d]${STYLE.reset_all}`,
         },
         "Arguments:": {
             "-h": "Displays this help message.",
@@ -397,6 +398,9 @@ export default {
                 "-r": "Always fetch the latest information from the repository.",
                 "package": "The package to read the long description of.",
             },
+            "For clean:": {
+                "-d": "Dry run. Lists the packages that would be removed without actually removing them.",
+            }
         }
     },
     async_main: async (data) => {
@@ -449,6 +453,9 @@ export default {
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             case "browse":
+                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
+                break;
+            case "clean":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             default:
