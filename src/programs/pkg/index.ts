@@ -370,7 +370,12 @@ export default {
         }
 
         // load graph
-        graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string);
+        try {
+            graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string);
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
+            return 2;
+        }
 
         switch (args[0]) {
             case "add":
