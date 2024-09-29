@@ -110,16 +110,18 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
             error_count++;
 
-            // TODO: how do we get the file map again? need to do all the same stuff add command does??? maybe make functions!!
-            // term.writeln(`${FG.cyan}Remounting programs...${STYLE.reset_all}`);
-            //
-            // for (const [file, value] of file_map) {
-            //     if (!file.endsWith(".js")) {
-            //         continue;
-            //     }
-            //
-            //     await mount_and_register_with_output(file, value, prog_reg, term);
-            // }
+            term.writeln(`${FG.cyan}Remounting programs...${STYLE.reset_all}`);
+
+            // TODO: is this always successful? if it fails, we need to catch it so we can do the rest of the package removal
+            for (const filename of files) {
+                if (!filename.endsWith(".js")) {
+                    continue;
+                }
+
+                const file_path = fs.join(pkg_dir, filename);
+                const value = fs.read_file(file_path) as string;
+                await mount_and_register_with_output(filename, value, prog_reg, term);
+            }
 
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
             continue;

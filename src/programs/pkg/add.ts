@@ -232,12 +232,12 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         // it doesn't matter if mounting fails, the graph is fine and the files are downloaded properly, so no rollback needed
 
         // mount each program
-        for (const [file, value] of file_map) {
-            if (!file.endsWith(".js")) {
+        for (const [filename, value] of file_map) {
+            if (!filename.endsWith(".js")) {
                 continue;
             }
 
-            await mount_and_register_with_output(file, value, prog_reg, term);
+            await mount_and_register_with_output(filename, value, prog_reg, term);
         }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
