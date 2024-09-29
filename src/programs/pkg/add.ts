@@ -1,4 +1,4 @@
-import {graph_query, repo_query} from ".";
+import {graph_query, PkgAtVersion, repo_query} from ".";
 import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
@@ -11,7 +11,7 @@ const {STYLE, PREFABS, FG} = ANSI;
 // we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
 
-export const add_subcommand = async (data: ProgramMainData) => {
+export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtVersion) => {
     // extract from data to make code less verbose
     const {args, term} = data;
 
@@ -38,12 +38,12 @@ export const add_subcommand = async (data: ProgramMainData) => {
     while (unique_args.length >= 1) {
         term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
 
-        const pkg = unique_args.shift();
+        const pkg_at_version = unique_args.shift();
 
         // if in the format of pkg@version, split it up
-        const pkg_split = pkg.split("@");
+        const pkg_split = pkg_at_version.split("@");
         if (pkg_split.length > 2) {
-            term.writeln(`${PREFABS.error}Invalid package name: ${pkg}`);
+            term.writeln(`${PREFABS.error}Invalid package name: ${pkg_at_version}`);
             term.writeln(`Try 'pkg -h' for more information.${STYLE.reset_all}`);
             return 2;
         }
@@ -87,8 +87,16 @@ export const add_subcommand = async (data: ProgramMainData) => {
             const installed_version = graph_query.get_pkg_version(pkg_name);
 
             if (installed_version === pkg_version) {
-                // if exact version already installed, skip
+                // if exact version already installed, check dep graph then skip
+                // ie if depended_by is set but that isn't a dependent yet then add it
+
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: ${pkg_name}@${pkg_version} already installed. If you wish to reinstall the package, remove it first.${STYLE.reset_all}`);
+
+                if (depended_by) {
+                    graph_query.add_pkg_dependent(fs, pkg_name, depended_by);
+                    term.writeln(`${FG.yellow}(dep graph updated)${STYLE.reset_all}`);
+                }
+
                 continue;
             } else {
                 // uninstall old version
@@ -106,7 +114,7 @@ export const add_subcommand = async (data: ProgramMainData) => {
         }
 
         // firstly, install dependencies
-        if (meta.deps && meta.deps.length > 0) {
+        if (meta.deps && meta.deps.size > 0) {
             term.writeln(`${FG.magenta + STYLE.bold}Installing dependencies...${STYLE.reset_all}`);
 
             // simulate a call to this function with the deps as arguments
@@ -114,11 +122,12 @@ export const add_subcommand = async (data: ProgramMainData) => {
             // TODO: clearer logs
             // TODO: unshifting add is silly, should this func be changed to accept args with add removed?
             // TODO: parallelism with promise.all???
-            const virtual_args = meta.deps;
+            const virtual_args: string[] = [...meta.deps];
             virtual_args.unshift("add");
 
+            // we need to also pass the name of the dependent package to the virtual call to let the graph know
             const virtual_data = {term, args: virtual_args, unsubbed_args: virtual_args};
-            const virtual_exit_code = await add_subcommand(virtual_data);
+            const virtual_exit_code = await add_subcommand(virtual_data, pkg_at_version as PkgAtVersion);
 
             if (virtual_exit_code !== 0) {
                 term.writeln(`${PREFABS.error}Failed to install dependencies.${STYLE.reset_all}`);
@@ -165,20 +174,38 @@ export const add_subcommand = async (data: ProgramMainData) => {
         // add pkg.json to file map
         file_map.set("pkg.json", JSON.stringify(pkg_json));
 
+        // not actually executing the file map yet, as we need to ensure the graph is valid
+
+        term.writeln(`${FG.yellow}Updating graph...${STYLE.reset_all}`);
+
+        // don't need to check if installed or do anything fancy if it is, as previous checks have already run and updated the graph if needed
+        // this is guaranteed to be a new install (whether first time or remove was just run)
+        // TODO: test if that's true! test it more!
+        try {
+            graph_query.install_new_pkg(fs, pkg_name, pkg_version, meta.deps, !depended_by, depended_by);
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Failed to add to graph: ${e.message}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
         term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
 
         fs.make_dir(pkg_dir);
-
-        // TODO: do graph queries!
 
         // write each file
         for (const [file, value] of file_map) {
             fs.write_file(`${pkg_dir}/${file}`, value, true);
         }
 
+        // TODO: check if this fails somehow, and if it does, rollback the graph
+
         term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
 
         term.writeln(`${FG.cyan}Mounting package ${pkg_name}...${STYLE.reset_all}`);
+
+        // it doesn't matter if mounting fails, the graph is fine and the files are downloaded properly, so no rollback needed
 
         // mount each program
         for (const [file, value] of file_map) {

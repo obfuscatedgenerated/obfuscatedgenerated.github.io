@@ -1,9 +1,9 @@
-import { ANSI, NEWLINE } from "../../term_ctl";
+import {ANSI, NEWLINE} from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query} from "./index";
 
 // extract from ANSI to make code less verbose
-const { STYLE, PREFABS, FG } = ANSI;
+const { STYLE, FG } = ANSI;
 export const list_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
     const { args, term } = data;
@@ -18,12 +18,14 @@ export const list_subcommand = async (data: ProgramMainData) => {
         args.shift();
     }
 
+    term.write(NEWLINE);
+
     const pkg_names = graph_query.list_pkgs(only_top_level);
 
     // print each package, marking top level packages in green and dependencies in gray
     for (const pkg_name of pkg_names) {
         const info = graph_query.get_pkg_info(pkg_name);
-        term.writeln(`${NEWLINE + STYLE.bold}${info.installed_as_top_level ? FG.green : FG.gray}${pkg_name}${STYLE.no_bold}@${info.version}${STYLE.reset_all}`);
+        term.writeln(`${STYLE.bold}${info.installed_as_top_level ? FG.green : FG.gray}${pkg_name}${STYLE.no_bold_or_dim}@${info.version}${STYLE.reset_all}`);
     }
 
     return 0;

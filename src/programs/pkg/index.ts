@@ -36,6 +36,15 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
     // TODO: safe?
 }
 
+export type PkgAtVersion = `${string}@${string}`;
+
+interface PackageMeta {
+    files: string[];
+    version: string;
+    deps: Set<PkgAtVersion>;
+    build_timestamp: number;
+}
+
 export const repo_query = {
     // GETs a file path relative to the repo root
     // TODO: why did i write this and not use it?? all other fetches are just this but returning null for a 404?? am i stupid?? it's being exported so maybe i had a reason
@@ -70,7 +79,7 @@ export const repo_query = {
     },
 
     // returns null if not found, otherwise returns the meta.json file as an object
-    get_pkg_meta: async (pkg: string, version: string) => {
+    get_pkg_meta: async (pkg: string, version: string): Promise<PackageMeta> => {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
         pkg = pkg.replace(/\./g, "%2E");
@@ -88,7 +97,14 @@ export const repo_query = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return await response.json();
+        // TODO: validate meta
+
+        const data = await response.json();
+
+        // convert deps to set
+        data.deps = new Set(data.deps);
+
+        return data;
     },
 
     // gets a file within a package or returns null if not found
@@ -116,8 +132,6 @@ export const repo_query = {
     }
 }
 
-type PkgAtVersion = `${string}@${string}`;
-
 interface PkgGraphEntry {
     version: string;
     deps: Set<PkgAtVersion>;
@@ -125,10 +139,34 @@ interface PkgGraphEntry {
     installed_as_top_level: boolean; // as in, specified by the user at install time
 }
 
-// TODO: untested! will be soon
+const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
+    if (key !== "deps" && key !== "dependents") {
+        return value;
+    }
+
+    if (value instanceof Set) {
+        return Array.from(value);
+    }
+
+    throw new Error(`${key} not a set in graph to be stringified!`);
+}
+
+const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
+    if (key !== "deps" && key !== "dependents") {
+        return value;
+    }
+
+    if (Array.isArray(value)) {
+        return new Set(value);
+    }
+
+    throw new Error(`${key} not an array in graph to be parsed!`);
+}
+
 let graph: { [pkg_name: string]: PkgGraphEntry } = {};
 export const graph_query = {
     // TODO: graph consistency checks / repair function
+    // TODO: dangling dep check
 
     // gets the graph entry for a package
     get_pkg_info: (pkg: string): PkgGraphEntry => {
@@ -176,23 +214,32 @@ export const graph_query = {
 
     // installs a NEW package. if this is not a top level package, you must specify an initial dependent. you cannot modify an existing package unless you use the defined functions.
     install_new_pkg: (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, installed_as_top_level: boolean, dependended_by?: PkgAtVersion) => {
+        // TODO: resolve what to do if the package is already installed rather than exploding, makes using it a lot simpler
+
         if (graph[pkg]) {
             throw new Error(`Package ${pkg} is already installed and cannot be modified.`);
         }
 
+        // TODO: we could assume top level based on if dependended_by is provided, but that's not very precise. top level packages may be dependencies!
         if (!installed_as_top_level && !dependended_by) {
             throw new Error(`Package ${pkg} is not installed as a top-level package but does not have a dependent it was installed by.`);
+        }
+
+        const dependents = new Set<PkgAtVersion>();
+
+        if (dependended_by) {
+            dependents.add(dependended_by);
         }
 
         graph[pkg] = {
             version,
             deps,
             installed_as_top_level,
-            dependents: dependended_by ? new Set(dependended_by) as Set<PkgAtVersion> : new Set() as Set<PkgAtVersion>
+            dependents
         };
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // makes a package a top level package, no checks are performed as top level packages may have dependents
@@ -204,7 +251,7 @@ export const graph_query = {
         graph[pkg].installed_as_top_level = true;
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // makes a package not a top level package, but only if it has no dependents. use add_pkg_dependent FIRST before demoting if it has dependents now.
@@ -220,7 +267,7 @@ export const graph_query = {
         graph[pkg].installed_as_top_level = false;
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // adds a dependent to a package, provided the dependent is already installed. also adds the dependency to the dependent package.
@@ -241,7 +288,7 @@ export const graph_query = {
         graph[dependent_name].deps.add(pkg_at_version);
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // removes a dependent from a package, as well as clearing the dependency from the dependent package
@@ -271,7 +318,7 @@ export const graph_query = {
         graph[dependent_name].deps.delete(pkg_at_version);
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
 
         // uninstall if it has no dependents now? probably not, we can have a separate command for that
     },
@@ -300,7 +347,7 @@ export const graph_query = {
         delete graph[pkg];
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph));
+        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // lists all packages that are not installed as top level and have no dependents
@@ -376,7 +423,7 @@ export default {
 
         // load graph
         try {
-            graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string);
+            graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
         } catch (e) {
             term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
             return 2;
