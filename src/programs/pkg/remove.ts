@@ -1,4 +1,4 @@
-import {determine_program_name_from_js, mount_and_register_with_output} from "../../prog_registry";
+import {determine_program_name_from_js} from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query} from "./index";
@@ -72,6 +72,18 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             continue;
         }
 
+        term.writeln(`${FG.yellow}Updating graph...${STYLE.reset_all}`);
+
+        try {
+            // TODO: does this handle deps properly?
+            graph_query.remove_pkg(fs, pkg);
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            continue;
+        }
+
         term.writeln(`${FG.cyan}Unmounting programs...${STYLE.reset_all}`);
 
         const files = fs.list_dir(pkg_dir);
@@ -98,33 +110,6 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             } catch (e) {
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: Program ${program_name} was never registered.${STYLE.reset_all}`);
             }
-        }
-
-        term.writeln(`${FG.yellow}Updating graph...${STYLE.reset_all}`);
-
-        try {
-            // TODO: does this handle deps properly?
-            // TODO: what order should this be called? probably before deleting the dir but should it be before unmount? prob not?
-            graph_query.remove_pkg(fs, pkg);
-        } catch (e) {
-            term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
-            error_count++;
-
-            term.writeln(`${FG.cyan}Remounting programs...${STYLE.reset_all}`);
-
-            // TODO: is this always successful? if it fails, we need to catch it so we can do the rest of the package removal
-            for (const filename of files) {
-                if (!filename.endsWith(".js")) {
-                    continue;
-                }
-
-                const file_path = fs.join(pkg_dir, filename);
-                const value = fs.read_file(file_path) as string;
-                await mount_and_register_with_output(filename, value, prog_reg, term);
-            }
-
-            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
-            continue;
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
