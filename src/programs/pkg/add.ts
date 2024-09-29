@@ -174,8 +174,11 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             file_map.set(file, file_contents);
         }
 
-        // add pkg.json to file map
+        // add pkg.json and meta.json to file map
         file_map.set("pkg.json", JSON.stringify(pkg_json));
+        // TODO: adding this might be redundant, we could just move build timestamp to the graph. could also use file array to help mounting? prob not needed.
+        // TODO: build timestamp isnt actually used anywhere yet so not a big deal until implemented. might be quicker to just open this file rather than access the graph anyway!
+        file_map.set("meta.json", JSON.stringify(meta));
 
         // not actually executing the file map yet, as we need to ensure the graph is valid
 
