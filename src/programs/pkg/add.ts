@@ -94,6 +94,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
 
                 // TODO: this errors if the dep is already installed as the top level package isn't installed yet! the caller needs to do this?
                 // TODO: or should we redesign graph_query to handle this? could just add a skip dep check flag to add_pkg_dependent
+                // TODO: it isn't safe to skip the dependent check, as the method also adds the dependency to the dependent so must already be in the graph
                 if (depended_by) {
                     graph_query.add_pkg_dependent(fs, pkg_name, depended_by);
                     term.writeln(`${FG.yellow}(dep graph updated)${STYLE.reset_all}`);
