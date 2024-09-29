@@ -4,6 +4,7 @@ import {remove_subcommand} from "./remove";
 import {ANSI} from "../../term_ctl";
 import type {AsyncProgram} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
+import {list_subcommand} from "./list";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -130,13 +131,19 @@ export const graph_query = {
     // TODO: graph consistency checks / repair function
 
     // gets the graph entry for a package
-    get_pkg: (pkg: string): PkgGraphEntry => {
+    get_pkg_info: (pkg: string): PkgGraphEntry => {
         return graph[pkg];
     },
 
-    // lists names of all installed packages
-    list_pkgs: () => {
-        return Object.keys(graph);
+    // lists names of all installed packages, optionally only top level
+    list_pkgs: (only_top_level = false) => {
+        const pkgs = Object.keys(graph);
+
+        if (only_top_level) {
+            return pkgs.filter((pkg) => graph[pkg].installed_as_top_level);
+        }
+
+        return pkgs;
     },
 
     // checks if a package is installed, optionally with a specific version
@@ -299,11 +306,6 @@ export const graph_query = {
     // lists all packages that are not installed as top level and have no dependents
     list_unused_pkgs: () => {
         return Object.keys(graph).filter((pkg) => !graph[pkg].installed_as_top_level && graph[pkg].dependents.size === 0);
-    },
-
-    // lists all top level packages
-    list_top_level_pkgs: () => {
-        return Object.keys(graph).filter((pkg) => graph[pkg].installed_as_top_level);
     }
 }
 
@@ -318,7 +320,7 @@ export default {
         "Subcommands:": {
             "add": `Installs a list of packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} add <packages...>${STYLE.reset_all}`,
             "remove": `Uninstalls a list of packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} remove <packages...>${STYLE.reset_all}`,
-            "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list${STYLE.reset_all}`,
+            "list": `Lists all installed packages: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} list [-t]${STYLE.reset_all}`,
             "info": `Displays information about a package: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} info [-r] <package>${STYLE.reset_all}`,
             "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read [-r] <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
@@ -330,6 +332,9 @@ export default {
             },
             "For remove:": {
                 "packages": "The packages to uninstall, separated by spaces.",
+            },
+            "For list:": {
+                "-t": "List only top-level packages.",
             },
             "For info:": {
                 "-r": "Always fetch the latest information from the repository.",
@@ -383,8 +388,7 @@ export default {
             case "remove":
                 return await remove_subcommand(data);
             case "list":
-                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
-                break;
+                return await list_subcommand(data);
             case "info":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;

@@ -1,0 +1,30 @@
+import { ANSI, NEWLINE } from "../../term_ctl";
+import { ProgramMainData } from "../../types"
+import {graph_query} from "./index";
+
+// extract from ANSI to make code less verbose
+const { STYLE, PREFABS, FG } = ANSI;
+export const list_subcommand = async (data: ProgramMainData) => {
+    // extract from data to make code less verbose
+    const { args, term } = data;
+
+    // remove subcommand name
+    args.shift();
+
+    // check for presence of -t flag
+    let only_top_level = false;
+    if (args[0] === "-t") {
+        only_top_level = true;
+        args.shift();
+    }
+
+    const pkg_names = graph_query.list_pkgs(only_top_level);
+
+    // print each package, marking top level packages in green and dependencies in gray
+    for (const pkg_name of pkg_names) {
+        const info = graph_query.get_pkg_info(pkg_name);
+        term.writeln(`${NEWLINE + STYLE.bold}${info.installed_as_top_level ? FG.green : FG.gray}${pkg_name}${STYLE.no_bold}@${info.version}${STYLE.reset_all}`);
+    }
+
+    return 0;
+}
