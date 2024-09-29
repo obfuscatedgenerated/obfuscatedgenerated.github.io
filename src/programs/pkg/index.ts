@@ -139,7 +139,7 @@ interface PkgGraphEntry {
     top_level: boolean; // as in, specified by the user at install time
 }
 
-const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
+export const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
     if (key !== "deps" && key !== "dependents") {
         return value;
     }
@@ -151,7 +151,7 @@ const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
     throw new Error(`${key} not a set in graph to be stringified!`);
 }
 
-const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
+export const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
     if (key !== "deps" && key !== "dependents") {
         return value;
     }

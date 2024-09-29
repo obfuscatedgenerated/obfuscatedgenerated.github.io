@@ -1,4 +1,4 @@
-import {graph_query, PkgAtVersion, repo_query} from ".";
+import {graph_query, json_convert_dep_sets_to_arrs, PkgAtVersion, repo_query} from ".";
 import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
@@ -178,7 +178,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         file_map.set("pkg.json", JSON.stringify(pkg_json));
         // TODO: adding this might be redundant, we could just move build timestamp to the graph. could also use file array to help mounting? prob not needed.
         // TODO: build timestamp isnt actually used anywhere yet so not a big deal until implemented. might be quicker to just open this file rather than access the graph anyway!
-        file_map.set("meta.json", JSON.stringify(meta));
+        file_map.set("meta.json", JSON.stringify(meta, json_convert_dep_sets_to_arrs));
 
         // not actually executing the file map yet, as we need to ensure the graph is valid
 

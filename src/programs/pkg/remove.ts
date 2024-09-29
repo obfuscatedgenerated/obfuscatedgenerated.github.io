@@ -112,7 +112,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
             continue;
 
-            // TODO: should it remount?
+            // TODO: need to remount!
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
