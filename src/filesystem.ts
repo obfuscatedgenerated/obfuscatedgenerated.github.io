@@ -39,6 +39,8 @@ export enum FSEventType {
     CHECKING_DIR_EXISTS,
 }
 
+// TODO: ensure all functions fire these events... or do we even need this system?
+
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
 export abstract class AbstractFileSystem {
