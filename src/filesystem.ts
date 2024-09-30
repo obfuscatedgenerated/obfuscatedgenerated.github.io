@@ -39,7 +39,7 @@ export enum FSEventType {
     CHECKING_DIR_EXISTS,
 }
 
-// TODO: ensure all functions fire these events... or do we even need this system?
+// TODO: ensure all functions fire these events... or do we even need this system other than for cwd changing?
 
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
