@@ -120,7 +120,8 @@ export abstract class AbstractFileSystem {
     abstract read_file_direct(path: string, as_uint: boolean): string | Uint8Array;
     abstract write_file_direct(path: string, data: string | Uint8Array): void;
     abstract delete_file_direct(path: string): void;
-    abstract move_file_direct(path: string, new_path: string): void;
+    // does not check if destination exists
+    abstract move_file_direct(src: string, new_path: string): void;
     abstract set_readonly_direct(path: string, readonly: boolean): void;
     abstract is_readonly_direct(path: string): boolean;
 
@@ -167,6 +168,7 @@ export abstract class AbstractFileSystem {
         this._call_callbacks(FSEventType.DELETED_FILE, path);
     }
 
+    // does not check if destination exists
     move_file(path: string, new_path: string): void {
         // move in cache and disk
         this._cache.set(new_path, this._cache.get(path));
@@ -214,10 +216,17 @@ export abstract class AbstractFileSystem {
     // (recursive)
     abstract make_dir(path: string): void;
     abstract delete_dir_direct(path: string, recursive: boolean): void;
-    abstract move_dir(path: string, new_path: string): void;
+    abstract move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): void;
 
     delete_dir(path: string, recursive = false): void {
         this.delete_dir_direct(path, recursive);
+
+        // smart purge cache
+        this.purge_cache(true);
+    }
+
+    move_dir(src: string, dest: string, no_overwrite = false, move_inside = false): void {
+        this.move_dir_direct(src, dest, no_overwrite, move_inside);
 
         // smart purge cache
         this.purge_cache(true);
@@ -283,6 +292,18 @@ export abstract class AbstractFileSystem {
         // if path is blank, path is root
         if (path === "") {
             return this._root;
+        }
+
+        // if path is ., return cwd
+        // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
+        if (path === ".") {
+            return this._cwd;
+        }
+
+        // if path is ~, return home
+        // TODO: again, same for this and the later ~/ check
+        if (path === "~") {
+            return this._home;
         }
 
         // if path starts with cwd and doesn't contain .., it is absolute

@@ -38,7 +38,7 @@ export class IndexedDBFS extends AbstractFileSystem {
         return;
     }
 
-    move_dir(path: string, new_path: string): void {
+    move_dir_direct(path: string, new_path: string): void {
         return;
     }
 
