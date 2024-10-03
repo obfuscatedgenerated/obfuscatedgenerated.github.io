@@ -45,7 +45,7 @@ function hb_build() {
     console.log("Compiling fsedit");
     let fsedit_template = fs.readFileSync("./src/fsedit/index.handlebars", "utf8");
     let fsedit_compiled = hb.compile(fsedit_template);
-    let fsedit_html = fsedit_compiled({ title: "OllieOS - Filesystem Editor", desc: "fsedit for OllieOS" });
+    let fsedit_html = fsedit_compiled({ title: "OllieOS - Filesystem Editor", desc: "fsedit for OllieOS", version });
     fs.writeFileSync("./fsedit/index.html", fsedit_html);
     console.log("Compiled fsedit");
 }
