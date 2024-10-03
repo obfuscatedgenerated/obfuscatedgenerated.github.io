@@ -635,6 +635,7 @@ export class WrappedTerminal extends Terminal {
             // iter through the lines of the file and execute them
             const content = fs.read_file(absolute_profile) as string;
             for (const line of content.split(NEWLINE)) {
+                // TODO: worht awaiting? can catch errors
                 this.execute(line);
             }
         }
@@ -647,11 +648,13 @@ export class WrappedTerminal extends Terminal {
         }
 
         // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
+        // TODO: race condition here for some reason. it cant find font when it runs here for whatever reason
         const absolute_rc = fs.absolute("~/.ollierc");
         if (fs.exists(absolute_rc)) {
             // iter through the lines of the file and execute them
             const content = fs.read_file(absolute_rc) as string;
             for (const line of content.split(NEWLINE)) {
+                // TODO: worht awaiting? can catch errors
                 this.execute(line);
             }
         }
