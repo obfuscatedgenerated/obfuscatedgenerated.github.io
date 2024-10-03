@@ -639,7 +639,14 @@ export class WrappedTerminal extends Terminal {
             }
         }
 
-        // run .ollierc if it exists (TODO: make shells and the OS different things!)
+        // mount all programs in any subdirectory of /usr/bin
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const usr_bin = fs.absolute("/usr/bin");
+        if (fs.exists(usr_bin)) {
+            recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
+        }
+
+        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
         const absolute_rc = fs.absolute("~/.ollierc");
         if (fs.exists(absolute_rc)) {
             // iter through the lines of the file and execute them
@@ -647,13 +654,6 @@ export class WrappedTerminal extends Terminal {
             for (const line of content.split(NEWLINE)) {
                 this.execute(line);
             }
-        }
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const usr_bin = fs.absolute("/usr/bin");
-        if (fs.exists(usr_bin)) {
-            recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
         }
 
         term_loaded_callback?.(this);

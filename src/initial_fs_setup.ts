@@ -24,14 +24,14 @@ const setup_motd = (fs: AbstractFileSystem) => {
 
 const setup_rc_profile = (fs: AbstractFileSystem) => {
     // create .ollie_profile file if it doesn't exist
-    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}`;
+    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts (before mounting /usr/bin).${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}`;
     const absolute_profile = fs.absolute("~/.ollie_profile");
     if (!fs.exists(absolute_profile)) {
         fs.write_file(absolute_profile, profile_content);
     }
 
     // create .ollierc file if it doesn't exist
-    const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
+    const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created (after mounting /usr/bin).${NEWLINE}${NEWLINE}`;
     const absolute_rc = fs.absolute("~/.ollierc");
     if (!fs.exists(absolute_rc)) {
         fs.write_file(absolute_rc, rc_content);
@@ -55,9 +55,10 @@ As well as the following libraries:
 
 - imgToAscii (modified)
 - node-sixel
-- xterm-addon-fit
-- xterm-addon-web-links
-- xterm-addon-image
+- @xterm/addon-fit
+- @xterm/addon-web-links
+- @xterm/addon-image
+- xterm-link-provider
 - howler.js
 - html-to-text
 - some code from rss-parser (modified)
