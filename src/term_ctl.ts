@@ -607,6 +607,46 @@ export class WrappedTerminal extends Terminal {
     }
 
 
+    async _initial_program_load(term_loaded_callback?: (term: WrappedTerminal) => void) {
+        const fs = this._fs;
+
+        // enable screen reader mode if stored in local storage
+        if (localStorage.getItem("reader") === "true") {
+            await this.execute("reader -s on");
+        }
+
+        // run .ollie_profile if it exists
+        const absolute_profile = fs.absolute("~/.ollie_profile");
+        if (fs.exists(absolute_profile)) {
+            // iter through the lines of the file and execute them
+            const content = fs.read_file(absolute_profile) as string;
+            for (const line of content.split(NEWLINE)) {
+                // TODO: catch errors
+                await this.execute(line);
+            }
+        }
+
+        // mount all programs in any subdirectory of /usr/bin
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const usr_bin = fs.absolute("/usr/bin");
+        if (fs.exists(usr_bin)) {
+            await recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
+        }
+
+        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
+        const absolute_rc = fs.absolute("~/.ollierc");
+        if (fs.exists(absolute_rc)) {
+            // iter through the lines of the file and execute them
+            const content = fs.read_file(absolute_rc) as string;
+            for (const line of content.split(NEWLINE)) {
+                // TODO: catch errors
+                await this.execute(line);
+            }
+        }
+
+        term_loaded_callback?.(this);
+    }
+
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: (term: WrappedTerminal) => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
@@ -624,41 +664,7 @@ export class WrappedTerminal extends Terminal {
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
 
-        // enable screen reader mode if stored in local storage
-        if (localStorage.getItem("reader") === "true") {
-            this.execute("reader -s on");
-        }
-
-        // run .ollie_profile if it exists
-        const absolute_profile = fs.absolute("~/.ollie_profile");
-        if (fs.exists(absolute_profile)) {
-            // iter through the lines of the file and execute them
-            const content = fs.read_file(absolute_profile) as string;
-            for (const line of content.split(NEWLINE)) {
-                // TODO: worht awaiting? can catch errors
-                this.execute(line);
-            }
-        }
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const usr_bin = fs.absolute("/usr/bin");
-        if (fs.exists(usr_bin)) {
-            recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
-        }
-
-        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
-        // TODO: race condition here for some reason. it cant find font when it runs here for whatever reason
-        const absolute_rc = fs.absolute("~/.ollierc");
-        if (fs.exists(absolute_rc)) {
-            // iter through the lines of the file and execute them
-            const content = fs.read_file(absolute_rc) as string;
-            for (const line of content.split(NEWLINE)) {
-                // TODO: worht awaiting? can catch errors
-                this.execute(line);
-            }
-        }
-
-        term_loaded_callback?.(this);
+        // need to defer executing this stuff to its own function so we can use async/await (we already have a callback so no issue)
+        this._initial_program_load(term_loaded_callback);
     }
 }

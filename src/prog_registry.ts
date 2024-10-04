@@ -22,6 +22,7 @@ export class ProgramRegistry {
     }
 
     getProgram(name: string): Program | undefined {
+        console.log(this._program_regs);
         const program_reg = this.getProgramRegistrant(name);
         if (program_reg === undefined) {
             return undefined;
@@ -172,21 +173,21 @@ export const mount_and_register_with_output = async (filename: string, content: 
 }
 
 // recurses through a directory and mounts and registers all programs in it as well as its subdirectories
-export const recurse_mount_and_register_with_output = (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry, term: WrappedTerminal) => {
+export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry, term: WrappedTerminal) => {
     const entries = fs.list_dir(dir_path);
 
     for (const entry of entries) {
         const entry_path = fs.join(dir_path, entry);
 
         if (fs.dir_exists(entry_path)) {
-            recurse_mount_and_register_with_output(fs, entry_path, prog_registry, term);
+            await recurse_mount_and_register_with_output(fs, entry_path, prog_registry, term);
         } else {
             if (!entry.endsWith(".js")) {
                 continue;
             }
 
             const content = fs.read_file(entry_path) as string;
-            mount_and_register_with_output(entry, content, prog_registry, term);
+            await mount_and_register_with_output(entry, content, prog_registry, term);
         }
     }
 }
