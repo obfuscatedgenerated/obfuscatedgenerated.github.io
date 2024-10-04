@@ -22,7 +22,6 @@ export class ProgramRegistry {
     }
 
     getProgram(name: string): Program | undefined {
-        console.log(this._program_regs);
         const program_reg = this.getProgramRegistrant(name);
         if (program_reg === undefined) {
             return undefined;
