@@ -68,7 +68,7 @@ export default {
                     // using tiny region at low res for efficiency
                     await createImageBitmap(blob, 0, 0, 1, 1);
                 } catch (e) {
-                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}${STYLE.reset_all}`);
+                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}. Did you download it as a binary file?${STYLE.reset_all}`);
                     return 1;
                 }
             } else {
@@ -78,7 +78,7 @@ export default {
                 const ext = url.slice(-4).toLowerCase();
 
                 if (!(trusted_formats.includes(ext))) {
-                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}${STYLE.reset_all}`);
+                    term.writeln(`${PREFABS.error}File is not a valid image: ${path}. Did you download it as a binary file?${STYLE.reset_all}`);
                     return 1;
                 }
             }

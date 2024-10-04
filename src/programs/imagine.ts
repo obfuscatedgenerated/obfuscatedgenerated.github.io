@@ -4,6 +4,7 @@ import { ANSI } from "../term_ctl";
 import { image2sixel } from "sixel";
 
 
+// returns null if image is invalid
 const convert_to_image_data = async (url: string) => {
     // create a canvas to draw the image on
     const canvas = document.createElement("canvas");
@@ -15,11 +16,19 @@ const convert_to_image_data = async (url: string) => {
     img.src = url;
 
     // wait for the image to load via promise
-    await new Promise((resolve, reject) => {
-        img.onload = () => {
-            resolve(null);
-        };
-    });
+    try {
+        await new Promise((resolve, reject) => {
+            img.onload = () => {
+                resolve(null);
+            };
+
+            img.onerror = () => {
+                reject(null);
+            };
+        });
+    } catch (e) {
+        return null;
+    }
 
     // draw the image on the canvas
     canvas.width = img.width;
@@ -146,7 +155,14 @@ export default {
             }
         }
 
-        const { array: img_data, width: img_width, height: img_height } = await convert_to_image_data(url);
+        const data_out = await convert_to_image_data(url);
+
+        if (!data_out) {
+            term.writeln(`${PREFABS.error}Failed to convert image to data. Did you download it as a binary file?${STYLE.reset_all}`);
+            return 1;
+        }
+
+        const { array: img_data, width: img_width, height: img_height } = data_out
 
         if (!width_arg) {
             width_arg = img_width;
