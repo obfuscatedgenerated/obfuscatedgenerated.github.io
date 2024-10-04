@@ -25,6 +25,7 @@ export default {
     },
     async_main: async (data) => {
         // TODO: replace filename with using piping and send content to stdout
+        // TODO: automatically guess binary mode based on file extension or recieved header
 
         // extract from data to make code less verbose
         const { args, term } = data;
