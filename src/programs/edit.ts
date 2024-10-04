@@ -89,7 +89,8 @@ export default {
 
             // lock the file by making it read-only
             // TODO: the user can lock the file permanently if edit crashes, they close the tab, reload, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
-            fs.set_readonly(path, true);
+            // TODO: i'm disabling this for now for my own sanity (when it crashes and dies). its incredibly unlikely the user will concurrent write with fsedit and if they do they're stupid
+            //fs.set_readonly(path, true);
         }
 
         // temporary note
