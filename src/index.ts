@@ -96,6 +96,13 @@ function loaded(term: WrappedTerminal) {
     // fade out the boot screen
     boot_screen.style.opacity = "0";
 
+    if (localStorage.getItem("nointro") === "true") {
+        // skip any pauses for transitions
+        boot_screen.style.display = "none";
+        check_first_time(term);
+        return;
+    }
+
     // after faded, keep it like that for 500 ms before shrinking it to 0% height
     // then, run the tour if it's the user's first time
     setTimeout(() => {
@@ -185,8 +192,15 @@ async function main() {
     });
 }
 
+if (localStorage.getItem("nointro") === "true") {
+    // disable transition on #boot_screen to make it usable faster
+    boot_screen.style.transition = "none";
+
+    // the boot screen will show only for as long as it takes to load the terminal
+    main();
+} else {
 // add artificial delay to allow the boot screen to show for a bit
-setTimeout(main, 3000);
+    setTimeout(main, 3000);
+}
 
 // TODO: better mobile experience
-// TODO: disable load screen in dev mode
