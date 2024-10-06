@@ -99,7 +99,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
 
         // check if source is a directory
-        if (typeof current_dir !== "object") {
+        if (Array.isArray(current_dir)) {
             throw new PathNotFoundError(src);
         }
 
@@ -121,7 +121,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
 
         // check if destination is a directory
-        if (typeof dest_current_dir !== "object") {
+        if (Array.isArray(dest_current_dir)) {
             throw new PathNotFoundError(dest);
         }
 
@@ -192,7 +192,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         if (dirs_first) {
             for (const key of keys) {
                 // promote directories to the front of the list
-                if (current_dir[key] instanceof Object) {
+                if (!Array.isArray(current_dir[key])) {
                     keys.splice(keys.indexOf(key), 1);
                     keys.unshift(key);
                 }
@@ -223,7 +223,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         // check if file exists
         if (current_part !== undefined) {
             // if file is empty, return empty string / uint8array (or else it will be read as null byte)
-            if (current_part === "") {
+            if (current_part.length === 0) {
                 if (as_uint) {
                     return new Uint8Array();
                 } else {
@@ -232,8 +232,7 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
 
             // get file contents
-            const array = current_part.split(",");
-            const uint = new Uint8Array(array.map((x) => parseInt(x)));
+            const uint = new Uint8Array(current_part.map((x) => parseInt(x)));
 
             if (as_uint) {
                 return uint;
@@ -281,9 +280,8 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
         }
 
-        
-        // store data as comma separated string (so directories and files can be easily differentiated)
-        current_dir[file_name] = Array.from(uint).join(",");
+
+        current_dir[file_name] = Array.from(uint);
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
@@ -434,7 +432,7 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
         }
 
-        return typeof current_part === "object";
+        return !Array.isArray(current_part);
     }
 
     constructor() {
@@ -449,9 +447,32 @@ export class LocalStorageFS extends AbstractFileSystem {
             localStorage.setItem("fs_readonly_paths", JSON.stringify([]));
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        migrate_old_string_fs(JSON.parse(localStorage.getItem("fs")), true);
+
         // initialise root and home directory
         this.make_dir(this._home);
 
         this._initialised = true;
+    }
+}
+
+const migrate_old_string_fs = (state: object, is_outer = false) => {
+    // migration step: we used to use a string but now we use an array for files
+    // need to iterate DEEPLY into nested objects and convert string values to arrays
+    // (so recurse)
+
+    for (const key of Object.keys(state)) {
+        if (typeof state[key] === "object" && !Array.isArray(state[key])) {
+            migrate_old_string_fs(state[key]);
+        } else if (typeof state[key] === "string") {
+            console.log(`Migration: converting ${key} to array`);
+            state[key] = state[key].split(",").map((x) => parseInt(x));
+        }
+    }
+
+    if (is_outer) {
+        // only save if we are at the outermost level
+        localStorage.setItem("fs", JSON.stringify(state));
     }
 }
