@@ -25,7 +25,7 @@ export default {
             const abs_path = fs.absolute(filepath);
 
             // check if the file exists and is a file
-            if (abs_path.endsWith("/")) {
+            if (fs.dir_exists(abs_path)) {
                 term.writeln(`${PREFABS.error}Cannot read a directory: ${abs_path}${STYLE.reset_all}`);
                 return 1;
             }
