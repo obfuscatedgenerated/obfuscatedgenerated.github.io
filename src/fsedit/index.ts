@@ -159,6 +159,8 @@ const save_file_in_editor = () => {
     // TODO: removing from cache not always working??
     fs.remote_remove_from_cache(current_abs_path);
     fs.write_file_direct(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
+
+    dirty = false;
 }
 
 
@@ -410,8 +412,8 @@ document.getElementById("single-file-button").onclick = () => {
 
 // bind an event listener to the window close event
 window.addEventListener("beforeunload", (e) => {
-    // if current path is set, confirm they want to close
-    if (current_abs_path && !current_readonly) {
+    // if current path is set on a dirty file, confirm they want to close
+    if (current_abs_path && !current_readonly && dirty) {
         e.returnValue = "You have unsaved changes. Are you sure you want to exit?";
         return e.returnValue;
     }
@@ -419,6 +421,8 @@ window.addEventListener("beforeunload", (e) => {
 
 // bind an event listener to the window close event
 window.addEventListener("unload", () => {
+    // TODO: some form of auto recovery if this doesnt happen for some reason (power failure, etc)
+
     if (current_abs_path) {
         // remove from cache
         fs.remote_remove_from_cache(current_abs_path);
