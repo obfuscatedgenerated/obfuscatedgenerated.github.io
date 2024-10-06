@@ -172,6 +172,11 @@ export class LocalStorageFS extends AbstractFileSystem {
         // split path into parts, if root, use single empty string to avoid doubling
         const parts = path === this._root ? [""] : path.split("/");
 
+        // trim trailing slash
+        if (parts[parts.length - 1] === "") {
+            parts.pop();
+        }
+
         // get directory for each part inside the previous one
         for (const part of parts) {
             if (current_dir[part]) {
