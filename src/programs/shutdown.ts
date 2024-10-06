@@ -1,5 +1,5 @@
 import { ANSI } from "../term_ctl";
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "shutdown",
@@ -12,7 +12,7 @@ export default {
             "-t": "Set the time before shutdown in milliseconds. Default is 1000."
         }
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -75,4 +75,4 @@ export default {
         // await an event that will never happen
         await new Promise(() => {});
     }
-} as AsyncProgram;
+} as Program;

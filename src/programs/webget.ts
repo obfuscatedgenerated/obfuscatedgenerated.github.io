@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI, NEWLINE } from "../term_ctl";
 
 export default {
@@ -23,7 +23,7 @@ export default {
             }
         }
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // TODO: replace filename with using piping and send content to stdout
         // TODO: automatically guess binary mode based on file extension or recieved header
 
@@ -237,4 +237,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;

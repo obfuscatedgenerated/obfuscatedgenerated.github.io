@@ -122,12 +122,34 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
         throw new Error("Program does not have argument descriptions.");
     }
 
-    if (!program.main && !program.async_main) {
-        throw new Error("Program does not have a main function.");
+    // migration: we got rid of syncprogram (with main) and asyncprogram (async_main)
+    // now there is a single async type called program
+    // problem: older packages have a field called async_main, and some have main that doesn't return a promise
+    if (!program.main) {
+        if (!program.async_main) {
+            throw new Error("Program does not have a main function.");
+        }
+
+        console.warn("Program has an async_main function. This is deprecated and will be removed in the future. Please use main instead.");
+
+        // migrate: rename async_main to main
+        program.main = program.async_main;
+        delete program.async_main;
     }
 
     if (program.main !== undefined && program.async_main !== undefined) {
-        throw new Error("Program has both a synchronous and asynchronous main function.");
+        throw new Error("Program has both a main and async_main (deprecated) function.");
+    }
+
+    // check if main is async
+    if (program.main !== undefined && program.main.constructor.name !== "AsyncFunction") {
+        console.warn("Program has a main function that is not async. This is deprecated and will be removed in the future. Please make main async.");
+
+        // migrate: wrap main in an async function
+        const old_main = program.main;
+        program.main = async (data) => {
+            return old_main(data);
+        }
     }
 
     program = program as Program;

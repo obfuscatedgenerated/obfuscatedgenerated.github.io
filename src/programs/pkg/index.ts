@@ -2,7 +2,7 @@ import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
 import {ANSI} from "../../term_ctl";
-import type {AsyncProgram} from "../../types";
+import type {Program} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 
@@ -403,7 +403,7 @@ export default {
             }
         }
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // TODO: safety prompt on first use
 
         // extract from data to make code less verbose
@@ -466,4 +466,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;

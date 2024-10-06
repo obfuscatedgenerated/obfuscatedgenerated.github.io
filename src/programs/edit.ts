@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../term_ctl";
 
 const HEADER = 2;
@@ -60,7 +60,7 @@ export default {
     description: "Edits the specified file.",
     usage_suffix: "path",
     arg_descriptions: {},
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -411,4 +411,4 @@ export default {
 
         return exit_code;
     }
-} as AsyncProgram;
+} as Program;

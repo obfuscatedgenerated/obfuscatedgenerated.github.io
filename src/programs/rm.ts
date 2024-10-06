@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
 import { NonRecursiveDirectoryError, PathNotFoundError } from "../filesystem";
 
@@ -15,7 +15,7 @@ export default {
             "-f": "Forcibly delete files (ignoring readonly state, NOT treated as -rf if a directory is passed)."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -86,4 +86,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

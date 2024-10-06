@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
 
 import { image2sixel } from "sixel";
@@ -57,7 +57,7 @@ export default {
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -200,4 +200,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;

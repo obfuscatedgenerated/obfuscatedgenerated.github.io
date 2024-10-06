@@ -1,5 +1,5 @@
 import { ANSI } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "cd",
@@ -8,7 +8,7 @@ export default {
     arg_descriptions: {
         path: "Path to directory to change to. If no path is given, change to home directory."
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -45,4 +45,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

@@ -1,4 +1,4 @@
-import type {SyncProgram} from "../types";
+import type {Program} from "../types";
 import {ANSI} from "../term_ctl";
 
 // yes, the actual touch command is used to modify access time and has more flags, but this os doesn't have access times and this is meant to be simple
@@ -12,7 +12,7 @@ export default {
             "file": "The file to create."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const {args, term} = data;
 
@@ -56,4 +56,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

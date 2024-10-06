@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 
 import { ANSI, NEWLINE } from "../term_ctl";
 
@@ -92,7 +92,7 @@ export default {
             "-x": "Only display titles, links and publishing dates, not descriptions."
         }
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -360,4 +360,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;

@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI, NEWLINE, WrappedTerminal } from "../term_ctl";
 
 
@@ -185,7 +185,7 @@ export default {
     description: "Runs the onboarding tour.",
     usage_suffix: "",
     arg_descriptions: {},
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
 
@@ -200,4 +200,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;

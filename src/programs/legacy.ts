@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "legacy",
@@ -6,9 +6,9 @@ export default {
     usage_suffix: "",
     arg_descriptions: {
     },
-    main: (_data) => {
+    main: async (_data) => {
         window.location.assign("https://legacy.ollieg.codes/");
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "echo",
@@ -9,7 +9,7 @@ export default {
             "string": "The string to echo."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -18,4 +18,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

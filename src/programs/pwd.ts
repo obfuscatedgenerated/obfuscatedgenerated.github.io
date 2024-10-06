@@ -1,12 +1,12 @@
 import { ANSI } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "pwd",
     description: "Print working directory.",
     usage_suffix: "",
     arg_descriptions: {},
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
 
@@ -21,4 +21,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

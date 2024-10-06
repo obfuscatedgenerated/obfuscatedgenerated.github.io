@@ -3,7 +3,7 @@ import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
 import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
 import type { AbstractFileSystem } from "./filesystem";
 
-import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, SyncProgram, AsyncProgram } from "./types";
+import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, Program } from "./types";
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
 
@@ -303,17 +303,9 @@ export class WrappedTerminal extends Terminal {
 
         let exit_code = 0;
         if ("main" in program) {
-            try {
-                exit_code = (<SyncProgram>program).main(data);
-            } catch (e) {
-                exit_code = -1;
-                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
-                console.error(e);
-            }
-        } else if ("async_main" in program) {
             // TODO: use callbacks
             try {
-                exit_code = await (<AsyncProgram>program).async_main(data);
+                exit_code = await program.main(data);
             } catch (e) {
                 exit_code = -1;
                 this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);

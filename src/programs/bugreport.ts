@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
 
 const type_suffixes = {
@@ -16,7 +16,7 @@ export default {
         feature: "Opens the bug reporter with the feature request template.",
         other: "Opens the bug reporter with the template chooser (default).",
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;
 
@@ -41,4 +41,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
 
 export default {
@@ -10,7 +10,7 @@ export default {
             "filepaths": "The paths of the files to read."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -44,4 +44,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

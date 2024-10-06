@@ -1,5 +1,5 @@
 import { ANSI, ANSI_ESCAPE_REGEX, ANSI_UNESCAPED_REGEX } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "ls",
@@ -14,7 +14,7 @@ export default {
             "-a": "Show hidden files."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -84,4 +84,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

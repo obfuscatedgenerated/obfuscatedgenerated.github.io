@@ -1,5 +1,5 @@
 import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
-import type { SyncProgram, arg_descriptions } from "../types";
+import type { Program, arg_descriptions } from "../types";
 
 
 // deferred to prevent double printing of header if program has to re-execute itself
@@ -32,7 +32,7 @@ export default {
             "-m": "Mounted programs. Includes only mounted programs.",
         },
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -185,4 +185,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

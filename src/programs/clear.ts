@@ -1,5 +1,5 @@
 import { ANSI } from "../term_ctl";
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "clear",
@@ -12,7 +12,7 @@ export default {
             "-so": "Only clear the scrollback."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -41,4 +41,4 @@ export default {
 
         return 0;
     }
-} as SyncProgram;
+} as Program;

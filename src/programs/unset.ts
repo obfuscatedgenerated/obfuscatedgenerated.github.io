@@ -1,4 +1,4 @@
-import type { SyncProgram } from "../types";
+import type { Program } from "../types";
 
 export default {
     name: "unset",
@@ -9,7 +9,7 @@ export default {
             "names": "The names of each variable to unset."
         }
     },
-    main: (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
 
@@ -20,4 +20,4 @@ export default {
         
         return 0;
     }
-} as SyncProgram;
+} as Program;

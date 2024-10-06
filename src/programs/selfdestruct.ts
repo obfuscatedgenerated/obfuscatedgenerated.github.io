@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { ANSI, NEWLINE } from "../term_ctl";
 
 export default {
@@ -6,7 +6,7 @@ export default {
     description: "Permanently erases the filesystem and other data, then restarts the terminal.",
     usage_suffix: "",
     arg_descriptions: {},
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
 
@@ -44,4 +44,4 @@ export default {
 
         await term.execute("shutdown -r -t 3000");
     }
-} as AsyncProgram;
+} as Program;

@@ -1,4 +1,4 @@
-import type { AsyncProgram } from "../types";
+import type { Program } from "../types";
 import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../term_ctl";
 
 import { default as img2ascii } from "imgToAscii";
@@ -110,7 +110,7 @@ export default {
     arg_descriptions: {
         "username": "The GitHub username to show basic info about. Defaults to my username, with the special info shown."
     },
-    async_main: async (data) => {
+    main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;
 
@@ -190,4 +190,4 @@ export default {
 
         return 0;
     }
-} as AsyncProgram;
+} as Program;
