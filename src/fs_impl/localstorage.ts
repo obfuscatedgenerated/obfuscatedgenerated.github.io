@@ -222,6 +222,15 @@ export class LocalStorageFS extends AbstractFileSystem {
 
         // check if file exists
         if (current_part !== undefined) {
+            // if file is empty, return empty string / uint8array (or else it will be read as null byte)
+            if (current_part === "") {
+                if (as_uint) {
+                    return new Uint8Array();
+                } else {
+                    return "";
+                }
+            }
+
             // get file contents
             const array = current_part.split(",");
             const uint = new Uint8Array(array.map((x) => parseInt(x)));
