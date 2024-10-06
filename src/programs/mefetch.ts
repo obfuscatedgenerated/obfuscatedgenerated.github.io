@@ -132,7 +132,7 @@ export default {
         // check if username is valid
         if (!username.match(GH_USERNAME_REGEX)) {
             term.write(`${STYLE.bold}${FG.red}Invalid username.${STYLE.reset_all}\n`);
-            return;
+            return 1;
         }
 
         // get info from GitHub
@@ -141,7 +141,7 @@ export default {
         // if info is null, then the user doesn't exist
         if (info === null) {
             term.write(`${STYLE.bold}${FG.red}User not found.${STYLE.reset_all}\n`);
-            return;
+            return 1;
         }
 
         // use local logo for efficiency if username is mine

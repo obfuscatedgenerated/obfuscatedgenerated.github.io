@@ -211,6 +211,7 @@ export class WrappedTerminal extends Terminal {
         // TODO: screen multiplexing (background programs using promises, or perhaps something cool with passing data between tabs)
         // TODO: allow certain control characters to be escaped e.g. $
         // TODO: support sh files
+        // TODO: if the program doesnt return a value stuff breaks (why can they just do return with no number anyway????)
 
         if (line.length === 0) {
             // if the line is empty, just move to the next line (additional check if called from external source)
