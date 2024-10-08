@@ -111,15 +111,15 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     }
 
     if (typeof program.description !== "string") {
-        throw new Error("Program does not have a description.");
+        throw new Error(`Program ${program.name} does not have a description.`);
     }
 
     if (typeof program.usage_suffix !== "string") {
-        throw new Error("Program does not have a usage suffix.");
+        throw new Error(`Program ${program.name} does not have a usage suffix.`);
     }
 
     if (typeof program.arg_descriptions !== "object") {
-        throw new Error("Program does not have argument descriptions.");
+        throw new Error(`Program ${program.name} does not have argument descriptions.`);
     }
 
     // migration: we got rid of syncprogram (with main) and asyncprogram (async_main)
@@ -127,10 +127,10 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     // problem: older packages have a field called async_main, and some have main that doesn't return a promise
     if (!program.main) {
         if (!program.async_main) {
-            throw new Error("Program does not have a main function.");
+            throw new Error(`Program ${program.name} does not have a main function.`);
         }
 
-        console.warn("Program has an async_main function. This is deprecated and will be removed in the future. Please use main instead.");
+        console.warn(`Program ${program.name} has an async_main function. This is deprecated and will be removed in the future. Please use main instead.`);
 
         // migrate: rename async_main to main
         program.main = program.async_main;
@@ -138,12 +138,12 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     }
 
     if (program.main !== undefined && program.async_main !== undefined) {
-        throw new Error("Program has both a main and async_main (deprecated) function.");
+        throw new Error(`Program ${program.name} has both a main and async_main (deprecated) function.`);
     }
 
     // check if main is async
     if (program.main !== undefined && program.main.constructor.name !== "AsyncFunction") {
-        console.warn("Program has a main function that is not async. This is deprecated and will be removed in the future. Please make main async.");
+        console.warn(`Program ${program.name} has a main function that is not async. This is deprecated and will be removed in the future. Please make main async.`);
 
         // migrate: wrap main in an async function
         const old_main = program.main;
@@ -170,8 +170,8 @@ export const determine_program_name_from_js = async (js_code: string): Promise<s
 
 
 // mounts and registers a program and outputs errors to the terminal
-export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: WrappedTerminal) => {
-    const { PREFABS, STYLE } = ANSI;
+export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: WrappedTerminal, output_success = false) => {
+    const { PREFABS, FG, STYLE } = ANSI;
 
     let reg: ProgramRegistrant;
 
@@ -186,6 +186,10 @@ export const mount_and_register_with_output = async (filename: string, content: 
 
     try {
         prog_reg.registerProgram(reg);
+
+        if (output_success) {
+            term.writeln(`${FG.cyan}(+) ${reg.program.name}${STYLE.reset_all}`);
+        }
     } catch (e) {
         term.writeln(`${PREFABS.error}Failed to mount program '${reg.program.name}'.${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
