@@ -186,6 +186,13 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
         }
 
+        // if this is the root we will have an empty parts array, so we need to access the root directory
+        // our whole fs is stored under an empty top level key because im stupid
+        // we might have to do this elsewhere
+        if (parts.length === 0) {
+            current_dir = state[""];
+        }
+
         // return list of files in directory
         const keys = Object.keys(current_dir);
 
