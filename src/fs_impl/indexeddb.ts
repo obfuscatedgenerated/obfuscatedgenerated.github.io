@@ -1,14 +1,12 @@
-import { AbstractFileSystem, FSEventType, PathNotFoundError, NonRecursiveDirectoryError } from "../filesystem";
+import {AbstractFileSystem, FSEventType, PathNotFoundError, NonRecursiveDirectoryError} from "../filesystem";
+
+import {Dexie} from "dexie";
 
 const DB_NAME = "ollieos_idb_fs";
 const DB_VERSION = 1;
 
-// TODO: finish this later, try implement file storage in localstorage first
-
-// NOTE: https://github.com/ebidel/idb.filesystem.js
-
 export class IndexedDBFS extends AbstractFileSystem {
-    _idb: IDBDatabase;
+    _db: Dexie;
 
     get_unique_fs_type_name(): string {
         return "indexeddb";
@@ -27,7 +25,7 @@ export class IndexedDBFS extends AbstractFileSystem {
         // create directory for each part inside the previous one
         for (const part of parts) {
             const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
-            
+
             // create directory as object store
             transaction.objectStore(absolute_path);
         }
@@ -79,31 +77,9 @@ export class IndexedDBFS extends AbstractFileSystem {
         return false;
     }
 
-    _finish_init(req: IDBOpenDBRequest): void {
-        this._idb = req.result;
-
-        // initialise root and home directory
-        this.make_dir(this._home);
-
-        this._initialised = true;
-    }
-
     constructor() {
         super();
 
-        // initialise db
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onupgradeneeded = () => {
-            // no object stores needed, created on demand
-        }
-
-        request.onsuccess = () => {
-            this._finish_init(request);
-        }
-
-        request.onerror = () => {
-            throw new Error("Could not open IndexedDB: " + request.error);
-        }
+        this._db = new Dexie(DB_NAME);
     }
 }
