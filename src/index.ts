@@ -139,10 +139,11 @@ async function main() {
 
 
     // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal(fs, prog_reg, sfx_reg, loaded, {
+    const term = new WrappedTerminal(fs, prog_reg, sfx_reg,{
         screenReaderMode: false,
         cursorBlink: true,
     });
+    term.initialise(loaded);
 
 
     // load addons

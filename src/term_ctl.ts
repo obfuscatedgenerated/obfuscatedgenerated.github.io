@@ -640,7 +640,8 @@ export class WrappedTerminal extends Terminal {
         term_loaded_callback?.(this);
     }
 
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, term_loaded_callback?: (term: WrappedTerminal) => void, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+    // be sure to call initialise after this
+    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
         super(xterm_opts);
 
         this._fs = fs;
@@ -657,7 +658,14 @@ export class WrappedTerminal extends Terminal {
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
 
-        // need to defer executing this stuff to its own function so we can use async/await (we already have a callback so no issue)
+        // no longer run here to make overriding xterm behaviour easier (for an exciting secret project)
+        //this._initial_program_load(term_loaded_callback);
+    }
+
+    initialise(term_loaded_callback?: (term: WrappedTerminal) => void) {
+        // TODO: move to async
+
+        // load the terminal with the initial programs and run .ollierc
         this._initial_program_load(term_loaded_callback);
     }
 }
