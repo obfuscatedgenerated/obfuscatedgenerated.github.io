@@ -145,7 +145,7 @@ export default {
         }
 
         // use local logo for efficiency if username is mine
-        const avatar_url = MY_USERNAME === username ? "public/logo.png" : username_to_avatar_url(username);
+        const avatar_url = MY_USERNAME === username ? "https://ollieg.codes/public/logo.png" : username_to_avatar_url(username);
 
         // convert image to ascii
         const ascii_pfp = await convert_to_ascii(avatar_url, asc_width);
