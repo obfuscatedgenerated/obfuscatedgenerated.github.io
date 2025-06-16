@@ -43,6 +43,7 @@ interface PackageMeta {
     version: string;
     deps: Set<PkgAtVersion>;
     build_timestamp: number;
+    externals: "global" | undefined;
 }
 
 export const repo_query = {

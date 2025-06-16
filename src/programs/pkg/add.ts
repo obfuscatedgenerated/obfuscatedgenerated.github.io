@@ -79,6 +79,13 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             continue;
         }
 
+        if (!meta.externals || meta.externals !== "global") {
+            term.writeln(`${PREFABS.error}Package '${pkg_name}' is not using the new global externals system. Please build the package with a newer version of pkgbuild.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
         const pkg_dir = `/usr/bin/${pkg_name}`;
 
         // check version file if already installed
