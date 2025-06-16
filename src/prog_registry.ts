@@ -87,6 +87,13 @@ const encode_js_to_url = (js_code: string): string => {
 }
 
 export const build_registrant_from_js = async (js_code: string, built_in = false): Promise<ProgramRegistrant> => {
+    // inspect the js code to see if it starts with "import". if so, this is outdated, put a deprecation warning
+    let warn_deprecation = false;
+    if (js_code.startsWith("import")) {
+        // delay the warning as we might find out the program name later
+        warn_deprecation = true;
+    }
+
     // note: the webpackIgnore bypasses webpack's import() function and uses the browser's native import() function
     // this is because webpack's import() function does not support data urls
 
@@ -96,18 +103,34 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     let program = imp.default;
 
     if (program === undefined) {
+        if (warn_deprecation) {
+            console.warn("Program has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.");
+        }
+
         throw new Error("Program is not the default export.");
     }
 
     // validate program
     if (typeof program !== "object") {
+        if (warn_deprecation) {
+            console.warn("Program has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.");
+        }
+
         throw new Error("Program is not an object.");
     }
 
     program = program as object;
 
     if (typeof program.name !== "string") {
+        if (warn_deprecation) {
+            console.warn("Program has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.");
+        }
+
         throw new Error("Program does not have a name.");
+    }
+
+    if (warn_deprecation) {
+        console.warn(`Program ${program.name} has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.`);
     }
 
     if (typeof program.description !== "string") {

@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
+import "./load_global_externals";
 import { ProgramRegistry } from "./prog_registry";
 import * as programs from "./programs/@ALL";
 

@@ -17,6 +17,9 @@ function hb_build() {
     let compiled = hb.compile(index_template);
     const package = require("./package.json");
     let version = package.version;
+
+    // TODO: phase out importmap loading for the new global system
+    // the new system will use less network and memory and is more compatible, but we can't just delete it as it will break old packages
     let deps = package.dependencies;
     let unpkg_deps = {};
 
