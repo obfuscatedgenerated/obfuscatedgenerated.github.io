@@ -100,6 +100,12 @@ export const remove_subcommand = async (data: ProgramMainData) => {
                 const content = fs.read_file(file_path) as string;
                 program_name = await determine_program_name_from_js(content);
             } catch (e) {
+                if (e.message.endsWith("is not compatible with Node.js.")) {
+                    // silently skip node.js incompatible programs (they wouldn't have been mounted anyway)
+                    // yes this is a weird way to do it, but better than changing how build_registrant works
+                    return;
+                }
+
                 term.writeln(`${PREFABS.error}Error determining program name for ${file}: ${e.message}${STYLE.reset_all}`);
                 term.writeln(`${FG.yellow}Skipping program (will remain mounted until restart)...${STYLE.reset_all}`);
                 continue;
