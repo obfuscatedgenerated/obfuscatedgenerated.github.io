@@ -24,7 +24,7 @@ const setup_motd = (fs: AbstractFileSystem) => {
 
 const setup_rc_profile = (fs: AbstractFileSystem) => {
     // create .ollie_profile file if it doesn't exist
-    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts (before mounting /usr/bin).${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}`;
+    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts (before mounting /usr/bin).${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
     const absolute_profile = fs.absolute("~/.ollie_profile");
     if (!fs.exists(absolute_profile)) {
         fs.write_file(absolute_profile, profile_content);
