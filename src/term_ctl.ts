@@ -310,6 +310,11 @@ export class WrappedTerminal extends Terminal {
             // TODO: use callbacks
             try {
                 exit_code = await program.main(data);
+
+                if (exit_code === undefined) {
+                    exit_code = -2;
+                    console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
+                }
             } catch (e) {
                 exit_code = -1;
                 this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
