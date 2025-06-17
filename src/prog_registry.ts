@@ -210,6 +210,12 @@ export const mount_and_register_with_output = async (filename: string, content: 
     try {
         reg = await build_registrant_from_js(content);
     } catch (e) {
+        if (e.message.endsWith("is not compatible with Node.js.")) {
+            // silently skip node.js incompatible programs
+            // yes this is a weird way to do it, but better than changing how build_registrant works
+            return;
+        }
+
         term.writeln(`${PREFABS.error}Failed to prepare program from '${filename}'.${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}${e}${STYLE.reset_all}`);
         term.writeln(`${PREFABS.error}Skipping mount...${STYLE.reset_all}`);
