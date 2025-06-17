@@ -267,8 +267,8 @@ export class WrappedTerminal extends Terminal {
         for (const arg_idx in args) {
             let arg = args[arg_idx];
 
-            // replaces any instance of $VAR or ${VAR} with the value of the variable VAR
-            arg = arg.replace(/\$(\w+)|\$\{([^}]+)\}/g, (match, var1, var2) => {
+            // replaces any instance of $VAR or ${VAR} with the value of the variable VAR (alphabetical only except special var $?)
+            arg = arg.replace(/\$(\w+|\?)|\$\{([^}]+)\}/g, (match, var1, var2) => {
                 const var_name = var1 || var2;
                 const var_value = this.get_variable(var_name);
 
