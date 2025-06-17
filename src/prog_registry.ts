@@ -13,6 +13,11 @@ export class ProgramRegistry {
             throw new Error(`Program with name ${program.name} already exists.`);
         }
 
+        if (globalThis.OLLIEOS_NODE && program.node_opt_out) {
+            // don't register this program if it is not compatible with node.js
+            return;
+        }
+
         this._program_regs.set(program.name, program_reg);
     }
 
@@ -131,6 +136,10 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
 
     if (warn_deprecation) {
         console.warn(`Program ${program.name} has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.`);
+    }
+
+    if (globalThis.OLLIEOS_NODE && program.node_opt_out) {
+        throw new Error(`Program ${program.name} is not compatible with Node.js.`);
     }
 
     if (typeof program.description !== "string") {

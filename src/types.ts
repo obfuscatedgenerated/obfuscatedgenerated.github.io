@@ -14,6 +14,7 @@ export interface Program {
     description: string,
     usage_suffix: string,
     arg_descriptions: arg_descriptions,
+    node_opt_out?: boolean, // default false, if true it will not be registered if running in node
     main: ProgramMain
 }
 

@@ -12,6 +12,7 @@ export default {
             "-s": "Explicitly set the screen reader mode to on or off, rather than toggling it."
         }
     },
+    node_opt_out: true,
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;
