@@ -128,7 +128,7 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    get_variable(name: string): string {
+    get_variable(name: string): string | undefined {
         return this._vars.get(name);
     }
 
@@ -265,18 +265,22 @@ export class WrappedTerminal extends Terminal {
 
         // substitute args with variables
         for (const arg_idx in args) {
-            const arg = args[arg_idx];
+            let arg = args[arg_idx];
 
-            if (arg.startsWith("$")) {
-                const var_name = arg.slice(1);
+            // replaces any instance of $VAR or ${VAR} with the value of the variable VAR
+            arg = arg.replace(/\$(\w+)|\$\{([^}]+)\}/g, (match, var1, var2) => {
+                const var_name = var1 || var2;
                 const var_value = this.get_variable(var_name);
 
-                if (var_value) {
-                    args[arg_idx] = var_value;
-                } else {
-                    args[arg_idx] = "";
+                if (!var_value) {
+                    // if the variable is not set, return the original match
+                    return match;
                 }
-            }
+
+                return var_value;
+            });
+
+            args[arg_idx] = arg;
         }
 
         // search for the command in the registry
