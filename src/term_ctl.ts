@@ -218,15 +218,29 @@ export class WrappedTerminal extends Terminal {
             return true;
         }
 
-        // remove leading and trailing whitespace and split by spaces, unless contained in double quotes
-        const sub = line.trim().split(/ +(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+        // remove leading and trailing whitespace and split by spaces, unless contained in single or double quotes
+        // TODO: use a proper stack based parser for readability and maintainability
+        const sub = line.trim().split(/ +(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/);
+
+        const skip_variable_sub_idxs = [];
 
         // remove quotes from arguments if starting and ending with quotes
+        // if they are single quotes then disable substitution
         for (let i = 0; i < sub.length; i++) {
+            if (i === 0) {
+                // skip the first argument (the command)
+                continue;
+            }
+
             const arg = sub[i];
 
             if (arg.startsWith('"') && arg.endsWith('"')) {
                 sub[i] = arg.slice(1, -1);
+            }
+
+            if (arg.startsWith("'") && arg.endsWith("'")) {
+                sub[i] = arg.slice(1, -1);
+                skip_variable_sub_idxs.push(i - 1); // skip variable substitution for this argument (adjust for slice)
             }
         }
 
@@ -264,10 +278,16 @@ export class WrappedTerminal extends Terminal {
         const unsubbed_args = args.slice();
 
         // substitute args with variables
-        for (const arg_idx in args) {
+        for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
+            if (skip_variable_sub_idxs.includes(arg_idx)) {
+                // skip variable substitution for this argument
+                continue;
+            }
+
             let arg = args[arg_idx];
 
             // replaces any instance of $VAR or ${VAR} with the value of the variable VAR (alphabetical only except special var $?)
+            // TODO: backslash to escape dollar sign without using single quotes
             arg = arg.replace(/\$(\w+|\?)|\$\{([^}]+)\}/g, (match, var1, var2) => {
                 const var_name = var1 || var2;
                 const var_value = this.get_variable(var_name);
