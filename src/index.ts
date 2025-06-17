@@ -159,6 +159,8 @@ async function main() {
     // set the version variable ($VERSION)
     term.set_variable("VERSION", document.body.dataset.version);
 
+    term.set_variable("ENV", "web");
+
 
     // open the terminal
     const render = <HTMLElement>document.querySelector("#terminal");
