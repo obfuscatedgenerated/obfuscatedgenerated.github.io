@@ -3,14 +3,12 @@
 import * as howler from "howler";
 import * as htmlToText from "html-to-text";
 import * as sixel from "sixel";
-import * as sweetalert2 from "sweetalert2";
 import * as xterm from "@xterm/xterm";
 
 globalThis.ollieos = {};
 globalThis.howler = howler;
 globalThis["html-to-text"] = htmlToText;
 globalThis.sixel = sixel;
-globalThis.sweetalert2 = sweetalert2;
 globalThis["@xterm/xterm"] = xterm;
 
 // support old xterm names
@@ -28,10 +26,14 @@ if (typeof window !== "undefined") {
         const imageAddon = await import("@xterm/addon-image");
         const xtermLinkProvider = await import("xterm-link-provider");
 
+        const sweetalert2 = await import("sweetalert2");
+
         globalThis["@xterm/addon-fit"] = fitAddon;
         globalThis["@xterm/addon-web-links"] = webLinksAddon;
         globalThis["@xterm/addon-image"] = imageAddon;
         globalThis["xterm-link-provider"] = xtermLinkProvider;
+
+        globalThis.sweetalert2 = sweetalert2;
 
         globalThis["xterm-addon-fit"] = fitAddon;
         globalThis["xterm-addon-web-links"] = webLinksAddon;
