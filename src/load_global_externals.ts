@@ -14,9 +14,6 @@ globalThis["@xterm/xterm"] = xterm;
 // support old xterm names
 globalThis["xterm"] = xterm;
 
-
-console.log("Common global externals loaded successfully.");
-
 if (typeof window !== "undefined") {
     console.log("Loading browser-specific global externals...");
 
