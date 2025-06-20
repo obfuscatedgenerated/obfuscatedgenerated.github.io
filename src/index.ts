@@ -144,6 +144,10 @@ async function main() {
         screenReaderMode: false,
         cursorBlink: true,
     });
+
+    term.set_variable("VERSION", document.body.dataset.version);
+    term.set_variable("ENV", "web");
+
     term.initialise(loaded);
 
 
@@ -154,12 +158,6 @@ async function main() {
     term.loadAddon(new WebLinksAddon());
 
     term.loadAddon(new ImageAddon());
-
-
-    // set the version variable ($VERSION)
-    term.set_variable("VERSION", document.body.dataset.version);
-
-    term.set_variable("ENV", "web");
 
 
     // open the terminal
