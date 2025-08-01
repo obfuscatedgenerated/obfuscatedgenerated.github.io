@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
-    "publish": "npm run clean && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE}\" -m \"update page\""
+    "publish": "npm run clean && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\""
   },
   "repository": {
     "type": "git",
