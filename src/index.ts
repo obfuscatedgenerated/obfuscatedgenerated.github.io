@@ -136,7 +136,7 @@ async function main() {
     const fs = new LocalStorageFS();
 
     // create initial files
-    initial_fs_setup(fs);
+    await initial_fs_setup(fs);
 
 
     // create a terminal using the registry and filesystem
