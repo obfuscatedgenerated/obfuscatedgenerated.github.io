@@ -358,6 +358,12 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
                 throw new Error(`Failed to generate project folder for ${project_entry}`);
             }
         }
+
+        // write the new revision to the hidden .rev file
+        const version_file = fs.join(absolute_projects, ".rev");
+        fs.write_file(version_file, data_rev, true);
+
+        console.log("Projects set up successfully.");
     } catch (e) {
         console.error("Failed to set up projects:");
         console.error(e);
