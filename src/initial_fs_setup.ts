@@ -219,15 +219,14 @@ const generate_project_folder = async (fs: AbstractFileSystem, base_dir: string,
 
     // generate info.txt
     const info_content = `
-
 ${project_data.name}
 =${"=".repeat(project_data.name.length)}
 
 ${project_data.primary_language ? `Primary Language: ${project_data.primary_language}\n\n` : ""}${project_data.description}
-${project_data.live_url ? `\nLive URL: ${project_data.live_url}` : ""}${project_data.repo_url ? `\nRepository: ${project_data.repo_url}\n` : ""}
-`.replace(/\n/g, NEWLINE);
+${project_data.live_url ? `\nLive URL: ${project_data.live_url}` : ""}${project_data.repo_url ? `\nRepository: ${project_data.repo_url}` : ""}
+`.replace(/\n/g, NEWLINE).trim();
 
-    fs.write_file(fs.join(project_dir, "info.txt"), info_content.trim(), true);
+    fs.write_file(fs.join(project_dir, "info.txt"), NEWLINE + info_content + NEWLINE, true);
 
     // download image with ttl if defined
     // not a fatal failure so don't return false on failure
