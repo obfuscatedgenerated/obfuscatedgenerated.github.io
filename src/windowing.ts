@@ -2,7 +2,18 @@ export type WindowEvent = "close";
 
 let top_z_index = 10;
 
+const all_windows: Set<VirtualWindow> = new Set();
+let window_id_counter = 1;
+
+// should this be some outer WindowManager class? for now this is fine but it would be nice to let people sub out the window manager later
+
+export const get_all_windows = () => {
+    return Array.from(all_windows);
+}
+
 export class VirtualWindow {
+    private readonly _window_id: number;
+
     private readonly _window_root: HTMLDivElement;
     private readonly _window_top_bar: HTMLDivElement;
     private readonly _window_top_bar_title: HTMLSpanElement;
@@ -18,12 +29,14 @@ export class VirtualWindow {
     resizable = true;
 
     constructor() {
+        this._window_id = window_id_counter++;
+
         // contains the entire window
         this._window_root = document.createElement("div");
         this._window_root.classList.add("window");
         this._window_root.role = "dialog";
         this._window_root.ariaHidden = "true";
-        this._window_root.id = `window-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        this._window_root.id = `window-${this._window_id}`;
         document.body.appendChild(this._window_root);
 
         this._window_root.style.zIndex = top_z_index.toString();
@@ -77,10 +90,17 @@ export class VirtualWindow {
 
         // TODO: resize handles
         // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
+
+        all_windows.add(this);
+    }
+
+    get id() {
+        return this._window_id;
     }
 
     dispose() {
         this._window_root.remove();
+        all_windows.delete(this);
     }
 
     close() {
@@ -212,5 +232,17 @@ export class VirtualWindow {
 
     toggle() {
         this._window_root.classList.toggle("visible");
+    }
+
+    get visible() {
+        return this._window_root.classList.contains("visible");
+    }
+
+    set visible(is_visible: boolean) {
+        if (is_visible) {
+            this.show();
+        } else {
+            this.hide();
+        }
     }
 }
