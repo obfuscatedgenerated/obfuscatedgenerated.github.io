@@ -41,7 +41,7 @@ export class VirtualWindow {
         close_button.innerText = "×";
         close_button.addEventListener("click", async () => {
             await this._emit_event("close");
-            this._window_root.remove();
+            this.dispose();
         });
 
         top_bar_controls.appendChild(close_button);
@@ -57,6 +57,10 @@ export class VirtualWindow {
         this._window_root.appendChild(this._content_host);
 
         // TODO: resize handles
+    }
+
+    dispose() {
+        this._window_root.remove();
     }
 
     private async _emit_event(event: WindowEvent) {
