@@ -1,5 +1,7 @@
 export type WindowEvent = "close";
 
+let top_z_index = 10;
+
 export class VirtualWindow {
     private readonly _window_root: HTMLDivElement;
     private readonly _window_top_bar: HTMLDivElement;
@@ -19,30 +21,36 @@ export class VirtualWindow {
         // contains the entire window
         this._window_root = document.createElement("div");
         this._window_root.classList.add("window");
+        this._window_root.role = "dialog";
+        this._window_root.ariaHidden = "true";
+        this._window_root.id = `window-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         document.body.appendChild(this._window_root);
+
+        this._window_root.style.zIndex = top_z_index.toString();
+        this._window_root.addEventListener("mousedown", () => this.focus(), { capture: true });
+        window.addEventListener("blur", () => this._handle_window_blur());
 
         // draggable top bar containing title and controls
         this._window_top_bar = document.createElement("div");
         this._window_top_bar.classList.add("window-top-bar");
         this._window_root.appendChild(this._window_top_bar);
 
-
         this._window_top_bar_title = document.createElement("span");
         this._window_top_bar_title.classList.add("window-top-bar-title");
         this._window_top_bar_title.innerText = this._title_text;
+        this._window_top_bar_title.id = `${this._window_root.id}-title`;
         this._window_top_bar.appendChild(this._window_top_bar_title);
+        this._window_root.setAttribute("aria-labelledby", this._window_top_bar_title.id);
 
         const top_bar_controls = document.createElement("div");
         top_bar_controls.classList.add("window-top-bar-controls");
         this._window_top_bar.appendChild(top_bar_controls);
 
         const close_button = document.createElement("button");
+        close_button.title = "Close window";
         close_button.classList.add("window-close-button");
         close_button.innerText = "×";
-        close_button.addEventListener("click", async () => {
-            await this._emit_event("close");
-            this.dispose();
-        });
+        close_button.addEventListener("click", this.close.bind(this));
 
         top_bar_controls.appendChild(close_button);
 
@@ -57,10 +65,32 @@ export class VirtualWindow {
         this._window_root.appendChild(this._content_host);
 
         // TODO: resize handles
+        // TODO: maximise/minimise
+        // TODO: way to prevent windows existing when the program that created them exits?
     }
 
     dispose() {
         this._window_root.remove();
+    }
+
+    close() {
+        this._emit_event("close");
+        this.dispose();
+    }
+
+    focus() {
+        top_z_index += 1;
+        this._window_root.style.zIndex = top_z_index.toString();
+    }
+
+    private _handle_window_blur() {
+        // TODO: fix for when focus jumps between iframes inside the window, this doesnt fire in that case
+
+        setTimeout(() => {
+            if (document.activeElement === this._content_host) {
+                this.focus();
+            }
+        }, 0);
     }
 
     private async _emit_event(event: WindowEvent) {
@@ -162,10 +192,12 @@ export class VirtualWindow {
 
     show() {
         this._window_root.classList.add("visible");
+        this._window_root.ariaHidden = "false";
     }
 
     hide() {
         this._window_root.classList.remove("visible");
+        this._window_root.ariaHidden = "true";
     }
 
     toggle() {
