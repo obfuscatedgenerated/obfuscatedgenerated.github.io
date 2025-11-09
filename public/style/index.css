@@ -109,8 +109,6 @@ body {
     height: 2rem;
     background: #222;
 
-    padding: 0.25rem;
-
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -123,11 +121,12 @@ body {
     color: #fff;
     font-family: "Open Sans", Open Sans, Arial, sans-serif;
     font-size: 0.8rem;
-    line-height: 1.4rem;
     height: 100%;
     vertical-align: middle;
 
-    margin-left: 0.25rem;
+    padding: 0 0.5rem;
+    display: flex;
+    align-items: center;
 }
 
 .window-top-bar-controls {
@@ -138,11 +137,10 @@ body {
     height: 100%;
 }
 
-.window-close-button {
+.window-button {
     height: 100%;
+    background: transparent;
     aspect-ratio: 1;
-    background: #ff5c5c;
-    border-radius: 0.1rem;
     cursor: pointer;
     border: none;
 
@@ -150,7 +148,19 @@ body {
     font-family: "Open Sans", Open Sans, Arial, sans-serif;
     font-weight: bold;
     font-size: 1.25rem;
-    line-height: 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transition: background 0.1s ease-in-out;
+}
+
+.window-button:hover {
+    background: #444;
+}
+
+.window-close-button:hover {
+    background: #ee5555;
 }
 
 .window-content-host {

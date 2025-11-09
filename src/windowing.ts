@@ -48,7 +48,7 @@ export class VirtualWindow {
 
         const close_button = document.createElement("button");
         close_button.title = "Close window";
-        close_button.classList.add("window-close-button");
+        close_button.classList.add("window-button", "window-close-button");
         close_button.innerText = "×";
         close_button.addEventListener("click", this.close.bind(this));
 
