@@ -46,12 +46,23 @@ export class VirtualWindow {
         top_bar_controls.classList.add("window-top-bar-controls");
         this._window_top_bar.appendChild(top_bar_controls);
 
+        const minimise_button = document.createElement("button");
+        minimise_button.title = "Minimise window";
+        minimise_button.classList.add("window-button", "window-minimise-button");
+        minimise_button.innerText = "−";
+        minimise_button.addEventListener("click", () => this.hide());
+
+        // TODO: a way to get it back!
+
+        // TODO: maximise/restore button
+
         const close_button = document.createElement("button");
         close_button.title = "Close window";
         close_button.classList.add("window-button", "window-close-button");
         close_button.innerText = "×";
         close_button.addEventListener("click", this.close.bind(this));
 
+        top_bar_controls.appendChild(minimise_button);
         top_bar_controls.appendChild(close_button);
 
         this._window_top_bar.addEventListener("mousedown", (e) => this._start_drag(e));
@@ -65,8 +76,7 @@ export class VirtualWindow {
         this._window_root.appendChild(this._content_host);
 
         // TODO: resize handles
-        // TODO: maximise/minimise
-        // TODO: way to prevent windows existing when the program that created them exits?
+        // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
     }
 
     dispose() {
