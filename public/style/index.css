@@ -159,6 +159,10 @@ body {
     overflow: clip;
 }
 
+.window-content-host.dragging {
+    pointer-events: none;
+}
+
 @media screen and (max-width: 600px) {
     #boot_screen h2 {
         font-size: 1.5em;

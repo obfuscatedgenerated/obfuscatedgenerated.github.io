@@ -54,10 +54,12 @@ export default {
 
         const wind = new VirtualWindow();
         wind.title = "fsedit";
-        wind.x = "25vw";
-        wind.y = "25vh";
-        wind.width = "50vw";
-        wind.height = "50vh";
+
+        wind.width = "75vw";
+        wind.height = "75vh";
+
+        wind.x = "12.5vw";
+        wind.y = "12.5vh";
 
         wind.dom.appendChild(iframe);
         wind.show();
