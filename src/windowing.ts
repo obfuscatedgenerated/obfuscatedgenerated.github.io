@@ -1,4 +1,4 @@
-export type WindowEvent = "close";
+export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename";
 
 let top_z_index = 10;
 
@@ -65,8 +65,6 @@ export class VirtualWindow {
         minimise_button.innerText = "−";
         minimise_button.addEventListener("click", () => this.hide());
 
-        // TODO: a way to get it back!
-
         // TODO: maximise/restore button
 
         const close_button = document.createElement("button");
@@ -109,6 +107,8 @@ export class VirtualWindow {
     }
 
     focus() {
+        this._emit_event("focus");
+
         top_z_index += 1;
         this._window_root.style.zIndex = top_z_index.toString();
     }
@@ -150,6 +150,8 @@ export class VirtualWindow {
 
             this._window_root.style.left = `${event.clientX - offset_x}px`;
             this._window_root.style.top = `${event.clientY - offset_y}px`;
+
+            this._emit_event("move");
         };
 
         const mouse_up = () => {
@@ -190,6 +192,8 @@ export class VirtualWindow {
     set title(new_title: string) {
         this._window_top_bar_title.innerText = new_title;
         this._title_text = new_title;
+
+        this._emit_event("rename");
     }
 
     set width(css_width: string) {
@@ -223,15 +227,25 @@ export class VirtualWindow {
     show() {
         this._window_root.classList.add("visible");
         this._window_root.ariaHidden = "false";
+
+        this._emit_event("show");
     }
 
     hide() {
         this._window_root.classList.remove("visible");
         this._window_root.ariaHidden = "true";
+
+        this._emit_event("hide");
     }
 
     toggle() {
         this._window_root.classList.toggle("visible");
+
+        if (this.visible) {
+            this._emit_event("show");
+        } else {
+            this._emit_event("hide");
+        }
     }
 
     get visible() {
