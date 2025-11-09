@@ -90,6 +90,75 @@ body {
     align-items: center;
 }
 
+.window {
+    display: none;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    flex-direction: column;
+}
+
+.window.visible {
+    display: flex;
+}
+
+.window-top-bar {
+    width: 100%;
+    height: 2rem;
+    background: #222;
+
+    padding: 0.25rem;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+.window-top-bar-title {
+    color: #fff;
+    font-family: "Open Sans", Open Sans, Arial, sans-serif;
+    font-size: 0.8rem;
+    line-height: 1.4rem;
+    height: 100%;
+    vertical-align: middle;
+
+    margin-left: 0.25rem;
+}
+
+.window-top-bar-controls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    height: 100%;
+}
+
+.window-close-button {
+    height: 100%;
+    aspect-ratio: 1;
+    background: #ff5c5c;
+    border-radius: 0.1rem;
+    cursor: pointer;
+    border: none;
+
+    color: #fff;
+    font-family: "Open Sans", Open Sans, Arial, sans-serif;
+    font-weight: bold;
+    font-size: 1.25rem;
+    line-height: 1.4rem;
+}
+
+.window-content-host {
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+}
+
 @media screen and (max-width: 600px) {
     #boot_screen h2 {
         font-size: 1.5em;
