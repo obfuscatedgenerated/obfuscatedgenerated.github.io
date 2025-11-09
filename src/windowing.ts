@@ -2,13 +2,17 @@ export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename
 
 let top_z_index = 10;
 
-const all_windows: Set<VirtualWindow> = new Set();
 let window_id_counter = 1;
+const window_map: Map<number, VirtualWindow> = new Map();
 
 // should this be some outer WindowManager class? for now this is fine but it would be nice to let people sub out the window manager later
 
 export const get_all_windows = () => {
-    return Array.from(all_windows);
+    return Array.from(window_map.values());
+}
+
+export const get_window_by_id = (id: number) => {
+    return window_map.get(id) || null;
 }
 
 export class VirtualWindow {
@@ -89,7 +93,7 @@ export class VirtualWindow {
         // TODO: resize handles
         // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
 
-        all_windows.add(this);
+        window_map.set(this._window_id, this);
     }
 
     get id() {
@@ -98,7 +102,7 @@ export class VirtualWindow {
 
     dispose() {
         this._window_root.remove();
-        all_windows.delete(this);
+        window_map.delete(this._window_id);
     }
 
     close() {
