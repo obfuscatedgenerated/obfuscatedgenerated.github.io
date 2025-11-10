@@ -254,15 +254,25 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
 
             show() {
-                this._window_root.classList.add("visible");
+                this._window_root.classList.remove("animating-out");
+                this._window_root.classList.add("visible", "animating-in");
                 this._window_root.ariaHidden = "false";
+
+                setTimeout(() => {
+                    this._window_root.classList.remove("animating-in");
+                }, 200);
 
                 this._emit_event("show");
             }
 
             hide() {
-                this._window_root.classList.remove("visible");
+                this._window_root.classList.remove("animating-in");
+                this._window_root.classList.add("animating-out");
                 this._window_root.ariaHidden = "true";
+
+                setTimeout(() => {
+                    this._window_root.classList.remove("visible", "animating-out");
+                }, 200);
 
                 this._emit_event("hide");
             }
