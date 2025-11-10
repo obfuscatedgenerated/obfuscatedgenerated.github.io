@@ -1,6 +1,7 @@
 import {ANSI} from "../../term_ctl";
 import type {Program} from "../../types";
 
+import {info_subcommand} from "./info";
 import {list_subcommand} from "./list";
 import {show_subcommand} from "./show";
 import {hide_subcommand} from "./hide";
@@ -15,6 +16,7 @@ export default {
     usage_suffix: "[-h] [subcommand] [arguments]",
     arg_descriptions: {
         "Subcommands:": {
+            "info": `Displays information about the window manager and open windows: ${PREFABS.program_name}window${STYLE.reset_all + STYLE.italic} info${STYLE.reset_all}`,
             "list": `Lists all open windows: ${PREFABS.program_name}window${STYLE.reset_all + STYLE.italic} list [-vi]${STYLE.reset_all}`,
             "show": `Shows a window by its ID: ${PREFABS.program_name}window${STYLE.reset_all + STYLE.italic} show <window_id>${STYLE.reset_all}`,
             "hide": `Hides a window by its ID: ${PREFABS.program_name}window${STYLE.reset_all + STYLE.italic} hide <window_id>${STYLE.reset_all}`,
@@ -52,6 +54,8 @@ export default {
         }
 
         switch (args[0]) {
+            case "info":
+                return await info_subcommand(data);
             case "list":
                 return await list_subcommand(data);
             case "show":
