@@ -1,0 +1,37 @@
+export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename";
+export declare const get_all_windows: () => VirtualWindow[];
+export declare const get_window_by_id: (id: number) => VirtualWindow;
+export declare class VirtualWindow {
+    private readonly _window_id;
+    private readonly _window_root;
+    private readonly _window_top_bar;
+    private readonly _window_top_bar_title;
+    private readonly _content_host;
+    private readonly _shadow_dom;
+    private readonly _event_listeners;
+    private _title_text;
+    moveable: boolean;
+    resizable: boolean;
+    constructor();
+    get id(): number;
+    dispose(): void;
+    close(): void;
+    focus(): void;
+    private _handle_window_blur;
+    private _emit_event;
+    private _start_drag;
+    add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    remove_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    get title(): string;
+    set title(new_title: string);
+    set width(css_width: string);
+    set height(css_height: string);
+    set x(css_pos: string | number);
+    set y(css_pos: string | number);
+    get dom(): ShadowRoot;
+    show(): void;
+    hide(): void;
+    toggle(): void;
+    get visible(): boolean;
+    set visible(is_visible: boolean);
+}
