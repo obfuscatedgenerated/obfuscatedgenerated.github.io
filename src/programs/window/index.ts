@@ -10,6 +10,8 @@ import {close_subcommand} from "./close";
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
 
+// TODO: maximise restore command, respecting maximisable property but providing a -f force flag
+
 export default {
     name: "window",
     description: "Interact with program windows.",
