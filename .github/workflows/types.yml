@@ -27,6 +27,39 @@ jobs:
       - name: Build types
         run: npm run build:types
 
+      - name: Generate package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const rootPkg = require('./package.json');
+          
+            // Define the package.json for the 'types' branch
+            // It reuses many fields from the root package.json
+            const typesPkg = {
+              name: rootPkg.name,
+              version: rootPkg.version,
+              description: rootPkg.description ? `${rootPkg.description} (Types-only branch)` : `Types for ${rootPkg.name}`,
+              main: 'index.js',
+              types: 'index.d.ts', // Assumes 'index.d.ts' is the main entry point in your 'types' dir
+              repository: rootPkg.repository,
+              author: rootPkg.author,
+              license: rootPkg.license,
+              keywords: rootPkg.keywords,
+              bugs: rootPkg.bugs,
+              homepage: rootPkg.homepage
+            };
+          
+            // Write the new package.json into the 'types' directory
+            fs.writeFileSync('./types/package.json', JSON.stringify(typesPkg, null, 2));
+            console.log('Generated package.json in ./types/package.json');
+          
+            // Optional: Create a dummy index.js to satisfy the 'main' field
+            if (!fs.existsSync('./types/index.js')) {
+              fs.writeFileSync('./types/index.js', '// This file is intentionally blank. See package.json for types entry point.\n');
+              console.log('Created dummy ./types/index.js');
+            }
+          "
+
       - name: Deploy to 'types' branch
         uses: JamesIves/github-pages-deploy-action@v4
         with:
