@@ -147,8 +147,14 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
 
             close() {
+                this._window_root.classList.add("animating-close");
+                this._window_root.ariaHidden = "true";
+
                 this._emit_event("close");
-                this.dispose();
+
+                setTimeout(() => {
+                    this.dispose();
+                }, 200);
             }
 
             focus() {

@@ -122,12 +122,27 @@ body {
     }
 }
 
+@keyframes window-close {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.2);
+        opacity: 0;
+    }
+}
+
 .window.animating-in {
     animation: window-pop-in 0.2s ease-in-out forwards;
 }
 
 .window.animating-out {
     animation: window-pop-in 0.2s ease-in-out reverse forwards;
+}
+
+.window.animating-close {
+    animation: window-close 0.2s ease-in-out forwards;
 }
 
 .window-top-bar {
