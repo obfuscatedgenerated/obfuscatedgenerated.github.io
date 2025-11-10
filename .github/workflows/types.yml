@@ -38,7 +38,7 @@ jobs:
             const typesPkg = {
               name: rootPkg.name,
               version: rootPkg.version,
-              description: rootPkg.description ? `${rootPkg.description} (Types-only branch)` : `Types for ${rootPkg.name}`,
+              description: rootPkg.description ? \`${rootPkg.description} (Types-only branch)\` : \`Types for ${rootPkg.name}\`,
               main: 'index.js',
               types: 'index.d.ts', // Assumes 'index.d.ts' is the main entry point in your 'types' dir
               repository: rootPkg.repository,
