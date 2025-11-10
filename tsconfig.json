@@ -21,6 +21,7 @@
     "node_modules",
     "public/script",
     "webpack.config.js",
-    "server.js"
+    "server.js",
+    "types/"
   ]
 }

@@ -1,6 +1,5 @@
 import {ANSI, NEWLINE} from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {get_all_windows} from "../../windowing";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG } = ANSI;
@@ -24,7 +23,8 @@ export const list_subcommand = async (data: ProgramMainData) => {
 
     term.write(NEWLINE);
 
-    const all_windows = get_all_windows();
+    const wm = term.get_window_manager();
+    const all_windows = wm!.get_all_windows();
     for (const win of all_windows) {
         if (only_visible && !win.visible) {
             continue;

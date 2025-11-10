@@ -3,9 +3,10 @@ import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
 import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
 import type { AbstractFileSystem } from "./filesystem";
 
-import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, Program } from "./types";
+import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
+import {AbstractWindowManager} from "./windowing";
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */
@@ -106,6 +107,7 @@ export class WrappedTerminal extends Terminal {
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
     _fs: AbstractFileSystem;
+    _wm: AbstractWindowManager | null = null;
 
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     _on_printable_handlers: KeyEventHandler[] = [];
@@ -127,6 +129,9 @@ export class WrappedTerminal extends Terminal {
         return this._fs;
     }
 
+    get_window_manager(): AbstractWindowManager | null {
+        return this._wm;
+    }
 
     get_variable(name: string): string | undefined {
         return this._vars.get(name);
@@ -674,12 +679,13 @@ export class WrappedTerminal extends Terminal {
     }
 
     // be sure to call initialise after this
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true) {
+    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true, wm?: AbstractWindowManager) {
         super(xterm_opts);
 
         this._fs = fs;
         this._prog_registry = prog_registry || new ProgramRegistry();
         this._sfx_registry = sound_registry || new SoundRegistry();
+        this._wm = wm || null;
 
         if (register_builtin_handlers) {
             register_builtin_key_handlers(this);

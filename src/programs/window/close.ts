@@ -1,6 +1,5 @@
 import {ANSI} from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {get_window_by_id} from "../../windowing";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG, PREFABS } = ANSI;
@@ -25,7 +24,8 @@ export const close_subcommand = async (data: ProgramMainData) => {
         return 1;
     }
 
-    const wind = get_window_by_id(window_id);
+    const wm = term.get_window_manager();
+    const wind = wm!.get_window_by_id(window_id);
 
     if (!wind) {
         term.writeln(`${PREFABS.error}No window found with ID '${window_id}'.`)

@@ -1,6 +1,5 @@
 import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
-import {VirtualWindow} from "../windowing";
 
 export default {
     name: "fsedit",
@@ -43,16 +42,21 @@ export default {
         // url encode the directory
         const encoded_dir = encodeURIComponent(dir);
 
-        // open fsedit in a popup window
-        //window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true")
-
         const iframe = document.createElement("iframe");
         iframe.src = `./fsedit?type=${fs_name}&dir=${encoded_dir}`;
         iframe.style.border = "none";
         iframe.style.width = "100%";
         iframe.style.height = "100%";
 
-        const wind = new VirtualWindow();
+        const wm = term.get_window_manager();
+        if (!wm) {
+            // fallback to opening in a popup window
+            window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true");
+            term.writeln("Opened fsedit in a new popup window.");
+            return 0;
+        }
+
+        const wind = new wm.Window();
         wind.title = "fsedit";
 
         wind.width = "75vw";

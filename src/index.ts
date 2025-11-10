@@ -15,6 +15,7 @@ import { LocalStorageFS } from "./fs_impl/localstorage";
 import { initial_fs_setup } from "./initial_fs_setup";
 
 import Swal from "sweetalert2";
+import {DOMWindowManager} from "./window_impl/dom";
 
 
 const boot_screen = document.getElementById("boot_screen");
@@ -138,12 +139,14 @@ async function main() {
     // create initial files
     await initial_fs_setup(fs);
 
+    // create a dom window manager
+    const wm = new DOMWindowManager();
 
     // create a terminal using the registry and filesystem
     const term = new WrappedTerminal(fs, prog_reg, sfx_reg,{
         screenReaderMode: false,
         cursorBlink: true,
-    });
+    }, true, wm);
 
     term.set_variable("VERSION", document.body.dataset.version);
     term.set_variable("ENV", "web");
