@@ -308,6 +308,13 @@ export class DOMWindowManager extends AbstractWindowManager {
                             this._content_host.classList.remove("transparent");
                         }
                         break;
+                    case "no-top-bar":
+                        if (value) {
+                            this._window_top_bar.classList.add("hidden");
+                        } else {
+                            this._window_top_bar.classList.remove("hidden");
+                        }
+                        break;
                 }
             }
         }

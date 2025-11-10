@@ -117,6 +117,10 @@ body {
     user-select: none;
 }
 
+.window-top-bar.hidden {
+    display: none;
+}
+
 .window-top-bar-title {
     color: #fff;
     font-family: "Open Sans", Open Sans, Arial, sans-serif;
