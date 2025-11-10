@@ -37,10 +37,12 @@ export abstract class AbstractWindow {
     abstract focus(): void;
 
     abstract show(): void;
-
     abstract hide(): void;
-
     abstract toggle(): void;
+
+    // best effort flags, may not be supported by all implementations (e.g. transparent flag)
+    abstract get_custom_flag(flag: string): boolean;
+    abstract set_custom_flag(flag: string, value: boolean): void;
 }
 
 export abstract class AbstractWindowManager {

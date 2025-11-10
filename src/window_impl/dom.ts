@@ -49,6 +49,8 @@ export class DOMWindowManager extends AbstractWindowManager {
             moveable = true;
             resizable = true;
 
+            private readonly _custom_flags: Set<string> = new Set();
+
             get manager() {
                 return this._manager;
             }
@@ -284,6 +286,28 @@ export class DOMWindowManager extends AbstractWindowManager {
                     this.show();
                 } else {
                     this.hide();
+                }
+            }
+
+            get_custom_flag(flag: string) {
+                return this._custom_flags.has(flag);
+            }
+
+            set_custom_flag(flag: string, value: boolean) {
+                if (value) {
+                    this._custom_flags.add(flag);
+                } else {
+                    this._custom_flags.delete(flag);
+                }
+
+                switch (flag) {
+                    case "transparent":
+                        if (value) {
+                            this._content_host.classList.add("transparent");
+                        } else {
+                            this._content_host.classList.remove("transparent");
+                        }
+                        break;
                 }
             }
         }

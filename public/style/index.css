@@ -166,10 +166,15 @@ body {
     width: 100%;
     height: 100%;
     overflow: clip;
+    background: #111;
 }
 
 .window-content-host.dragging {
     pointer-events: none;
+}
+
+.window-content-host.transparent {
+    background: transparent;
 }
 
 @media screen and (max-width: 600px) {
