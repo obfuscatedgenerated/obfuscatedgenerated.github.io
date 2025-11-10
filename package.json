@@ -13,5 +13,10 @@
   "bugs": {
     "url": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues"
   },
-  "homepage": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io#readme"
+  "homepage": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io#readme",
+  "dependencies": {
+    "@xterm/xterm": "^5.5.0",
+    "howler": "^2.2.3",
+    "@types/html-to-text": "^9.0.1"
+  }
 }
