@@ -21,6 +21,8 @@ export declare abstract class AbstractWindow {
     abstract show(): void;
     abstract hide(): void;
     abstract toggle(): void;
+    abstract get_custom_flag(flag: string): boolean;
+    abstract set_custom_flag(flag: string, value: boolean): void;
 }
 export declare abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;
