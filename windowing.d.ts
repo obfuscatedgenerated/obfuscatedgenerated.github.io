@@ -5,6 +5,8 @@ export declare abstract class AbstractWindow {
     abstract readonly manager: AbstractWindowManager;
     abstract moveable: boolean;
     abstract resizable: boolean;
+    abstract maximisable: boolean;
+    abstract maximised: boolean;
     abstract get title(): string;
     abstract set title(new_title: string);
     abstract set width(css_width: string);
