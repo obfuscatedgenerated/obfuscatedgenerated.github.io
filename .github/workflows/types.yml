@@ -37,10 +37,10 @@ jobs:
             const rootDeps = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
             const typeDeps = {};
           
-            const explicitTypePackages = ["@xterm/xterm", "howler"]; 
+            const explicitTypePackages = ['@xterm/xterm', 'howler']; 
 
             for (const [pkgName, version] of Object.entries(rootDeps)) {
-              if (pkgName.startsWith("@types/") || explicitTypePackages.includes(pkgName)) {
+              if (pkgName.startsWith('@types/') || explicitTypePackages.includes(pkgName)) {
                 typeDeps[pkgName] = version;
               }
             }
