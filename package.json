@@ -1,0 +1,17 @@
+{
+  "name": "ollieos",
+  "version": "1.0.1",
+  "description": "",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io.git"
+  },
+  "author": "obfuscatedgenerated",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues"
+  },
+  "homepage": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io#readme"
+}
