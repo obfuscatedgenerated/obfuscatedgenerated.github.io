@@ -33,6 +33,21 @@ jobs:
             const fs = require('fs');
             const rootPkg = require('./package.json');
           
+            // Combine all dependencies from the root package.json
+            const rootDeps = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
+            const typeDeps = {};
+          
+            // List of packages that are type-only but don"t start with @types/
+            // Add other packages here if needed.
+            const explicitTypePackages = ["@xterm/xterm", "howler"]; 
+
+            for (const [pkgName, version] of Object.entries(rootDeps)) {
+              // Add if it"s an @types package OR in our explicit list
+              if (pkgName.startsWith("@types/") || explicitTypePackages.includes(pkgName)) {
+                typeDeps[pkgName] = version;
+              }
+            }
+          
             // Define the package.json for the 'types' branch
             // It reuses many fields from the root package.json
             const typesPkg = {
@@ -46,7 +61,8 @@ jobs:
               license: rootPkg.license,
               keywords: rootPkg.keywords,
               bugs: rootPkg.bugs,
-              homepage: rootPkg.homepage
+              homepage: rootPkg.homepage,
+              dependencies: typeDeps
             };
           
             // Write the new package.json into the 'types' directory
