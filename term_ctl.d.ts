@@ -3,6 +3,7 @@ import { ProgramRegistry } from "./prog_registry";
 import type { AbstractFileSystem } from "./filesystem";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { SoundRegistry } from "./sfx_registry";
+import { AbstractWindowManager } from "./windowing";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const VAR_ASSIGNMENT_REGEX: RegExp;
@@ -77,6 +78,7 @@ export declare class WrappedTerminal extends Terminal {
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
     _fs: AbstractFileSystem;
+    _wm: AbstractWindowManager | null;
     _key_handlers: Map<RegisteredKeyEventIdentifier, {
         handler: KeyEventHandler;
         block: boolean;
@@ -88,6 +90,7 @@ export declare class WrappedTerminal extends Terminal {
     get_program_registry(): ProgramRegistry;
     get_sound_registry(): SoundRegistry;
     get_fs(): AbstractFileSystem;
+    get_window_manager(): AbstractWindowManager | null;
     get_variable(name: string): string | undefined;
     set_variable(name: string, value: string): void;
     unset_variable(name: string): void;
@@ -137,5 +140,5 @@ export declare class WrappedTerminal extends Terminal {
     run_script(path: any): Promise<void>;
     _mount_usr_bin(): Promise<void>;
     initialise(term_loaded_callback?: (term: WrappedTerminal) => void): Promise<void>;
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean);
+    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean, wm?: AbstractWindowManager);
 }

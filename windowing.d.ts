@@ -1,37 +1,30 @@
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename";
-export declare const get_all_windows: () => VirtualWindow[];
-export declare const get_window_by_id: (id: number) => VirtualWindow;
-export declare class VirtualWindow {
-    private readonly _window_id;
-    private readonly _window_root;
-    private readonly _window_top_bar;
-    private readonly _window_top_bar_title;
-    private readonly _content_host;
-    private readonly _shadow_dom;
-    private readonly _event_listeners;
-    private _title_text;
-    moveable: boolean;
-    resizable: boolean;
-    constructor();
-    get id(): number;
-    dispose(): void;
-    close(): void;
-    focus(): void;
-    private _handle_window_blur;
-    private _emit_event;
-    private _start_drag;
-    add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
-    remove_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
-    get title(): string;
-    set title(new_title: string);
-    set width(css_width: string);
-    set height(css_height: string);
-    set x(css_pos: string | number);
-    set y(css_pos: string | number);
-    get dom(): ShadowRoot;
-    show(): void;
-    hide(): void;
-    toggle(): void;
-    get visible(): boolean;
-    set visible(is_visible: boolean);
+export declare abstract class AbstractWindow {
+    abstract readonly id: number;
+    abstract readonly dom: ShadowRoot;
+    abstract readonly manager: AbstractWindowManager;
+    abstract moveable: boolean;
+    abstract resizable: boolean;
+    abstract get title(): string;
+    abstract set title(new_title: string);
+    abstract set width(css_width: string);
+    abstract set height(css_height: string);
+    abstract set x(css_pos: string | number);
+    abstract set y(css_pos: string | number);
+    abstract get visible(): boolean;
+    abstract set visible(is_visible: boolean);
+    abstract add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    abstract remove_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    abstract dispose(): void;
+    abstract close(): void;
+    abstract focus(): void;
+    abstract show(): void;
+    abstract hide(): void;
+    abstract toggle(): void;
+}
+export declare abstract class AbstractWindowManager {
+    abstract get_unique_manager_type_name(): string;
+    abstract get Window(): new () => AbstractWindow;
+    abstract get_all_windows(): AbstractWindow[];
+    abstract get_window_by_id(id: number): AbstractWindow | null;
 }
