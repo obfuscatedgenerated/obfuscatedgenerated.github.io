@@ -37,12 +37,9 @@ jobs:
             const rootDeps = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
             const typeDeps = {};
           
-            // List of packages that are type-only but don"t start with @types/
-            // Add other packages here if needed.
             const explicitTypePackages = ["@xterm/xterm", "howler"]; 
 
             for (const [pkgName, version] of Object.entries(rootDeps)) {
-              // Add if it"s an @types package OR in our explicit list
               if (pkgName.startsWith("@types/") || explicitTypePackages.includes(pkgName)) {
                 typeDeps[pkgName] = version;
               }
