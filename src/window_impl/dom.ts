@@ -38,6 +38,7 @@ export class DOMWindowManager extends AbstractWindowManager {
             private readonly _window_root: HTMLDivElement;
             private readonly _window_top_bar: HTMLDivElement;
             private readonly _window_top_bar_title: HTMLSpanElement;
+            private readonly _window_top_bar_maximise_button: HTMLButtonElement;
 
             private readonly _content_host: HTMLDivElement;
             private readonly _shadow_dom: ShadowRoot;
@@ -48,6 +49,9 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             moveable = true;
             resizable = true;
+
+            private _maximisable = true;
+            private _maximised = false;
 
             private readonly _custom_flags: Set<string> = new Set();
 
@@ -86,6 +90,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 const top_bar_controls = document.createElement("div");
                 top_bar_controls.classList.add("window-top-bar-controls");
+                top_bar_controls.addEventListener("mousedown", (e) => e.stopPropagation());
                 this._window_top_bar.appendChild(top_bar_controls);
 
                 const minimise_button = document.createElement("button");
@@ -94,7 +99,17 @@ export class DOMWindowManager extends AbstractWindowManager {
                 minimise_button.innerText = "−";
                 minimise_button.addEventListener("click", () => this.hide());
 
-                // TODO: maximise/restore button
+                this._window_top_bar_maximise_button = document.createElement("button");
+                this._window_top_bar_maximise_button.title = "Maximise window";
+                this._window_top_bar_maximise_button.classList.add("window-button", "window-maximise-button");
+                this._window_top_bar_maximise_button.innerText = "◻";
+                this._window_top_bar_maximise_button.addEventListener("click", (ev) => {
+                    if (!this.maximisable) {
+                        return;
+                    }
+
+                    this.maximised = !this.maximised;
+                });
 
                 const close_button = document.createElement("button");
                 close_button.title = "Close window";
@@ -103,6 +118,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 close_button.addEventListener("click", this.close.bind(this));
 
                 top_bar_controls.appendChild(minimise_button);
+                top_bar_controls.appendChild(this._window_top_bar_maximise_button);
                 top_bar_controls.appendChild(close_button);
 
                 this._window_top_bar.addEventListener("mousedown", (e) => this._start_drag(e));
@@ -171,11 +187,21 @@ export class DOMWindowManager extends AbstractWindowManager {
                 e.preventDefault();
 
                 const rect = this._window_root.getBoundingClientRect();
-                const offset_x = e.clientX - rect.left;
+                let offset_x = e.clientX - rect.left;
                 const offset_y = e.clientY - rect.top;
 
                 const mouse_move = (event: MouseEvent) => {
                     event.preventDefault();
+
+                    if (this._maximised) {
+                        // break out of maximised, restoring size but not position
+                        this.maximised = false;
+
+                        // adjust offset_x to account for new window size
+                        const new_rect = this._window_root.getBoundingClientRect();
+                        const width_ratio = offset_x / rect.width;
+                        offset_x = new_rect.width * width_ratio;
+                    }
 
                     this._window_root.style.left = `${event.clientX - offset_x}px`;
                     this._window_root.style.top = `${event.clientY - offset_y}px`;
@@ -231,6 +257,32 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             set height(css_height: string) {
                 this._window_root.style.height = css_height;
+            }
+
+            get maximisable() {
+                return this._maximisable;
+            }
+
+            set maximisable(value: boolean) {
+                this._maximisable = value;
+                this._window_top_bar_maximise_button.disabled = !value;
+            }
+
+            get maximised() {
+                return this._maximised;
+            }
+
+            set maximised(value: boolean) {
+                this._maximised = value;
+                this._window_root.classList.toggle("maximised", value);
+
+                if (value) {
+                    this._window_top_bar_maximise_button.innerText = "🗗";
+                    this._window_top_bar_maximise_button.title = "Restore window";
+                } else {
+                    this._window_top_bar_maximise_button.innerText = "◻";
+                    this._window_top_bar_maximise_button.title = "Maximise window";
+                }
             }
 
             set x(css_pos: string | number) {

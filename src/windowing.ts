@@ -12,6 +12,9 @@ export abstract class AbstractWindow {
 
     abstract resizable: boolean;
 
+    abstract maximisable: boolean;
+    abstract maximised: boolean;
+
     abstract get title(): string;
     abstract set title(new_title: string);
 
