@@ -1,0 +1,35 @@
+name: Build and Deploy Types
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build types
+        run: npm run build:types
+
+      - name: Deploy to 'types' branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: types
+          folder: types
+          clean: true
