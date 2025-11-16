@@ -9,9 +9,13 @@ export declare abstract class AbstractWindow {
     abstract maximised: boolean;
     abstract get title(): string;
     abstract set title(new_title: string);
+    abstract get width(): string;
     abstract set width(css_width: string);
+    abstract get height(): string;
     abstract set height(css_height: string);
+    abstract get x(): string | number;
     abstract set x(css_pos: string | number);
+    abstract get y(): string | number;
     abstract set y(css_pos: string | number);
     abstract get visible(): boolean;
     abstract set visible(is_visible: boolean);
