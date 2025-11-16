@@ -4,6 +4,7 @@ export interface ProgramMainData {
     term: WrappedTerminal,
     args: string[],
     unsubbed_args: string[],
+    raw_parts: string[], // raw command parts, including program name and unparsed args
 }
 
 export type ProgramMain = (data: ProgramMainData) => Promise<number>;

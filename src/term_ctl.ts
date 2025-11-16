@@ -115,6 +115,7 @@ export class WrappedTerminal extends Terminal {
     _is_handling_key_events = false;
 
     _vars: Map<string, string> = new Map();
+    _aliases: Map<string, string> = new Map();
 
     // TODO: this exporting is a bit lazy, but it works for now
 
@@ -163,8 +164,24 @@ export class WrappedTerminal extends Terminal {
         this._vars.set(name, value);
     }
 
-    unset_variable(name: string): void {
-        this._vars.delete(name);
+    unset_variable(name: string): boolean {
+        return this._vars.delete(name);
+    }
+
+    list_aliases(): Map<string, string> {
+        return this._aliases;
+    }
+
+    get_alias(name: string): string | undefined {
+        return this._aliases.get(name);
+    }
+
+    set_alias(name: string, value: string): void {
+        this._aliases.set(name, value);
+    }
+
+    unset_alias(name: string): boolean {
+        return this._aliases.delete(name);
     }
 
 
@@ -248,6 +265,39 @@ export class WrappedTerminal extends Terminal {
         // remove leading and trailing whitespace and split by spaces, unless contained in single or double quotes
         // TODO: use a proper stack based parser for readability and maintainability
         const sub = line.trim().split(/ +(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/);
+        const raw_parts = sub.slice();
+
+        // handle aliases
+        // for each part, check if it's an alias, and if so, replace it with the value
+        // if the value ends with a space, check the next part as well
+        for (let i = 0; i < sub.length; i++) {
+            const part = sub[i];
+            const alias_value = this.get_alias(part);
+
+            if (!alias_value) {
+                // not an alias, abort (alias only applies to the first word unless chaining)
+                break;
+            }
+
+            // split the alias value into parts
+            const alias_parts = alias_value.split(/ +(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/);
+
+            // if ends with a space, remove the trailing empty part
+            if (alias_value.endsWith(" ")) {
+                alias_parts.pop();
+            }
+
+            // remove the current part and insert the alias parts
+            sub.splice(i, 1, ...alias_parts);
+
+            // adjust the index to account for the new parts
+            i += alias_parts.length - 1;
+
+            // if the alias value ends with a space, check the next part as well
+            if (!alias_value.endsWith(" ")) {
+                break;
+            }
+        }
 
         const skip_variable_sub_idxs = [];
 
@@ -270,7 +320,6 @@ export class WrappedTerminal extends Terminal {
                 skip_variable_sub_idxs.push(i - 1); // skip variable substitution for this argument (adjust for slice)
             }
         }
-
 
         // the first word is the command, the rest are arguments
         const command = sub[0];
@@ -344,6 +393,7 @@ export class WrappedTerminal extends Terminal {
             term: this,
             args,
             unsubbed_args,
+            raw_parts,
         }
 
         let old_title = "";
