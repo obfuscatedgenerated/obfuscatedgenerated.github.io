@@ -99,7 +99,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
 
         // check if source is a directory
-        if (Array.isArray(current_dir)) {
+        if (typeof current_dir !== "object") {
             throw new PathNotFoundError(src);
         }
 
@@ -121,7 +121,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
 
         // check if destination is a directory
-        if (Array.isArray(dest_current_dir)) {
+        if (typeof dest_current_dir !== "object") {
             throw new PathNotFoundError(dest);
         }
 
@@ -199,7 +199,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         if (dirs_first) {
             for (const key of keys) {
                 // promote directories to the front of the list
-                if (!Array.isArray(current_dir[key])) {
+                if (typeof current_dir[key] === "object") {
                     keys.splice(keys.indexOf(key), 1);
                     keys.unshift(key);
                 }
@@ -238,13 +238,13 @@ export class LocalStorageFS extends AbstractFileSystem {
                 }
             }
 
-            // get file contents
-            const uint = new Uint8Array(current_part.map((x) => parseInt(x)));
+            const binary_string = atob(current_part);
+            const bytes = Uint8Array.from(binary_string, m => m.charCodeAt(0));
 
             if (as_uint) {
-                return uint;
+                return bytes;
             } else {
-                return new TextDecoder().decode(uint);
+                return new TextDecoder().decode(bytes);
             }
         }
 
@@ -287,8 +287,9 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
         }
 
-
-        current_dir[file_name] = Array.from(uint);
+        // convert uint8array to base64
+        // uint.toBase64() isnt mainstream yet
+        current_dir[file_name] = btoa(String.fromCharCode.apply(null, uint));
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
@@ -439,7 +440,7 @@ export class LocalStorageFS extends AbstractFileSystem {
             }
         }
 
-        return !Array.isArray(current_part);
+        return typeof current_part === "object";
     }
 
     constructor() {
@@ -454,8 +455,30 @@ export class LocalStorageFS extends AbstractFileSystem {
             localStorage.setItem("fs_readonly_paths", JSON.stringify([]));
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        migrate_old_string_fs(JSON.parse(localStorage.getItem("fs")), true);
+        const existing_migrations = localStorage.getItem("fs_migrations");
+        if (!existing_migrations) {
+            localStorage.setItem("fs_migrations", JSON.stringify({
+                string_to_array: false,
+                array_to_b64: false,
+            }));
+        }
+
+        const migrations = JSON.parse(localStorage.getItem("fs_migrations"));
+
+        if (!migrations.string_to_array) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            migrate_old_string_fs(JSON.parse(localStorage.getItem("fs")), true);
+        }
+
+        if (!migrations.array_to_b64) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            migrate_old_array_fs(JSON.parse(localStorage.getItem("fs")), true);
+        }
+
+        // mark all migrations as done
+        migrations.string_to_array = true;
+        migrations.array_to_b64 = true;
+        localStorage.setItem("fs_migrations", JSON.stringify(migrations));
 
         // initialise root and home directory
         this.make_dir(this._home);
@@ -475,6 +498,30 @@ const migrate_old_string_fs = (state: object, is_outer = false) => {
         } else if (typeof state[key] === "string") {
             console.log(`Migration: converting ${key} to array`);
             state[key] = state[key].split(",").map((x) => parseInt(x));
+        }
+    }
+
+    if (is_outer) {
+        // only save if we are at the outermost level
+        localStorage.setItem("fs", JSON.stringify(state));
+    }
+}
+
+const migrate_old_array_fs = (state: object, is_outer = false) => {
+    // migration step: we used to use an array for files but now we use base64 strings (not the same as old comma string format)
+    // need to iterate DEEPLY into nested objects and convert array values to strings
+    // (so recurse)
+
+    for (const key of Object.keys(state)) {
+        if (typeof state[key] === "object" && !Array.isArray(state[key])) {
+            migrate_old_array_fs(state[key]);
+        } else if (Array.isArray(state[key])) {
+            console.log(`Migration: converting ${key} to byte string`);
+
+            const values = state[key].map((x: string) => parseInt(x));
+            const uint = new Uint8Array(values);
+            // uint.toBase64() isnt mainstream yet
+            state[key] = btoa(String.fromCharCode.apply(null, uint));
         }
     }
 
