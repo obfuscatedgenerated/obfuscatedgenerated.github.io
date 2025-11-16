@@ -85,6 +85,7 @@ export declare class WrappedTerminal extends Terminal {
     _key_event_queue: KeyEvent[];
     _is_handling_key_events: boolean;
     _vars: Map<string, string>;
+    _aliases: Map<string, string>;
     get ansi(): {
         FG: {
             reset: string;
@@ -152,7 +153,11 @@ export declare class WrappedTerminal extends Terminal {
     get_window_manager(): AbstractWindowManager | null;
     get_variable(name: string): string | undefined;
     set_variable(name: string, value: string): void;
-    unset_variable(name: string): void;
+    unset_variable(name: string): boolean;
+    list_aliases(): Map<string, string>;
+    get_alias(name: string): string | undefined;
+    set_alias(name: string, value: string): void;
+    unset_alias(name: string): boolean;
     clear_history(): void;
     reset_current_vars(reset_history_index?: boolean): void;
     get_current_line(): string;

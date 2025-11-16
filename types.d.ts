@@ -3,6 +3,7 @@ export interface ProgramMainData {
     term: WrappedTerminal;
     args: string[];
     unsubbed_args: string[];
+    raw_parts: string[];
 }
 export type ProgramMain = (data: ProgramMainData) => Promise<number>;
 export type arg_descriptions = {

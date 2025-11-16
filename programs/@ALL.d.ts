@@ -27,3 +27,5 @@ export { default as touch } from "./touch";
 export { default as mkdir } from "./mkdir";
 export { default as mv } from "./mv";
 export { default as window } from "./window";
+export { default as alias } from "./alias";
+export { default as unalias } from "./unalias";
