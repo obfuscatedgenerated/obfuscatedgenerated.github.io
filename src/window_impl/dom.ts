@@ -257,8 +257,16 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._emit_event("rename");
             }
 
+            get width() {
+                return this._window_root.style.width;
+            }
+
             set width(css_width: string) {
                 this._window_root.style.width = css_width;
+            }
+
+            get height() {
+                return this._window_root.style.height;
             }
 
             set height(css_height: string) {
@@ -291,12 +299,20 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
             }
 
+            get x() {
+                return this._window_root.style.left;
+            }
+
             set x(css_pos: string | number) {
                 if (typeof css_pos === "number") {
                     css_pos = `${css_pos}px`;
                 }
 
                 this._window_root.style.left = css_pos;
+            }
+
+            get y() {
+                return this._window_root.style.top;
             }
 
             set y(css_pos: string | number) {

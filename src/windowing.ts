@@ -18,12 +18,18 @@ export abstract class AbstractWindow {
     abstract get title(): string;
     abstract set title(new_title: string);
 
+    abstract get width(): string;
     abstract set width(css_width: string);
 
+    abstract get height(): string;
     abstract set height(css_height: string);
 
+    // number to be interpreted as pixels
+    abstract get x(): string | number;
     abstract set x(css_pos: string | number);
 
+    // number to be interpreted as pixels
+    abstract get y(): string | number;
     abstract set y(css_pos: string | number);
 
     abstract get visible(): boolean;
