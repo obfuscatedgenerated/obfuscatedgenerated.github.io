@@ -6,10 +6,8 @@ import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager } from "./windowing";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
-export declare const VAR_ASSIGNMENT_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
 export declare const ANSI_UNESCAPED_REGEX: RegExp;
-export declare const URL_REGEX: RegExp;
 export declare const ANSI: {
     FG: {
         reset: string;
@@ -87,6 +85,67 @@ export declare class WrappedTerminal extends Terminal {
     _key_event_queue: KeyEvent[];
     _is_handling_key_events: boolean;
     _vars: Map<string, string>;
+    get ansi(): {
+        FG: {
+            reset: string;
+            black: string;
+            red: string;
+            green: string;
+            yellow: string;
+            blue: string;
+            magenta: string;
+            cyan: string;
+            white: string;
+            gray: string;
+        };
+        BG: {
+            reset: string;
+            black: string;
+            red: string;
+            green: string;
+            yellow: string;
+            blue: string;
+            magenta: string;
+            cyan: string;
+            white: string;
+            gray: string;
+        };
+        STYLE: {
+            reset_all: string;
+            bold: string;
+            dim: string;
+            no_bold_or_dim: string;
+            italic: string;
+            no_italic: string;
+            underline: string;
+            double_underline: string;
+            no_underline: string;
+            inverse: string;
+            no_inverse: string;
+            hidden: string;
+            no_hidden: string;
+            strikethrough: string;
+            no_strikethrough: string;
+            negative: string;
+            positive: string;
+        };
+        CURSOR: {
+            invisible: string;
+            visible: string;
+        };
+        PREFABS: {
+            program_name: string;
+            error: string;
+            variable_name: string;
+            file_path: string;
+            dir_name: string;
+            secret: string;
+        };
+    };
+    get newline(): string;
+    get non_printable_regex(): RegExp;
+    get ansi_escape_regex(): RegExp;
+    get ansi_unescaped_regex(): RegExp;
     get_program_registry(): ProgramRegistry;
     get_sound_registry(): SoundRegistry;
     get_fs(): AbstractFileSystem;
