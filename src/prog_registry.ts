@@ -2,90 +2,6 @@ import type { Program, ProgramRegistrant } from "./types";
 import type { AbstractFileSystem } from "./filesystem";
 import { ANSI, WrappedTerminal } from "./term_ctl";
 
-export class ProgramRegistry {
-    _program_regs: Map<string, ProgramRegistrant> = new Map();
-
-    
-    registerProgram(program_reg: ProgramRegistrant) {
-        const program = program_reg.program;
-
-        if (this._program_regs.has(program.name)) {
-            throw new Error(`Program with name ${program.name} already exists.`);
-        }
-
-        if (globalThis.OLLIEOS_NODE && program.node_opt_out) {
-            // don't register this program if it is not compatible with node.js
-            return;
-        }
-
-        this._program_regs.set(program.name, program_reg);
-    }
-
-
-    getProgramRegistrant(name: string): ProgramRegistrant | undefined {
-        return this._program_regs.get(name);
-    }
-
-    getProgram(name: string): Program | undefined {
-        const program_reg = this.getProgramRegistrant(name);
-        if (program_reg === undefined) {
-            return undefined;
-        }
-
-        return program_reg.program;
-    }
-
-
-    listProgramRegistrants(includes_builtin = true, includes_mounted = false): ProgramRegistrant[] {
-        const arr = Array.from(this._program_regs.values());
-
-        if (includes_builtin && includes_mounted) {
-            return arr;
-        }
-
-        if (includes_builtin && !includes_mounted) {
-            return arr.filter((program_reg) => program_reg.built_in);
-        }
-
-        if (!includes_builtin && includes_mounted) {
-            return arr.filter((program_reg) => !program_reg.built_in);
-        }
-    }
-
-    listProgramNames(includes_builtin = true, includes_mounted = false): string[] {
-        const arr = Array.from(this._program_regs.keys());
-
-        if (includes_builtin && includes_mounted) {
-            return arr;
-        }
-
-        if (includes_builtin && !includes_mounted) {
-            return arr.filter((program_name) => this.getProgramRegistrant(program_name)?.built_in);
-        }
-
-        if (!includes_builtin && includes_mounted) {
-            return arr.filter((program_name) => !this.getProgramRegistrant(program_name)?.built_in);
-        }
-    }
-
-    listPrograms(includes_builtin = true, includes_mounted = false): Program[] {
-        return this.listProgramRegistrants(includes_builtin, includes_mounted).map((program_reg) => program_reg.program);
-    }
-
-
-    forceUnregister(name: string) {
-        this._program_regs.delete(name);
-    }
-
-    unregister(name: string) {
-        if (!this._program_regs.has(name)) {
-            throw new Error(`Program with name ${name} does not exist.`);
-        }
-
-        this.forceUnregister(name);
-    }
-}
-
 const encode_js_to_url = (js_code: string): string => {
     const encoded = encodeURIComponent(js_code);
     return `data:text/javascript;charset=utf-8,${encoded}`;
@@ -256,3 +172,106 @@ export const recurse_mount_and_register_with_output = async (fs: AbstractFileSys
 }
 
 // TODO: these 2 methods are a bit messy! perhaps remove the output stuff and just have the user deal with it
+
+
+export class ProgramRegistry {
+    _program_regs: Map<string, ProgramRegistrant> = new Map();
+
+
+    registerProgram(program_reg: ProgramRegistrant) {
+        const program = program_reg.program;
+
+        if (this._program_regs.has(program.name)) {
+            throw new Error(`Program with name ${program.name} already exists.`);
+        }
+
+        if (globalThis.OLLIEOS_NODE && program.node_opt_out) {
+            // don't register this program if it is not compatible with node.js
+            return;
+        }
+
+        this._program_regs.set(program.name, program_reg);
+    }
+
+
+    getProgramRegistrant(name: string): ProgramRegistrant | undefined {
+        return this._program_regs.get(name);
+    }
+
+    getProgram(name: string): Program | undefined {
+        const program_reg = this.getProgramRegistrant(name);
+        if (program_reg === undefined) {
+            return undefined;
+        }
+
+        return program_reg.program;
+    }
+
+
+    listProgramRegistrants(includes_builtin = true, includes_mounted = false): ProgramRegistrant[] {
+        const arr = Array.from(this._program_regs.values());
+
+        if (includes_builtin && includes_mounted) {
+            return arr;
+        }
+
+        if (includes_builtin && !includes_mounted) {
+            return arr.filter((program_reg) => program_reg.built_in);
+        }
+
+        if (!includes_builtin && includes_mounted) {
+            return arr.filter((program_reg) => !program_reg.built_in);
+        }
+    }
+
+    listProgramNames(includes_builtin = true, includes_mounted = false): string[] {
+        const arr = Array.from(this._program_regs.keys());
+
+        if (includes_builtin && includes_mounted) {
+            return arr;
+        }
+
+        if (includes_builtin && !includes_mounted) {
+            return arr.filter((program_name) => this.getProgramRegistrant(program_name)?.built_in);
+        }
+
+        if (!includes_builtin && includes_mounted) {
+            return arr.filter((program_name) => !this.getProgramRegistrant(program_name)?.built_in);
+        }
+    }
+
+    listPrograms(includes_builtin = true, includes_mounted = false): Program[] {
+        return this.listProgramRegistrants(includes_builtin, includes_mounted).map((program_reg) => program_reg.program);
+    }
+
+
+    forceUnregister(name: string) {
+        this._program_regs.delete(name);
+    }
+
+    unregister(name: string) {
+        if (!this._program_regs.has(name)) {
+            throw new Error(`Program with name ${name} does not exist.`);
+        }
+
+        this.forceUnregister(name);
+    }
+
+    // TODO: move usage of above methods to use class methods instead of the standalone functions
+
+    static async build_registrant_from_js(js_code: string, built_in = false): Promise<ProgramRegistrant> {
+        return build_registrant_from_js(js_code, built_in);
+    }
+
+    static async determine_program_name_from_js(js_code: string): Promise<string> {
+        return determine_program_name_from_js(js_code);
+    }
+
+    async mount_and_register_with_output(filename: string, content: string, term: WrappedTerminal, output_success = false) {
+        return mount_and_register_with_output(filename, content, this, term, output_success);
+    }
+
+    async recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal) {
+        return recurse_mount_and_register_with_output(fs, dir_path, this, term);
+    }
+}
