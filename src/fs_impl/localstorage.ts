@@ -472,7 +472,7 @@ export class LocalStorageFS extends AbstractFileSystem {
 
         if (!migrations.array_to_b64) {
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            migrate_old_array_fs(JSON.parse(localStorage.getItem("fs")), true);
+            migrate_old_array_fs(JSON.parse(localStorage.getItem("fs")));
         }
 
         // mark all migrations as done
@@ -491,6 +491,7 @@ const migrate_old_string_fs = (state: object, is_outer = false) => {
     // migration step: we used to use a string but now we use an array for files
     // need to iterate DEEPLY into nested objects and convert string values to arrays
     // (so recurse)
+    // TODO make iterative
 
     for (const key of Object.keys(state)) {
         if (typeof state[key] === "object" && !Array.isArray(state[key])) {
@@ -507,26 +508,45 @@ const migrate_old_string_fs = (state: object, is_outer = false) => {
     }
 }
 
-const migrate_old_array_fs = (state: object, is_outer = false) => {
-    // migration step: we used to use an array for files but now we use base64 strings (not the same as old comma string format)
+const migrate_old_array_fs = (state: object) => {
+    // migration step: we used to use an array for files but now we use base64 strings
     // need to iterate DEEPLY into nested objects and convert array values to strings
-    // (so recurse)
 
-    for (const key of Object.keys(state)) {
-        if (typeof state[key] === "object" && !Array.isArray(state[key])) {
-            migrate_old_array_fs(state[key]);
-        } else if (Array.isArray(state[key])) {
-            console.log(`Migration: converting ${key} to byte string`);
+    // use a stack to avoid recursion limit issues
+    const stack = [state];
 
-            const values = state[key].map((x: string) => parseInt(x));
-            const uint = new Uint8Array(values);
-            // uint.toBase64() isnt mainstream yet
-            state[key] = btoa(String.fromCharCode.apply(null, uint));
+    while (stack.length > 0) {
+        // get the next object to process
+        const current_obj = stack.pop();
+
+        if (current_obj === null || typeof current_obj !== "object" || Array.isArray(current_obj)) {
+            continue;
+        }
+
+        // iterate over the keys of the current object
+        for (const key of Object.keys(current_obj)) {
+            const value = current_obj[key];
+
+            if (!value) {
+                continue;
+            } else if (typeof value === "object" && !Array.isArray(value)) {
+                // if the value is a nested object, add it to the stack to be processed later (depth first)
+                stack.push(value);
+            } else if (Array.isArray(value)) {
+                console.log(`Migration: converting ${key} to b64 string`);
+
+                try {
+                    const values = value.map((x: string) => parseInt(x));
+                    const uint = new Uint8Array(values);
+                    // uint.toBase64() isnt mainstream yet
+                    current_obj[key] = btoa(String.fromCharCode.apply(null, uint));
+                } catch (e) {
+                    console.error(`Migration failed for key "${key}":`, e);
+                }
+            }
         }
     }
 
-    if (is_outer) {
-        // only save if we are at the outermost level
-        localStorage.setItem("fs", JSON.stringify(state));
-    }
+    // only save after the whole traversal
+    localStorage.setItem("fs", JSON.stringify(state));
 }
