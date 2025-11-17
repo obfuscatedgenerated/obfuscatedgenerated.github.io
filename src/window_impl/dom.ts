@@ -293,9 +293,13 @@ export class DOMWindowManager extends AbstractWindowManager {
                 if (value) {
                     this._window_top_bar_maximise_button.innerText = "🗗";
                     this._window_top_bar_maximise_button.title = "Restore window";
+
+                    this._emit_event("maximise");
                 } else {
                     this._window_top_bar_maximise_button.innerText = "◻";
                     this._window_top_bar_maximise_button.title = "Maximise window";
+
+                    this._emit_event("restore");
                 }
             }
 
