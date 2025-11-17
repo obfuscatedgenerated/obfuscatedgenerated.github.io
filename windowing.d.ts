@@ -1,4 +1,4 @@
-export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename";
+export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 export declare abstract class AbstractWindow {
     abstract readonly id: number;
     abstract readonly dom: ShadowRoot;
