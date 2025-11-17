@@ -36,6 +36,7 @@ export declare const graph_query: {
     remove_pkg_dependent: (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => void;
     remove_pkg: (fs: AbstractFileSystem, pkg: string, skip_dep_check?: boolean) => void;
     list_unused_pkgs: () => string[];
+    get_file_path_in_pkg_bin: (fs: AbstractFileSystem, pkg: string, filepath: string) => string;
 };
 declare const _default: Program;
 export default _default;
