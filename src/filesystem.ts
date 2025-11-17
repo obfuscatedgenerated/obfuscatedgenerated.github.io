@@ -374,6 +374,7 @@ export abstract class AbstractFileSystem {
         return this.join(effective_cwd, path);
     }
 
+    // TODO: support vargs for path joining multiple parts
     join(base_dir: string, path: string): string {
         // drop trailing /
         if (base_dir.endsWith("/")) {

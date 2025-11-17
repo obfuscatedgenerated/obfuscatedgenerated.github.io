@@ -5,6 +5,7 @@ import {ANSI} from "../../term_ctl";
 import type {Program} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
+import {info_subcommand} from "./info";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -13,6 +14,8 @@ const repo_url_obj = new URL(REPO_URL);
 
 const GRAPH_DIR = "/var/lib/pkg";
 const GRAPH_PATH = GRAPH_DIR + "/graph.json";
+
+const BIN_DIR = "/usr/bin";
 
 const append_url_pathnames = (url: URL, pathnames: string[]) => {
     const new_url = new URL(url.toString());
@@ -360,6 +363,11 @@ export const graph_query = {
     // lists all packages that are not installed as top level and have no dependents
     list_unused_pkgs: () => {
         return Object.keys(graph).filter((pkg) => !graph[pkg].top_level && graph[pkg].dependents.size === 0);
+    },
+
+    get_file_path_in_pkg_bin: (fs: AbstractFileSystem, pkg: string, filepath: string) => {
+        const pkg_dir = fs.join(BIN_DIR, pkg);
+        return fs.join(pkg_dir, filepath);
     }
 }
 
@@ -448,8 +456,7 @@ export default {
             case "list":
                 return await list_subcommand(data);
             case "info":
-                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
-                break;
+                return await info_subcommand(data);
             case "read":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
