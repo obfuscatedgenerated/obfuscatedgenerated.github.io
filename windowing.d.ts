@@ -17,6 +17,7 @@ export declare abstract class AbstractWindow {
     abstract set x(css_pos: string | number);
     abstract get y(): string | number;
     abstract set y(css_pos: string | number);
+    abstract center(): void;
     abstract get visible(): boolean;
     abstract set visible(is_visible: boolean);
     abstract add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
