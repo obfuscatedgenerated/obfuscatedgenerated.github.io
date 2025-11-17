@@ -183,21 +183,21 @@ export class DOMWindowManager extends AbstractWindowManager {
                 await Promise.all(listeners.map(callback => callback()));
             }
 
-            private _start_drag(e: MouseEvent) {
+            private _start_drag(start_event: MouseEvent) {
                 if (!this.moveable) {
                     return;
                 }
 
                 this._content_host.classList.add("dragging");
 
-                e.preventDefault();
+                start_event.preventDefault();
 
                 const rect = this._window_root.getBoundingClientRect();
-                let offset_x = e.clientX - rect.left;
-                const offset_y = e.clientY - rect.top;
+                let offset_x = start_event.clientX - rect.left;
+                const offset_y = start_event.clientY - rect.top;
 
-                const mouse_move = (event: MouseEvent) => {
-                    event.preventDefault();
+                const mouse_move = (move_event: MouseEvent) => {
+                    move_event.preventDefault();
 
                     if (this._maximised) {
                         // break out of maximised, restoring size but not position
@@ -209,17 +209,31 @@ export class DOMWindowManager extends AbstractWindowManager {
                         offset_x = new_rect.width * width_ratio;
                     }
 
-                    this._window_root.style.left = `${event.clientX - offset_x}px`;
-                    this._window_root.style.top = `${event.clientY - offset_y}px`;
+                    this._window_root.style.left = `${move_event.clientX - offset_x}px`;
+                    this._window_root.style.top = `${move_event.clientY - offset_y}px`;
 
                     this._emit_event("move");
                 };
 
-                const mouse_up = () => {
+                const mouse_up = (up_event: MouseEvent) => {
                     document.removeEventListener("mousemove", mouse_move);
                     document.removeEventListener("mouseup", mouse_up);
 
                     this._content_host.classList.remove("dragging");
+
+                    if (!this._maximised) {
+                        // if the mouse is at the top of the screen, maximise the window
+                        if (up_event.clientY <= 0 && this._maximisable) {
+                            this.maximised = true;
+                        }
+                    }
+
+                    // TODO: right and left side snapping to half the screen
+
+                    // if the rect is out of the top when released, snap it back in
+                    if (this._window_root.getBoundingClientRect().top < 0) {
+                        this._window_root.style.top = "0px";
+                    }
                 };
 
                 document.addEventListener("mousemove", mouse_move);
