@@ -32,6 +32,8 @@ export abstract class AbstractWindow {
     abstract get y(): string | number;
     abstract set y(css_pos: string | number);
 
+    abstract center(): void;
+
     abstract get visible(): boolean;
     abstract set visible(is_visible: boolean);
 

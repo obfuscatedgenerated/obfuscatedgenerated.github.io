@@ -323,6 +323,11 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_root.style.top = css_pos;
             }
 
+            center() {
+                this.x = `calc(calc(100vw - ${this.width}) / 2)`;
+                this.y = `calc(calc(100vh - ${this.height}) / 2)`;
+            }
+
             get dom() {
                 return this._shadow_dom;
             }
