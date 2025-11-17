@@ -13,6 +13,8 @@ export declare const repo_query: {
     get_pkg_json: (pkg: string) => Promise<any>;
     get_pkg_meta: (pkg: string, version: string) => Promise<PackageMeta>;
     get_pkg_file: (pkg: string, version: string, filepath: string) => Promise<string>;
+    get_provided_list: () => Promise<string[]>;
+    get_pkg_versions: (pkg: string) => Promise<string[]>;
 };
 interface PkgGraphEntry {
     version: string;
