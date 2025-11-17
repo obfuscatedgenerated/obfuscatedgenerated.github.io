@@ -117,6 +117,7 @@ export const browse_subcommand = async (data: ProgramMainData) => {
         }
     }
 
+    term.clear();
     term.write(CURSOR.visible);
     return 0;
 }
