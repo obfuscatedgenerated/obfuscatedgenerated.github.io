@@ -1,0 +1,122 @@
+import {ANSI, NEWLINE} from "../../term_ctl";
+import type { WrappedTerminal } from "../../term_ctl";
+import { ProgramMainData } from "../../types"
+import {repo_query} from "./index";
+
+// extract from ANSI to make code less verbose
+const { STYLE, FG, CURSOR } = ANSI;
+
+const ROWS = 10;
+
+const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
+    const pkg_data = await repo_query.get_pkg_json(pkg_name);
+    const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
+
+    term.clear();
+
+    term.write(NEWLINE);
+    term.writeln(`${STYLE.bold}${FG.cyan}${pkg_name}`);
+    term.write(STYLE.dim);
+    term.writeln("=".repeat(pkg_name.length));
+    term.writeln(STYLE.reset_all);
+
+    term.write(NEWLINE);
+    term.writeln("Available versions:");
+    for (const version of pkg_versions) {
+        term.writeln(`  - ${version}`);
+    }
+    term.write(NEWLINE);
+    term.writeln(`Description: ${pkg_data.description || "No description provided."}`);
+    term.writeln(`Author: ${pkg_data.author || "Unknown"}`);
+    term.writeln(`License: ${pkg_data.license || "Unknown"}`);
+    term.write(NEWLINE);
+
+    term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
+
+    await term.wait_for_keypress();
+}
+
+// TODO: accept name argument to jump to specific package
+
+export const browse_subcommand = async (data: ProgramMainData) => {
+    // extract from data to make code less verbose
+    const { args, term } = data;
+
+    // remove subcommand name
+    args.shift();
+
+    const provided = await repo_query.get_provided_list();
+
+    let offset = 0;
+    let selected_index = 0;
+    const draw = () => {
+        term.clear();
+
+        term.write(NEWLINE);
+        term.writeln("(use up/down arrow keys to scroll, enter to show more info, q to quit)");
+        term.write(NEWLINE);
+        term.write(CURSOR.invisible);
+
+        // show ... if there are more items above
+        if (offset > 0) {
+            term.writeln(`  ${STYLE.dim}...${STYLE.reset_all}`);
+        } else {
+            term.write(NEWLINE);
+        }
+
+        const slice = provided.slice(offset, offset + ROWS);
+        for (const [index, name] of slice.entries()) {
+            if (offset + index === selected_index) {
+                term.writeln(`${FG.cyan}${STYLE.dim}> ${STYLE.no_bold_or_dim}${STYLE.bold}${name}${STYLE.reset_all}`);
+            } else {
+                term.writeln(`  ${name}`);
+            }
+        }
+
+        // show ... if there are more items below
+        if (offset + ROWS < provided.length) {
+            term.writeln(`  ${STYLE.dim}...${STYLE.reset_all}`);
+        } else {
+            term.write(NEWLINE);
+        }
+    }
+
+    // TODO: type to filter
+
+    let quit = false;
+    while (!quit) {
+        draw();
+
+        const key = await term.wait_for_keypress();
+        console.log(key);
+        switch (key.domEvent.key) {
+            case "q":
+                quit = true;
+                break;
+            case "ArrowUp":
+                if (selected_index > 0) {
+                    selected_index--;
+                    if (selected_index < offset) {
+                        offset--;
+                    }
+                }
+                break;
+            case "ArrowDown":
+                if (selected_index < provided.length - 1) {
+                    selected_index++;
+                    if (selected_index >= offset + ROWS) {
+                        offset++;
+                    }
+                }
+                break;
+            case "Enter": {
+                const pkg_name = provided[selected_index];
+                await view_pkg_info(term, pkg_name);
+                break;
+            }
+        }
+    }
+
+    term.write(CURSOR.visible);
+    return 0;
+}

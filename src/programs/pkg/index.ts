@@ -6,6 +6,7 @@ import type {Program} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
+import {browse_subcommand} from "./browse";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -133,6 +134,44 @@ export const repo_query = {
         }
 
         return await response.text();
+    },
+
+    get_provided_list: async () => {
+        // repo/provided.txt
+        const url = append_url_pathnames(repo_url_obj, ["provided.txt"]);
+
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null;
+            }
+
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // newline separated list of provided package names
+        const data = await response.text();
+        return data.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    },
+
+    get_pkg_versions: async (pkg: string) => {
+        pkg = encodeURI(pkg);
+        pkg = pkg.replace(/\./g, "%2E");
+
+        // repo/pkgs/pkg/versions.txt
+        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, "versions.txt"]);
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null;
+            }
+
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // newline separated list of versions
+        const data = await response.text();
+        return data.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
     }
 }
 
@@ -461,8 +500,7 @@ export default {
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
             case "browse":
-                term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
-                break;
+                return await browse_subcommand(data);
             case "clean":
                 term.writeln(`${PREFABS.error}Not implemented yet.${STYLE.reset_all}`);
                 break;
