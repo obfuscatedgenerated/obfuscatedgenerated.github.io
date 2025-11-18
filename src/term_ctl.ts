@@ -440,9 +440,18 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    _search_handlers = (key: string, domEventCode: string): { handler: KeyEventHandler, block: boolean }[] => {
+    _search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
         for (const pair of this._key_handlers.entries()) {
             const identfier = pair[0] as RegisteredKeyEventIdentifier;
+
+            // if strict matching is required, both key and domEventCode must match
+            if (strict) {
+                if (identfier.key === key && identfier.domEventCode === domEventCode) {
+                    return pair[1] as { handler: KeyEventHandler, block: boolean }[];
+                } else {
+                    continue;
+                }
+            }
 
             // if the identifier matches, return the entries
             if (identfier.key === key || identfier.domEventCode === domEventCode) {
@@ -456,16 +465,13 @@ export class WrappedTerminal extends Terminal {
 
     /**
      * Registers a key event handler.
+     * Handlers with no filter run BEFORE filtered handlers.
      *
      * @param {KeyEventHandler} handler The handler to register
-     * @param {{ keyString?: string, domEventCode?: string, block: boolean, high_priority: boolean }} props The properties of the handler. Key is the key as a string, domEventCode is the DOM event code. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display. High priority determines whether the handler should be placed at the beginning of the handler list.
+     * @param {{ keyString?: string, domEventCode?: string, block: boolean, high_priority: boolean }} props The properties of the handler. Key is the key as a string to filter by, domEventCode is the DOM event code to filter by. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display. High priority determines whether the handler should be placed at the beginning of the handler list.
      * @returns {() => () => void} A function to unregister the handler
      */
     register_key_event_handler = (handler: KeyEventHandler, props: { keyString?: string, domEventCode?: string, block?: boolean, high_priority?: boolean }) => {
-        if (props.keyString === undefined && props.domEventCode === undefined) {
-            throw new TypeError("Must specify at least one of key or domEventCode");
-        }
-
         // build the identifier
         const identifier: RegisteredKeyEventIdentifier = {
             key: props.keyString,
@@ -475,27 +481,52 @@ export class WrappedTerminal extends Terminal {
         const entry = { handler, block: props.block ?? false };
 
         // if the identifier has not already been registered, create a new array for it
-        if (!this._key_handlers.has(identifier)) {
+        const existing_entries = this._search_handlers(props.keyString, props.domEventCode, true);
+        if (existing_entries.length === 0) {
             this._key_handlers.set(identifier, [entry]);
         } else {
             // otherwise, add the handler to the existing array
             // NOTE: reference is retained so no need to search
             if (props.high_priority) {
-                this._key_handlers.get(identifier)!.unshift(entry);
+                existing_entries.unshift(entry);
             } else {
-                this._key_handlers.get(identifier)!.push(entry);
+                existing_entries.push(entry);
             }
         }
 
         // return a function to unregister the handler
         // NOTE: reference is retained so no need to search
         return () => {
-            this._key_handlers.get(identifier)!.splice(this._key_handlers.get(identifier)!.indexOf(entry), 1);
+            const handlers = this._key_handlers.get(identifier);
+            if (!handlers) {
+                return;
+            }
+
+            handlers.splice(handlers.indexOf(entry), 1);
+
+            // if there are no more handlers for the identifier, remove the identifier from the map
+            if (handlers.length === 0) {
+                this._key_handlers.delete(identifier);
+            }
         }
     }
 
     _handle_key_event = async (e: KeyEvent): Promise<void> => {
         // TODO: supress builtin key events when program is running, create ctrl+c handler
+
+        // look for any handlers against all keys
+        const all_key_entries = this._search_handlers(undefined, undefined, true);
+        if (all_key_entries) {
+            for (const entry of all_key_entries) {
+                // await if the handler is async
+                await entry.handler(e, this);
+
+                if (entry.block) {
+                    // if the handler is blocking, don't go to next handler or display logic
+                    return;
+                }
+            }
+        }
 
         // search the handlers for the key
         const entries = this._search_handlers(e.key, e.domEvent.code);
@@ -580,6 +611,7 @@ export class WrappedTerminal extends Terminal {
     }
 
 
+    // note that this does not recieve pasted input, use a key event handler for that
     wait_for_keypress = async (): Promise<KeyEvent> => {
         // dispose of the current key handler (block bubbling)
         this._disposable_onkey.dispose();
@@ -601,26 +633,33 @@ export class WrappedTerminal extends Terminal {
     get_text = async (max_length?: number): Promise<string> => {
         let text = "";
 
-        while (true) {
-            const e = await this.wait_for_keypress();
-
-            if (e.key === "\r") {
-                // if the key is enter, return the text
-                return text;
-            } else if (e.key === "\x7F") {
-                // if the key is backspace, remove the last character
-                if (text.length > 0) {
-                    text = text.slice(0, -1);
-                    this.write("\b \b");
+        return new Promise((resolve) => {
+            const unregister_handler = this.register_key_event_handler(
+                (e) => {
+                    if (e.key === "\r") {
+                        // if the key is enter, return the text
+                        unregister_handler();
+                        resolve(text);
+                    } else if (e.key === "\x7F") {
+                        // if the key is backspace, remove the last character
+                        if (text.length > 0) {
+                            text = text.slice(0, -1);
+                            this.write("\b \b");
+                        }
+                    } else if (e.key.match(NON_PRINTABLE_REGEX) === null) {
+                        // if the key is printable, add it to the text
+                        if (max_length === undefined || text.length < max_length) {
+                            text += e.key;
+                            this.write(e.key);
+                        }
+                    }
+                },
+                {
+                    block: true,
+                    high_priority: true
                 }
-            } else if (e.key.match(NON_PRINTABLE_REGEX) === null) {
-                // if the key is printable, add it to the text
-                if (max_length === undefined || text.length < max_length) {
-                    text += e.key;
-                    this.write(e.key);
-                }
-            }
-        }
+            );
+        });
     }
 
 
