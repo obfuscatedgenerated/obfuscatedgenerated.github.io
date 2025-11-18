@@ -169,15 +169,16 @@ export declare class WrappedTerminal extends Terminal {
     set_prompt_suffix(suffix: string): void;
     next_line(): Promise<void>;
     execute: (line: string, edit_doc_title?: boolean) => Promise<boolean>;
-    _search_handlers: (key: string, domEventCode: string) => {
+    _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
         handler: KeyEventHandler;
         block: boolean;
     }[];
     /**
      * Registers a key event handler.
+     * Handlers with no filter run BEFORE filtered handlers.
      *
      * @param {KeyEventHandler} handler The handler to register
-     * @param {{ keyString?: string, domEventCode?: string, block: boolean, high_priority: boolean }} props The properties of the handler. Key is the key as a string, domEventCode is the DOM event code. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display. High priority determines whether the handler should be placed at the beginning of the handler list.
+     * @param {{ keyString?: string, domEventCode?: string, block: boolean, high_priority: boolean }} props The properties of the handler. Key is the key as a string to filter by, domEventCode is the DOM event code to filter by. Block determines whether the event should be blocked from bubbling up to following handlers and/or the terminal display. High priority determines whether the handler should be placed at the beginning of the handler list.
      * @returns {() => () => void} A function to unregister the handler
      */
     register_key_event_handler: (handler: KeyEventHandler, props: {
