@@ -184,7 +184,6 @@ export const tab_complete = async (term: WrappedTerminal, discard_cached_matches
 }
 
 // TODO: the discard cache arg is janky. come up with a better solution. should also be using generators directly instead of arrays for completions
-// TODO: seems to not discard properly when switching commands
 
 export const helper_completion_options = (options: string[]) => {
     return async function* (data: CompletionData): AsyncGenerator<string> {
