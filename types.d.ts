@@ -16,7 +16,16 @@ export interface Program {
     arg_descriptions: arg_descriptions;
     node_opt_out?: boolean;
     main: ProgramMain;
+    completion?: CompletionGenerator;
 }
+export interface CompletionData {
+    term: WrappedTerminal;
+    args_so_far: string[];
+    unsubbed_args_so_far: string[];
+    raw_parts_so_far: string[];
+    current_arg_partial: string;
+}
+export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
 export interface ProgramRegistrant {
     program: Program;
     built_in: boolean;

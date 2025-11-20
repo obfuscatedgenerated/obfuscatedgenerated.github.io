@@ -65,6 +65,19 @@ export declare const ANSI: {
         secret: string;
     };
 };
+interface LineParseResultCommand {
+    type: "command";
+    command: string;
+    args: string[];
+    unsubbed_args: string[];
+    raw_parts: string[];
+}
+interface LineParseResultVarAssignment {
+    type: "var";
+    var_name: string;
+    var_value: string;
+}
+export type LineParseResult = LineParseResultCommand | LineParseResultVarAssignment | null;
 export declare class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
     _history: string[];
@@ -168,6 +181,7 @@ export declare class WrappedTerminal extends Terminal {
     get_prompt_suffix(): string;
     set_prompt_suffix(suffix: string): void;
     next_line(): Promise<void>;
+    parse_line: (line: string) => LineParseResult;
     execute: (line: string, edit_doc_title?: boolean) => Promise<boolean>;
     _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
         handler: KeyEventHandler;
@@ -207,3 +221,4 @@ export declare class WrappedTerminal extends Terminal {
     initialise(term_loaded_callback?: (term: WrappedTerminal) => void): Promise<void>;
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean, wm?: AbstractWindowManager);
 }
+export {};
