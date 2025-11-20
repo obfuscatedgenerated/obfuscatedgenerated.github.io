@@ -1,5 +1,4 @@
 import type { Program } from "../types";
-import {alias} from "./@ALL";
 
 export default {
     name: "alias",
