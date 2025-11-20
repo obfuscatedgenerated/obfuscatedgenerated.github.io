@@ -17,7 +17,7 @@
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
     "publish": "npm run clean && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
-    "build:types": "tsc --emitDeclarationOnly --declaration --outDir types"
+    "build:types": "tsc ./src/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020"
   },
   "repository": {
     "type": "git",
