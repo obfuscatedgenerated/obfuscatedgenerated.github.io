@@ -457,9 +457,10 @@ export default {
     completion: async (data) => {
         const arg_index = data.raw_parts.length - 1;
 
+        // TODO: smarter completion that understands flags for subcommands
         switch (arg_index) {
             case 1:
-                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean"])(data);
+                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean", "-h"])(data);
             case 2:
                 if (["info", "read", "remove"].includes(data.args[0])) {
                     // complete with installed package names
@@ -474,7 +475,7 @@ export default {
                     }
 
                     const pkgs = Object.keys(local_graph);
-                    return pkgs.filter((pkg) => pkg.startsWith(data.current_partial));
+                    return helper_completion_options(pkgs)(data);
                 }
                 break;
         }

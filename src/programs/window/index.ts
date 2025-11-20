@@ -7,6 +7,7 @@ import {show_subcommand} from "./show";
 import {hide_subcommand} from "./hide";
 import {close_subcommand} from "./close";
 import {center_subcommand} from "./center";
+import {helper_completion_options} from "../../tab_completion";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
@@ -35,6 +36,32 @@ export default {
             "For show, hide, close, and center:": {
                 "<window_id>": "The ID of the window.",
             }
+        }
+    },
+    completion: async (data) => {
+        const arg_index = data.raw_parts.length - 1;
+
+        switch (arg_index) {
+            case 1:
+                return helper_completion_options(["info", "list", "show", "hide", "close", "center"])(data);
+            case 2:
+                // completing first argument of subcommand
+                if (data.raw_parts[1] === "list") {
+                    return helper_completion_options(["-v", "-i"])(data);
+                } else if (["show", "hide", "close", "center"].includes(data.raw_parts[1])) {
+                    // complete window ids
+                    const term = data.term;
+                    const wm = term.get_window_manager();
+                    if (!wm) {
+                        return [];
+                    }
+
+                    const window_ids = wm.get_all_windows().map((win) => win.id.toString());
+                    return helper_completion_options(window_ids)(data);
+                }
+                return [];
+            default:
+                return [];
         }
     },
     main: async (data) => {
