@@ -7,6 +7,7 @@ import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
+import {helper_completion_options} from "../../tab_completion";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -17,6 +18,8 @@ const GRAPH_DIR = "/var/lib/pkg";
 const GRAPH_PATH = GRAPH_DIR + "/graph.json";
 
 const BIN_DIR = "/usr/bin";
+
+// TODO: subcommand template / helper
 
 const append_url_pathnames = (url: URL, pathnames: string[]) => {
     const new_url = new URL(url.toString());
@@ -450,6 +453,33 @@ export default {
                 "-d": "Dry run. Lists the packages that would be removed without actually removing them.",
             }
         }
+    },
+    completion: async (data) => {
+        const arg_index = data.raw_parts.length - 1;
+
+        switch (arg_index) {
+            case 1:
+                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean"])(data);
+            case 2:
+                if (["info", "read", "remove"].includes(data.args[0])) {
+                    // complete with installed package names
+                    const fs = data.term.get_fs();
+
+                    // load graph
+                    let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
+                    try {
+                        local_graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+                    } catch (e) {
+                        return [];
+                    }
+
+                    const pkgs = Object.keys(local_graph);
+                    return pkgs.filter((pkg) => pkg.startsWith(data.current_partial));
+                }
+                break;
+        }
+
+        return [];
     },
     main: async (data) => {
         // TODO: safety prompt on first use

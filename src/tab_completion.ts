@@ -62,14 +62,13 @@ const get_completeable_arguments = async (term: WrappedTerminal) => {
         return null;
     }
 
-    // get the current argument partial
-    const current_arg_partial = args.length > 0 ? args[args.length - 1] : "";
     const completion_data = {
         term,
-        args_so_far: args.slice(0, -1),
-        unsubbed_args_so_far: unsubbed_args.slice(0, -1),
-        raw_parts_so_far: raw_parts.slice(0, -1),
-        current_arg_partial,
+        command,
+        args,
+        raw_parts: raw_parts,
+        unsubbed_args,
+        current_partial: raw_parts[raw_parts.length - 1] || "",
     };
 
     const completion_result = await program.completion(completion_data);
@@ -189,9 +188,9 @@ export const tab_complete = async (term: WrappedTerminal, discard_cached_matches
 
 export const helper_completion_options = (options: string[]) => {
     return async function* (data: CompletionData): AsyncGenerator<string> {
-        const {current_arg_partial} = data;
+        const {current_partial} = data;
         for (const option of options) {
-            if (option.startsWith(current_arg_partial)) {
+            if (option.startsWith(current_partial)) {
                 yield option;
             }
         }
@@ -200,11 +199,11 @@ export const helper_completion_options = (options: string[]) => {
 
 export const helper_completion_options_ordered = (options: string[][]) => {
     return async function* (data: CompletionData): AsyncGenerator<string> {
-        const {current_arg_partial, args_so_far} = data;
-        const index = args_so_far.length;
+        const {current_partial, raw_parts} = data;
+        const index = raw_parts.length - 1;
         const options_at_index = options[index] || [];
         for (const option of options_at_index) {
-            if (option.startsWith(current_arg_partial)) {
+            if (option.startsWith(current_partial)) {
                 yield option;
             }
         }

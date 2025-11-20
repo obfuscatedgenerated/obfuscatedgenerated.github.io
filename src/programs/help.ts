@@ -35,7 +35,7 @@ export default {
     completion: async (data) => {
         // TODO smarter completion to handle number of args and flags
         const programs = data.term.get_program_registry().listProgramNames();
-        return programs.filter((program) => program.startsWith(data.current_arg_partial));
+        return programs.filter((program) => program.startsWith(data.current_partial));
     },
     main: async (data) => {
         // extract from data to make code less verbose

@@ -273,8 +273,8 @@ export class WrappedTerminal extends Terminal {
 
         // remove leading and trailing whitespace and split by spaces, unless contained in single or double quotes
         // TODO: use a proper stack based parser for readability and maintainability
+        const raw_parts = line.split(/ +(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/);
         const sub = line.trim().split(/ +(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/);
-        const raw_parts = sub.slice();
 
         // handle aliases
         // for each part, check if it's an alias, and if so, replace it with the value
@@ -601,6 +601,11 @@ export class WrappedTerminal extends Terminal {
 
         // if the key is a printable character, write it to the terminal
         if (e.key.match(NON_PRINTABLE_REGEX) === null) {
+            // call any registered printable key handlers
+            for (const handler of this._on_printable_handlers) {
+                await handler(e, this);
+            }
+
             // if at the end of the line, just append the character
             if (this._current_index === this._current_line.length) {
                 this._current_line += e.key;
