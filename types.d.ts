@@ -20,10 +20,10 @@ export interface Program {
 }
 export interface CompletionData {
     term: WrappedTerminal;
-    args_so_far: string[];
-    unsubbed_args_so_far: string[];
-    raw_parts_so_far: string[];
-    current_arg_partial: string;
+    args: string[];
+    unsubbed_args: string[];
+    raw_parts: string[];
+    current_partial: string;
 }
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
 export interface ProgramRegistrant {
