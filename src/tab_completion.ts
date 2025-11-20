@@ -69,6 +69,7 @@ const get_completeable_arguments = async (term: WrappedTerminal) => {
         raw_parts: raw_parts,
         unsubbed_args,
         current_partial: raw_parts[raw_parts.length - 1] || "",
+        arg_index: raw_parts.length - 2, // -1 for current arg, -1 for program name
     };
 
     const completion_result = await program.completion(completion_data);

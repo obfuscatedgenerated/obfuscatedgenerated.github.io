@@ -6,6 +6,7 @@ export default {
     description: "Permanently erases the filesystem and other data, then restarts the terminal.",
     usage_suffix: "",
     arg_descriptions: {},
+    completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;

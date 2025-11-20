@@ -23,6 +23,7 @@ export default {
             }
         }
     },
+    // TODO: completion
     main: async (data) => {
         // TODO: replace filename with using piping and send content to stdout
         // TODO: automatically guess binary mode based on file extension or recieved header

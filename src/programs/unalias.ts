@@ -1,4 +1,5 @@
 import type { Program } from "../types";
+import {helper_completion_options} from "../tab_completion";
 
 export default {
     name: "unalias",
@@ -6,6 +7,11 @@ export default {
     usage_suffix: "name [name ...]",
     arg_descriptions: {
         name: "The name of the alias to remove. Multiple alias names can be provided."
+    },
+    completion: async (data) => {
+        const alias_names = [...data.term.list_aliases().keys()];
+        // TODO: check type to see why helper_completion_options wont work here
+        return alias_names.filter(name => name.startsWith(data.current_partial));
     },
     main: async (data) => {
         // extract from data to make code less verbose

@@ -26,6 +26,7 @@ export interface CompletionData {
     unsubbed_args: string[],
     raw_parts: string[],
     current_partial: string,
+    arg_index: number, // index of the argument being completed
 }
 
 // return null to fall back to default completion behavior (file paths)

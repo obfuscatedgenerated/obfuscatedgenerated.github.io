@@ -12,6 +12,7 @@ export default {
             "-t": "Set the time before shutdown in milliseconds. Default is 1000."
         }
     },
+    // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

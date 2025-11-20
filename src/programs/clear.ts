@@ -1,5 +1,6 @@
 import { ANSI } from "../term_ctl";
 import type { Program } from "../types";
+import {helper_completion_options} from "../tab_completion";
 
 export default {
     name: "clear",
@@ -12,6 +13,7 @@ export default {
             "-so": "Only clear the scrollback."
         }
     },
+    completion: helper_completion_options(["-h", "-s", "-so"]),
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

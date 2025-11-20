@@ -4,8 +4,8 @@ export default {
     name: "repo",
     description: "Opens the GitHub repository for OllieOS.",
     usage_suffix: "",
-    arg_descriptions: {
-    },
+    arg_descriptions: {},
+    completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;

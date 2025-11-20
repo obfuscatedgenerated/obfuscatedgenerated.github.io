@@ -39,12 +39,10 @@ export default {
         }
     },
     completion: async (data) => {
-        const arg_index = data.raw_parts.length - 1;
-
-        switch (arg_index) {
-            case 1:
+        switch (data.arg_index) {
+            case 0:
                 return helper_completion_options(["info", "list", "show", "hide", "close", "center"])(data);
-            case 2:
+            case 1:
                 // completing first argument of subcommand
                 if (data.raw_parts[1] === "list") {
                     return helper_completion_options(["-v", "-i"])(data);

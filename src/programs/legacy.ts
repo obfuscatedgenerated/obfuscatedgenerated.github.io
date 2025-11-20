@@ -4,8 +4,8 @@ export default {
     name: "legacy",
     description: "Opens the legacy ollieg.codes site if you're having trouble with this version.",
     usage_suffix: "",
-    arg_descriptions: {
-    },
+    arg_descriptions: {},
+    completion: async () => [],
     main: async (_data) => {
         window.location.assign("https://legacy.ollieg.codes/");
 

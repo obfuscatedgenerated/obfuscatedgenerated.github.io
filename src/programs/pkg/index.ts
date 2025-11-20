@@ -455,13 +455,11 @@ export default {
         }
     },
     completion: async (data) => {
-        const arg_index = data.raw_parts.length - 1;
-
         // TODO: smarter completion that understands flags for subcommands
-        switch (arg_index) {
+        switch (data.arg_index) {
+            case 0:
+                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean"])(data);
             case 1:
-                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean", "-h"])(data);
-            case 2:
                 if (["info", "read", "remove"].includes(data.args[0])) {
                     // complete with installed package names
                     const fs = data.term.get_fs();

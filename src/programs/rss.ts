@@ -92,6 +92,7 @@ export default {
             "-x": "Only display titles, links and publishing dates, not descriptions."
         }
     },
+    // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

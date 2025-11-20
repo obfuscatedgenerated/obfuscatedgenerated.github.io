@@ -9,6 +9,11 @@ export default {
             "names": "The names of each variable to unset."
         }
     },
+    completion: async (data) => {
+        const var_names = [...data.term.list_variables().keys()];
+        // TODO: check type to see why helper_completion_options wont work here
+        return var_names.filter(name => name.startsWith(data.current_partial));
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

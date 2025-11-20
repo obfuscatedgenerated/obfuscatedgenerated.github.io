@@ -174,6 +174,10 @@ export class WrappedTerminal extends Terminal {
         return this._wm;
     }
 
+    list_variables(): Map<string, string> {
+        return this._vars;
+    }
+
     get_variable(name: string): string | undefined {
         return this._vars.get(name);
     }

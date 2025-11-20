@@ -1,5 +1,6 @@
 import { ANSI } from "../term_ctl";
 import type { Program } from "../types";
+import {helper_completion_options} from "../tab_completion";
 
 export default {
     name: "reader",
@@ -13,6 +14,17 @@ export default {
         }
     },
     node_opt_out: true,
+    completion: async (data) => {
+        if (data.arg_index === 0) {
+            return helper_completion_options(["-h", "-q", "-s"])(data);
+        }
+
+        if (data.arg_index === 1 && data.args[0] === "-s") {
+            return helper_completion_options(["on", "off"])(data);
+        }
+
+        return [];
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

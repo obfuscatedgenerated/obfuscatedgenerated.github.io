@@ -13,6 +13,7 @@ export default {
             "directory": "The directory to create."
         }
     },
+    completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

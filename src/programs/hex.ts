@@ -1,5 +1,6 @@
 import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
+import {helper_completion_options} from "../tab_completion";
 
 // TODO: when edit is done, add a flag to edit the file in the editor
 
@@ -15,6 +16,20 @@ export default {
             "-h": "Print this help message.",
             "-i": "Print indexes."
         }
+    },
+    completion: async (data) => {
+        // use default logic for first argument
+        if (data.arg_index === 0) {
+            return null;
+        }
+
+        if (data.arg_index === 1) {
+            if ("-i".startsWith(data.current_partial)) {
+                return ["-i"];
+            }
+        }
+
+        return [];
     },
     main: async (data) => {
         // extract from data to make code less verbose
