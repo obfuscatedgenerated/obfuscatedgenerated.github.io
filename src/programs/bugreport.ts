@@ -16,6 +16,7 @@ export default {
         feature: "Opens the bug reporter with the feature request template.",
         other: "Opens the bug reporter with the template chooser (default).",
     },
+    completion: async () => ["bug", "feature", "other"], // TODO: handle partial arg
     main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;

@@ -34,6 +34,7 @@ export default {
     },
     completion: async (data) => {
         // TODO smarter completion to handle number of args and flags
+        // TODO: handle partial arg
         return data.term.get_program_registry().listProgramNames();
     },
     main: async (data) => {
