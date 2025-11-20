@@ -1,4 +1,5 @@
 import {WrappedTerminal} from "./term_ctl";
+import {CompletionData} from "./types";
 
 // TODO this is really poor OOP
 let cached_matches: string[] = [];
@@ -184,3 +185,30 @@ export const tab_complete = async (term: WrappedTerminal, discard_cached_matches
 }
 
 // TODO: the discard cache arg is janky. come up with a better solution. should also be using generators directly instead of arrays for completions
+// TODO: seems to not discard properly when switching commands
+
+export const helper_completion_options = (options: string[]) => {
+    return async function* (data: CompletionData): AsyncGenerator<string> {
+        const {current_arg_partial} = data;
+        for (const option of options) {
+            if (option.startsWith(current_arg_partial)) {
+                yield option;
+            }
+        }
+    };
+}
+
+export const helper_completion_options_ordered = (options: string[][]) => {
+    return async function* (data: CompletionData): AsyncGenerator<string> {
+        const {current_arg_partial, args_so_far} = data;
+        const index = args_so_far.length;
+        const options_at_index = options[index] || [];
+        for (const option of options_at_index) {
+            if (option.startsWith(current_arg_partial)) {
+                yield option;
+            }
+        }
+    };
+}
+
+// TODO: make these helpers available to 3rd party programs
