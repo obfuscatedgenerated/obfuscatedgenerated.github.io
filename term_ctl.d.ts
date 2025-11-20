@@ -164,6 +164,7 @@ export declare class WrappedTerminal extends Terminal {
     get_sound_registry(): SoundRegistry;
     get_fs(): AbstractFileSystem;
     get_window_manager(): AbstractWindowManager | null;
+    list_variables(): Map<string, string>;
     get_variable(name: string): string | undefined;
     set_variable(name: string, value: string): void;
     unset_variable(name: string): boolean;

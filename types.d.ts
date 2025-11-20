@@ -24,6 +24,7 @@ export interface CompletionData {
     unsubbed_args: string[];
     raw_parts: string[];
     current_partial: string;
+    arg_index: number;
 }
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
 export interface ProgramRegistrant {
