@@ -3,6 +3,7 @@ import { NEWLINE, ANSI } from "./term_ctl";
 import type { WrappedTerminal } from "./term_ctl";
 
 import { AbstractFileSystem, FSEventType } from "./filesystem";
+import {tab_complete} from "./tab_completion";
 
 //const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
 
@@ -135,58 +136,9 @@ export const mark_modified: KeyEventHandler = (_e, _term) => {
 }
 
 // tab
-// TODO this is really poor OOP
-let cached_matches: string[] = [];
-let current_cached_match_index = 0;
-export const tab_completion: KeyEventHandler = (_e, term) => {
-    // if the current line is empty, do nothing
-    if (term._current_line.length === 0) {
-        return;
-    }
 
-    // if the current line has no spaces, tab complete the command
-    if (!term._current_line.includes(" ")) {
-        // get the program registry
-        const registry = term.get_program_registry();
-        const programs = registry.listProgramNames(true, true);
-
-        // check for existing matches
-        let match: string;
-        if (!discard_cached_matches && cached_matches.length > 0) {
-            // if the current line hasn't changed, just get the next match
-            current_cached_match_index = (current_cached_match_index + 1) % cached_matches.length;
-            match = cached_matches[current_cached_match_index] || "";
-        } else {
-            // if the current line has changed, refresh the matches
-            cached_matches = programs.filter((program) => program.startsWith(term._current_line));
-            current_cached_match_index = 0;
-
-            // get the first match
-            match = cached_matches[current_cached_match_index] || "";
-
-            // mark as unmodified
-            discard_cached_matches = false;
-        }
-
-        // if there is a match, tab complete
-        if (match) {
-            // erase the current line
-            term.write("\b \b".repeat(term._current_index));
-
-            // write the match
-            term.write(match);
-
-            // NOTE: above is done rather than filling what is remaining because if tab is hit again, the next match will be written
-
-            // update current line and index
-            term._current_line = match;
-            term._current_index = match.length;
-        }
-    } else {
-        // UNIMP
-        // TODO complete files and known flags for the current command
-        console.warn("tab completion for arguments is not yet implemented");
-    }
+export const tab_completion: KeyEventHandler = async (_e, term) => {
+    discard_cached_matches = await tab_complete(term, discard_cached_matches);
 }
 
 

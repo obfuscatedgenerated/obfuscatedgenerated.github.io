@@ -16,8 +16,20 @@ export interface Program {
     usage_suffix: string,
     arg_descriptions: arg_descriptions,
     node_opt_out?: boolean, // default false, if true it will not be registered if running in node
-    main: ProgramMain
+    main: ProgramMain,
+    completion?: CompletionGenerator,
 }
+
+export interface CompletionData {
+    term: WrappedTerminal,
+    args_so_far: string[],
+    unsubbed_args_so_far: string[],
+    raw_parts_so_far: string[],
+    current_arg_partial: string,
+}
+
+// return null to fall back to default completion behavior (file paths)
+export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
 
 export interface ProgramRegistrant {
     program: Program,

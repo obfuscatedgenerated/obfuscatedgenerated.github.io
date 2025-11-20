@@ -32,6 +32,10 @@ export default {
             "-m": "Mounted programs. Includes only mounted programs.",
         },
     },
+    completion: async (data) => {
+        // TODO smarter completion to handle number of args and flags
+        return data.term.get_program_registry().listProgramNames();
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { args, term } = data;

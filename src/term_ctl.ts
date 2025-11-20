@@ -91,6 +91,24 @@ export const ANSI = {
 // TODO: docstrings everywhere
 // TODO: this needs splitting up into multiple files
 
+interface LineParseResultCommand {
+    type: "command";
+
+    command: string;
+    args: string[];
+    unsubbed_args: string[];
+    raw_parts: string[];
+}
+
+interface LineParseResultVarAssignment {
+    type: "var";
+
+    var_name: string;
+    var_value: string;
+}
+
+export type LineParseResult = LineParseResultCommand | LineParseResultVarAssignment | null;
+
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
 
@@ -245,22 +263,13 @@ export class WrappedTerminal extends Terminal {
         await this.insert_preline();
     }
 
-
-    // returns success flag (or error if critical)
-    execute = async (line: string, edit_doc_title = true): Promise<boolean> => {
-        // TODO: semicolon to run multiple commands regardless of success
-        // TODO: double ampersand to run multiple commands only if previous succeeded
-        // TODO: double pipe to run multiple commands only if previous failed
-        // TODO: single pipe to pipe output of previous command to next command
-        // TODO: screen multiplexing (background programs using promises, or perhaps something cool with passing data between tabs)
-        // TODO: allow certain control characters to be escaped e.g. $
-        // TODO: support sh files
-        // TODO: if the program doesnt return a value stuff breaks (why can they just do return with no number anyway????)
-
+    parse_line = (line: string): LineParseResult => {
         if (line.length === 0) {
-            // if the line is empty, just move to the next line (additional check if called from external source)
-            return true;
+            // if the line is empty, nothing to parse
+            return null;
         }
+
+        // TODO: handle multiple commands separated by semicolons
 
         // remove leading and trailing whitespace and split by spaces, unless contained in single or double quotes
         // TODO: use a proper stack based parser for readability and maintainability
@@ -325,8 +334,8 @@ export class WrappedTerminal extends Terminal {
         const command = sub[0];
 
         if (command === "#") {
-            // if the command is a comment, just move to the next line
-            return true;
+            // if the command is a comment, just ignore
+            return null;
         }
 
         // determine if the line is a variable assignment with regex
@@ -343,9 +352,13 @@ export class WrappedTerminal extends Terminal {
                     var_value = var_value.slice(1, -1);
                 }
 
-                this.set_variable(var_name, var_value);
+                // this is a variable assignment
+                return {
+                    type: "var",
 
-                return true;
+                    var_name,
+                    var_value
+                }
             }
         }
 
@@ -378,6 +391,50 @@ export class WrappedTerminal extends Terminal {
 
             args[arg_idx] = arg;
         }
+
+        // this is a command
+        return {
+            type: "command",
+
+            command,
+            args,
+            unsubbed_args,
+            raw_parts,
+        };
+    }
+
+
+    // returns success flag (or error if critical)
+    execute = async (line: string, edit_doc_title = true): Promise<boolean> => {
+        // TODO: semicolon to run multiple commands regardless of success
+        // TODO: double ampersand to run multiple commands only if previous succeeded
+        // TODO: double pipe to run multiple commands only if previous failed
+        // TODO: single pipe to pipe output of previous command to next command
+        // TODO: screen multiplexing (background programs using promises, or perhaps something cool with passing data between tabs)
+        // TODO: allow certain control characters to be escaped e.g. $
+        // TODO: support sh files
+        // TODO: if the program doesnt return a value stuff breaks (why can they just do return with no number anyway????)
+
+        if (line.length === 0) {
+            // if the line is empty, just move to the next line (additional check if called from external source)
+            return true;
+        }
+
+        const parsed_line = this.parse_line(line);
+
+        if (parsed_line === null) {
+            // if the line is a comment or empty, do nothing
+            return true;
+        }
+
+        // handle variable assignment
+        if (parsed_line.type === "var") {
+            this.set_variable(parsed_line.var_name, parsed_line.var_value);
+            return true;
+        }
+
+        // otherwise, it's a command. destructure it
+        const { command, args, unsubbed_args, raw_parts } = parsed_line;
 
         // search for the command in the registry
         const program = this._prog_registry.getProgram(command);
