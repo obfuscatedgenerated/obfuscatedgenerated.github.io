@@ -111,6 +111,12 @@ export class ProcessContext {
 
         const win = new wm.Window(this._pid);
         this._windows.add(win);
+
+        // clean up on close
+        win.add_event_listener("close", () => {
+            this._windows.delete(win);
+        });
+
         return win;
     }
 }
