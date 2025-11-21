@@ -424,6 +424,17 @@ export class DOMWindowManager extends AbstractWindowManager {
                         break;
                 }
             }
+
+            wait_for_event(event: WindowEvent): Promise<void> {
+                return new Promise((resolve) => {
+                    const callback = async () => {
+                        this.remove_event_listener(event, callback);
+                        resolve();
+                    };
+
+                    this.add_event_listener(event, callback);
+                });
+            }
         }
 
         this._WindowClass = DOMWindow;

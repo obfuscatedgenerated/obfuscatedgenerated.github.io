@@ -71,6 +71,8 @@ export default {
         // send message
         term.writeln("Opened fsedit in a new window.");
 
+        await wind.wait_for_event("close");
+
         return 0;
     }
 } as Program;

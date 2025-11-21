@@ -54,6 +54,8 @@ export abstract class AbstractWindow {
     // best effort flags, may not be supported by all implementations (e.g. transparent flag)
     abstract get_custom_flag(flag: string): boolean;
     abstract set_custom_flag(flag: string, value: boolean): void;
+
+    abstract wait_for_event(event: WindowEvent): Promise<void>;
 }
 
 export abstract class AbstractWindowManager {
