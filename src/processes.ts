@@ -1,6 +1,12 @@
 import type {LineParseResultCommand} from "./term_ctl";
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 
+enum ProcessAttachment {
+    FOREGROUND,
+    BACKGROUND,
+    DETACHED,
+}
+
 export class ProcessContext {
     private readonly _pid: number;
     private readonly _manager: ProcessManager;
@@ -10,7 +16,7 @@ export class ProcessContext {
 
     private readonly _exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
 
-    private _is_detached = false;
+    private _attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     private readonly _timeouts: Set<number> = new Set();
     private readonly _intervals: Set<number> = new Set();
     private readonly _windows: Set<AbstractWindow> = new Set();
@@ -19,6 +25,10 @@ export class ProcessContext {
         this._pid = pid;
         this._source_command = source_command;
         this._manager = registry;
+
+        if (source_command.run_in_bg) {
+            this._attachment = ProcessAttachment.BACKGROUND;
+        }
     }
 
     get pid(): number {
@@ -34,11 +44,23 @@ export class ProcessContext {
     }
 
     get is_detached(): boolean {
-        return this._is_detached;
+        return this._attachment === ProcessAttachment.DETACHED;
+    }
+
+    get is_background(): boolean {
+        return this._attachment === ProcessAttachment.BACKGROUND;
+    }
+
+    get is_foreground(): boolean {
+        return this._attachment === ProcessAttachment.FOREGROUND;
+    }
+
+    get attachment(): ProcessAttachment {
+        return this._attachment;
     }
 
     detach(): void {
-        this._is_detached = true;
+        this._attachment = ProcessAttachment.DETACHED;
     }
 
     kill(exit_code = 0): void {

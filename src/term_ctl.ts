@@ -99,6 +99,7 @@ export interface LineParseResultCommand {
     args: string[];
     unsubbed_args: string[];
     raw_parts: string[];
+    run_in_bg: boolean;
 }
 
 export interface LineParseResultVarAssignment {
@@ -378,6 +379,13 @@ export class WrappedTerminal extends Terminal {
 
         const args = sub.slice(1);
 
+        // if the last arg value is &, run in bg and remove it from args BEFORE variable substitution
+        let run_in_bg = false;
+        if (args.length > 0 && args[args.length - 1] === "&") {
+            run_in_bg = true;
+            args.pop();
+        }
+
         const unsubbed_args = args.slice();
 
         // substitute args with variables
@@ -414,6 +422,7 @@ export class WrappedTerminal extends Terminal {
             args,
             unsubbed_args,
             raw_parts,
+            run_in_bg
         };
     }
 
@@ -424,11 +433,8 @@ export class WrappedTerminal extends Terminal {
         // TODO: double ampersand to run multiple commands only if previous succeeded
         // TODO: double pipe to run multiple commands only if previous failed
         // TODO: single pipe to pipe output of previous command to next command
-        // TODO: screen multiplexing (background programs using promises, or perhaps something cool with passing data between tabs)
         // TODO: allow certain control characters to be escaped e.g. $
         // TODO: support sh files
-        // TODO: if the program doesnt return a value stuff breaks (why can they just do return with no number anyway????)
-        // TODO: ampersand at end of line to force detach process
 
         if (line.length === 0) {
             // if the line is empty, just move to the next line (additional check if called from external source)
@@ -478,64 +484,78 @@ export class WrappedTerminal extends Terminal {
             document.title = command;
         }
 
-        let exit_code = 0;
-        if ("main" in program) {
-            try {
-                exit_code = await program.main(data);
+        const on_program_completion = (exit_code?: number) => {
+            if (exit_code === undefined) {
+                exit_code = -2;
+                console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
+            }
 
-                if (exit_code === undefined) {
-                    exit_code = -2;
-                    console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
-                }
+            this._current_history_index = 0;
 
-                if (process.is_detached) {
-                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
+            if (edit_doc_title) {
+                document.title = old_title;
+            }
 
-                    process.add_exit_listener((code) => {
-                        const status = code === 0 ? "Done" : `Exit ${code}`;
-                        const color = code === 0 ? FG.green : FG.red;
+            if (process.is_detached) {
+                this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
 
-                        // TODO: erase existing prompt and line
-                        this.writeln("");
-                        this.writeln(`${FG.gray}[${process.pid}] + ${color}${status}${FG.gray} \t ${command}${STYLE.reset_all}`);
+                process.add_exit_listener((code) => {
+                    const status = code === 0 ? "Done" : `Exit ${code}`;
+                    const color = code === 0 ? FG.green : FG.red;
 
-                        // reinsert the prompt and current line
-                        // TODO: respect running programs, maybe need a notification queue
-                        this.insert_preline(false);
-                    });
+                    // TODO: erase existing prompt and line
+                    this.writeln("");
+                    this.writeln(`${FG.gray}[${process.pid}] + ${color}${status}${FG.gray} \t ${command}${STYLE.reset_all}`);
 
-                    // if the process is detached, do not kill the process
-                    this._current_history_index = 0;
-                    if (edit_doc_title) {
-                        document.title = old_title;
-                    }
+                    // reinsert the prompt and current line
+                    // TODO: respect running programs, maybe need a notification queue
+                    this.insert_preline(false);
+                });
 
-                    return true;
-                }
-            } catch (e) {
-                exit_code = -1;
-                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
-                console.error(e);
+                // don't kill the process
+                return;
             }
 
             process.kill(exit_code);
+
+            if (process.is_background) {
+                this.writeln(`\n${FG.gray}[${process.pid}] + Done \t ${command}${STYLE.reset_all}`);
+            }
+        }
+
+        if ("main" in program) {
+            try {
+                if (process.is_foreground) {
+                    const exit_code = await program.main(data);
+                    on_program_completion(exit_code);
+
+                    // set the exit code variable
+                    this.set_variable("?", exit_code.toString());
+                } else {
+                    this.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
+
+                    program.main(data).then((exit_code) => {
+                        on_program_completion(exit_code);
+                    }).catch((e) => {
+                        this.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                        console.error(e);
+
+                        on_program_completion(-1);
+                    });
+                }
+            } catch (e) {
+                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                console.error(e);
+
+                on_program_completion(-1);
+                return false;
+            }
         } else {
             if (edit_doc_title) {
                 document.title = old_title;
             }
 
             throw new Error("Invalid program type");
-        }
-
-
-        // set the exit code
-        this.set_variable("?", exit_code.toString());
-
-        // set the history index to 0
-        this._current_history_index = 0;
-
-        if (edit_doc_title) {
-            document.title = old_title;
         }
 
         return true;
