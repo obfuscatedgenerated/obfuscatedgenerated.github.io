@@ -12,7 +12,7 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { args, term, process } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
@@ -48,15 +48,14 @@ export default {
         iframe.style.width = "100%";
         iframe.style.height = "100%";
 
-        const wm = term.get_window_manager();
-        if (!wm) {
+        if (!term.has_window_manager()) {
             // fallback to opening in a popup window
             window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true");
             term.writeln("Opened fsedit in a new popup window.");
             return 0;
         }
 
-        const wind = new wm.Window();
+        const wind = process.create_window();
         wind.title = "fsedit";
 
         wind.width = "75vw";
@@ -71,8 +70,11 @@ export default {
         // send message
         term.writeln("Opened fsedit in a new window.");
 
-        await wind.wait_for_event("close");
+        wind.add_event_listener("close", () => {
+            process.kill(0);
+        });
 
+        process.detach();
         return 0;
     }
 } as Program;

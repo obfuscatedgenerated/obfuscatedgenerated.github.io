@@ -36,7 +36,7 @@ export const list_subcommand = async (data: ProgramMainData) => {
 
         // TODO: source process tracking to show which program opened the window
         const visibility_text = win.visible ? `${FG.green}Visible${STYLE.reset_all}` : `${FG.red}Invisible${STYLE.reset_all}`;
-        term.writeln(`- [${win.id}] ${FG.cyan}${win.title}${STYLE.reset_all} : ${visibility_text}`);
+        term.writeln(`- [${win.id}] ${FG.cyan}${win.title}${STYLE.reset_all} : ${visibility_text} owned by PID ${FG.yellow}${win.owner_pid}${STYLE.reset_all}`);
     }
 
     return 0;

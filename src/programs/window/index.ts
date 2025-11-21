@@ -77,7 +77,7 @@ export default {
             return 0;
         }
 
-        if (!term.get_window_manager()) {
+        if (!term.has_window_manager()) {
             term.writeln(`${PREFABS.error}No window manager found.${STYLE.reset_all}`);
             return 1;
         }

@@ -6,7 +6,7 @@ export class DOMWindowManager extends AbstractWindowManager {
     private _window_id_counter = 1;
     private _window_map: Map<number, AbstractWindow> = new Map();
 
-    private readonly _WindowClass: new () => AbstractWindow;
+    private readonly _WindowClass: new (owner_pid: number) => AbstractWindow;
 
     get_unique_manager_type_name(): string {
         return "DOM";
@@ -59,8 +59,8 @@ export class DOMWindowManager extends AbstractWindowManager {
                 return this._manager;
             }
 
-            constructor() {
-                super();
+            constructor(owner_pid: number) {
+                super(owner_pid);
 
                 this._window_id = manager._window_id_counter++;
 

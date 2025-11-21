@@ -7,6 +7,7 @@ import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
+import {ProcessRegistry} from "./process_registry";
 
 
 export const NEWLINE = "\r\n";
@@ -122,6 +123,7 @@ export class WrappedTerminal extends Terminal {
     _preline = "";
     _prompt_suffix = "$ ";
 
+    _process_registry: ProcessRegistry;
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
     _fs: AbstractFileSystem;
@@ -172,6 +174,10 @@ export class WrappedTerminal extends Terminal {
 
     get_window_manager(): AbstractWindowManager | null {
         return this._wm;
+    }
+
+    has_window_manager(): boolean {
+        return this._wm !== null;
     }
 
     list_variables(): Map<string, string> {
@@ -449,13 +455,17 @@ export class WrappedTerminal extends Terminal {
             return false;
         }
 
+        // create new process context
+        const process = this._process_registry.create_process(parsed_line);
+
         // if the command is found, run it
         const data = {
             term: this,
             args,
             unsubbed_args,
             raw_parts,
-        }
+            process
+        };
 
         let old_title = "";
         if (edit_doc_title) {
@@ -478,6 +488,10 @@ export class WrappedTerminal extends Terminal {
                 this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
                 console.error(e);
             }
+
+            // TODO: listen for exit events here somehow as well
+
+            process.kill(exit_code);
         } else {
             if (edit_doc_title) {
                 document.title = old_title;
@@ -863,6 +877,7 @@ export class WrappedTerminal extends Terminal {
         this._prog_registry = prog_registry || new ProgramRegistry();
         this._sfx_registry = sound_registry || new SoundRegistry();
         this._wm = wm || null;
+        this._process_registry = new ProcessRegistry(this._wm);
 
         if (register_builtin_handlers) {
             register_builtin_key_handlers(this);

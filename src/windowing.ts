@@ -15,6 +15,16 @@ export abstract class AbstractWindow {
     abstract maximisable: boolean;
     abstract maximised: boolean;
 
+    private readonly _owner_pid: number;
+
+    protected constructor(owner_pid: number) {
+        this._owner_pid = owner_pid;
+    }
+
+    get owner_pid(): number {
+        return this._owner_pid;
+    }
+
     abstract get title(): string;
     abstract set title(new_title: string);
 
@@ -37,9 +47,9 @@ export abstract class AbstractWindow {
     abstract get visible(): boolean;
     abstract set visible(is_visible: boolean);
 
-    abstract add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    abstract add_event_listener(event: WindowEvent, callback: () => Promise<void> | void): void;
 
-    abstract remove_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    abstract remove_event_listener(event: WindowEvent, callback: () => Promise<void> | void): void;
 
     abstract dispose(): void;
 
@@ -61,9 +71,11 @@ export abstract class AbstractWindow {
 export abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;
 
-    abstract get Window(): new () => AbstractWindow;
+    abstract get Window(): new (owner_pid: number) => AbstractWindow;
 
     abstract get_all_windows(): AbstractWindow[];
 
     abstract get_window_by_id(id: number): AbstractWindow | null;
 }
+
+// TODO: use separate interfaces so that only the process registry can create windows

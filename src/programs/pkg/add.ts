@@ -110,7 +110,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
                 // uninstall old version
                 term.writeln(`${FG.yellow}Uninstalling old ${pkg_name}@${pkg_version}...${STYLE.reset_all}`);
 
-                const remove_data = {term, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name], raw_parts: [...data.raw_parts, "remove", pkg_name]};
+                const remove_data = {term, process: data.process, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name], raw_parts: [...data.raw_parts, "remove", pkg_name]};
                 const remove_exit_code = await remove_subcommand(remove_data);
                 if (remove_exit_code !== 0) {
                     term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
@@ -134,7 +134,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             virtual_args.unshift("add");
 
             // we need to also pass the name of the dependent package to the virtual call to let the graph know
-            const virtual_data = {term, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args]};
+            const virtual_data = {term, process: data.process, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args]};
             const virtual_exit_code = await add_subcommand(virtual_data, pkg_at_version as PkgAtVersion);
 
             if (virtual_exit_code !== 0) {
