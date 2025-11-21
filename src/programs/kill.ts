@@ -1,5 +1,6 @@
 import {ANSI} from "../term_ctl";
 import type { Program } from "../types";
+import {helper_completion_options} from "../tab_completion";
 
 export default {
     name: "kill",
@@ -10,7 +11,15 @@ export default {
             "PID": "The PID of the process to kill."
         }
     },
-    completion: async () => [],
+    completion: async (data) => {
+        if (data.arg_index === 0) {
+            const pm = data.term.get_process_manager();
+            const pids = pm.list_pids().map((pid) => pid.toString());
+            return helper_completion_options(pids)(data);
+        }
+
+        return [];
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;

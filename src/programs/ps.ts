@@ -1,5 +1,6 @@
 import {ANSI, NEWLINE} from "../term_ctl";
 import type { Program } from "../types";
+import {helper_completion_options} from "../tab_completion";
 
 export default {
     name: "ps",
@@ -10,7 +11,18 @@ export default {
             "-p PID": "Display information about the process with the given PID. If omitted, displays all running processes."
         }
     },
-    completion: async () => [],
+    completion: async (data) => {
+        console.log(data);
+        if (data.arg_index === 0) {
+            return helper_completion_options(["-p"])(data);
+        } else if (data.arg_index === 1 && data.args[0] === "-p") {
+            const pm = data.term.get_process_manager();
+            const pids = pm.list_pids().map((pid) => pid.toString());
+            return helper_completion_options(pids)(data);
+        }
+
+        return [];
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
