@@ -4,6 +4,7 @@ import type { AbstractFileSystem } from "./filesystem";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager } from "./windowing";
+import { ProcessManager } from "./processes";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -65,14 +66,15 @@ export declare const ANSI: {
         secret: string;
     };
 };
-interface LineParseResultCommand {
+export interface LineParseResultCommand {
     type: "command";
     command: string;
     args: string[];
     unsubbed_args: string[];
     raw_parts: string[];
+    run_in_bg: boolean;
 }
-interface LineParseResultVarAssignment {
+export interface LineParseResultVarAssignment {
     type: "var";
     var_name: string;
     var_value: string;
@@ -86,6 +88,7 @@ export declare class WrappedTerminal extends Terminal {
     _current_history_index: number;
     _preline: string;
     _prompt_suffix: string;
+    _process_manager: ProcessManager;
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
     _fs: AbstractFileSystem;
@@ -164,6 +167,8 @@ export declare class WrappedTerminal extends Terminal {
     get_sound_registry(): SoundRegistry;
     get_fs(): AbstractFileSystem;
     get_window_manager(): AbstractWindowManager | null;
+    has_window_manager(): boolean;
+    get_process_manager(): ProcessManager;
     list_variables(): Map<string, string>;
     get_variable(name: string): string | undefined;
     set_variable(name: string, value: string): void;
@@ -222,4 +227,3 @@ export declare class WrappedTerminal extends Terminal {
     initialise(term_loaded_callback?: (term: WrappedTerminal) => void): Promise<void>;
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean, wm?: AbstractWindowManager);
 }
-export {};

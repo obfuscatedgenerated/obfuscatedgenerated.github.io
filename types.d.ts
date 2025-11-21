@@ -1,6 +1,8 @@
 import type { WrappedTerminal } from "./term_ctl";
+import type { ProcessContext } from "./processes";
 export interface ProgramMainData {
     term: WrappedTerminal;
+    process: ProcessContext;
     args: string[];
     unsubbed_args: string[];
     raw_parts: string[];

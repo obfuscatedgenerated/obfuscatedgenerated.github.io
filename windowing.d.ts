@@ -7,6 +7,9 @@ export declare abstract class AbstractWindow {
     abstract resizable: boolean;
     abstract maximisable: boolean;
     abstract maximised: boolean;
+    private readonly _owner_pid;
+    protected constructor(owner_pid: number);
+    get owner_pid(): number;
     abstract get title(): string;
     abstract set title(new_title: string);
     abstract get width(): string;
@@ -20,8 +23,8 @@ export declare abstract class AbstractWindow {
     abstract center(): void;
     abstract get visible(): boolean;
     abstract set visible(is_visible: boolean);
-    abstract add_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
-    abstract remove_event_listener(event: WindowEvent, callback: () => Promise<void>): void;
+    abstract add_event_listener(event: WindowEvent, callback: () => Promise<void> | void): void;
+    abstract remove_event_listener(event: WindowEvent, callback: () => Promise<void> | void): void;
     abstract dispose(): void;
     abstract close(): void;
     abstract focus(): void;
@@ -30,10 +33,11 @@ export declare abstract class AbstractWindow {
     abstract toggle(): void;
     abstract get_custom_flag(flag: string): boolean;
     abstract set_custom_flag(flag: string, value: boolean): void;
+    abstract wait_for_event(event: WindowEvent): Promise<void>;
 }
 export declare abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;
-    abstract get Window(): new () => AbstractWindow;
+    abstract get Window(): new (owner_pid: number) => AbstractWindow;
     abstract get_all_windows(): AbstractWindow[];
     abstract get_window_by_id(id: number): AbstractWindow | null;
 }
