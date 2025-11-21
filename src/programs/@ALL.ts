@@ -29,6 +29,7 @@ export { default as mv } from "./mv";
 export { default as window } from "./window";
 export { default as alias } from "./alias";
 export { default as unalias } from "./unalias";
+export { default as ps } from "./ps";
 
 // TODO: copy program
 // TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)

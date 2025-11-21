@@ -1,5 +1,5 @@
 import type { WrappedTerminal } from "./term_ctl";
-import type {ProcessContext} from "./process_registry";
+import type {ProcessContext} from "./processes";
 
 export interface ProgramMainData {
     term: WrappedTerminal,

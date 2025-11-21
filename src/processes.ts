@@ -1,11 +1,12 @@
-import type {LineParseResult} from "./term_ctl";
+import type {LineParseResultCommand} from "./term_ctl";
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 
 export class ProcessContext {
     private readonly _pid: number;
+    private readonly _manager: ProcessManager;
 
-    private readonly _source_line: LineParseResult;
-    private readonly _registry: ProcessRegistry;
+    private readonly _source_command: LineParseResultCommand;
+    private readonly _created_at: Date = new Date();
 
     private readonly _exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
 
@@ -14,18 +15,22 @@ export class ProcessContext {
     private readonly _intervals: Set<number> = new Set();
     private readonly _windows: Set<AbstractWindow> = new Set();
 
-    constructor(pid: number, source_line: LineParseResult, registry: ProcessRegistry) {
+    constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager) {
         this._pid = pid;
-        this._source_line = source_line;
-        this._registry = registry;
+        this._source_command = source_command;
+        this._manager = registry;
     }
 
     get pid(): number {
         return this._pid;
     }
 
-    get source_line(): LineParseResult {
-        return this._source_line;
+    get source_command(): LineParseResultCommand {
+        return this._source_command;
+    }
+
+    get created_at(): Date {
+        return this._created_at;
     }
 
     get is_detached(): boolean {
@@ -49,7 +54,7 @@ export class ProcessContext {
             win.dispose();
         });
 
-        this._registry.mark_terminated(this._pid);
+        this._manager.mark_terminated(this._pid);
 
         for (const listener of this._exit_listeners) {
             listener(exit_code);
@@ -77,7 +82,7 @@ export class ProcessContext {
     }
 
     create_window(): AbstractWindow | null {
-        const wm = this._registry.window_manager;
+        const wm = this._manager.window_manager;
         if (!wm) {
             return null;
         }
@@ -88,7 +93,7 @@ export class ProcessContext {
     }
 }
 
-export class ProcessRegistry {
+export class ProcessManager {
     private readonly _processes: Map<number, ProcessContext> = new Map();
     private _next_pid = 1;
 
@@ -102,15 +107,19 @@ export class ProcessRegistry {
         return this._wm;
     }
 
-    create_process(source_line: LineParseResult): ProcessContext {
+    create_process(source_command: LineParseResultCommand): ProcessContext {
         const pid = this._next_pid++;
-        const context = new ProcessContext(pid, source_line, this);
+        const context = new ProcessContext(pid, source_command, this);
         this._processes.set(pid, context);
         return context;
     }
 
     get_process(pid: number): ProcessContext | undefined {
         return this._processes.get(pid);
+    }
+
+    list_pids(): number[] {
+        return Array.from(this._processes.keys());
     }
 
     mark_terminated(pid: number): void {

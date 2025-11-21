@@ -7,7 +7,7 @@ import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
-import {ProcessRegistry} from "./process_registry";
+import {ProcessManager} from "./processes";
 
 
 export const NEWLINE = "\r\n";
@@ -90,9 +90,9 @@ export const ANSI = {
 
 
 // TODO: docstrings everywhere
-// TODO: this needs splitting up into multiple files
+// TODO: this needs splitting up into multiple files, perhaps separate the terminal and the kernel into classes and compose them together
 
-interface LineParseResultCommand {
+export interface LineParseResultCommand {
     type: "command";
 
     command: string;
@@ -101,7 +101,7 @@ interface LineParseResultCommand {
     raw_parts: string[];
 }
 
-interface LineParseResultVarAssignment {
+export interface LineParseResultVarAssignment {
     type: "var";
 
     var_name: string;
@@ -123,7 +123,7 @@ export class WrappedTerminal extends Terminal {
     _preline = "";
     _prompt_suffix = "$ ";
 
-    _process_registry: ProcessRegistry;
+    _process_manager: ProcessManager;
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
     _fs: AbstractFileSystem;
@@ -178,6 +178,10 @@ export class WrappedTerminal extends Terminal {
 
     has_window_manager(): boolean {
         return this._wm !== null;
+    }
+
+    get_process_manager(): ProcessManager {
+        return this._process_manager;
     }
 
     list_variables(): Map<string, string> {
@@ -457,7 +461,7 @@ export class WrappedTerminal extends Terminal {
         }
 
         // create new process context
-        const process = this._process_registry.create_process(parsed_line);
+        const process = this._process_manager.create_process(parsed_line);
 
         // if the command is found, run it
         const data = {
@@ -900,7 +904,7 @@ export class WrappedTerminal extends Terminal {
         this._prog_registry = prog_registry || new ProgramRegistry();
         this._sfx_registry = sound_registry || new SoundRegistry();
         this._wm = wm || null;
-        this._process_registry = new ProcessRegistry(this._wm);
+        this._process_manager = new ProcessManager(this._wm);
 
         if (register_builtin_handlers) {
             register_builtin_key_handlers(this);
