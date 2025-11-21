@@ -424,6 +424,7 @@ export class WrappedTerminal extends Terminal {
         // TODO: allow certain control characters to be escaped e.g. $
         // TODO: support sh files
         // TODO: if the program doesnt return a value stuff breaks (why can they just do return with no number anyway????)
+        // TODO: ampersand at end of line to force detach process
 
         if (line.length === 0) {
             // if the line is empty, just move to the next line (additional check if called from external source)
@@ -475,7 +476,6 @@ export class WrappedTerminal extends Terminal {
 
         let exit_code = 0;
         if ("main" in program) {
-            // TODO: use callbacks
             try {
                 exit_code = await program.main(data);
 
@@ -483,13 +483,36 @@ export class WrappedTerminal extends Terminal {
                     exit_code = -2;
                     console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
                 }
+
+                if (process.is_detached) {
+                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
+
+                    process.add_exit_listener((code) => {
+                        const status = code === 0 ? "Done" : `Exit ${code}`;
+                        const color = code === 0 ? FG.green : FG.red;
+
+                        // TODO: erase existing prompt and line
+                        this.writeln("");
+                        this.writeln(`${FG.gray}[${process.pid}] + ${color}${status}${FG.gray} \t ${command}${STYLE.reset_all}`);
+
+                        // reinsert the prompt and current line
+                        // TODO: respect running programs, maybe need a notification queue
+                        this.insert_preline(false);
+                    });
+
+                    // if the process is detached, do not kill the process
+                    this._current_history_index = 0;
+                    if (edit_doc_title) {
+                        document.title = old_title;
+                    }
+
+                    return true;
+                }
             } catch (e) {
                 exit_code = -1;
                 this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
                 console.error(e);
             }
-
-            // TODO: listen for exit events here somehow as well
 
             process.kill(exit_code);
         } else {
