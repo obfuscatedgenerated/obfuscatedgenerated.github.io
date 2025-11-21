@@ -416,6 +416,8 @@ export const graph_query = {
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
 
+// TODO: update command (update all installed or specific packages)
+
 export default {
     name: "pkg",
     description: "The package manager for OllieOS.",

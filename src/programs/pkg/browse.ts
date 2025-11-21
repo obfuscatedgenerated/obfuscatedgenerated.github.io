@@ -1,7 +1,7 @@
 import {ANSI, NEWLINE} from "../../term_ctl";
 import type { WrappedTerminal } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {repo_query} from "./index";
+import {graph_query, repo_query} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG, CURSOR } = ANSI;
@@ -20,11 +20,15 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
     term.writeln("=".repeat(pkg_name.length));
     term.writeln(STYLE.reset_all);
 
+    // check for installed version
+    const installed_version = graph_query.get_pkg_version(pkg_name);
+
     term.write(NEWLINE);
     term.writeln(`${STYLE.bold}Available versions:${STYLE.no_bold_or_dim}`);
     for (const version of pkg_versions) {
-        term.writeln(`  - ${version}`);
+        term.writeln(`  - ${version} ${installed_version === version ? `${STYLE.italic}(installed)${STYLE.reset_all}` : ""}`);
     }
+
     term.write(NEWLINE);
     term.writeln(`${STYLE.bold}Description:${STYLE.no_bold_or_dim} ${pkg_data.description || "No description provided."}`);
     term.writeln(`${STYLE.bold}Author:${STYLE.no_bold_or_dim} ${pkg_data.author || "Unknown"}`);
@@ -52,13 +56,38 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
 
     term.write(NEWLINE);
 
-    term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
+    term.writeln(`${STYLE.dim}Press 'i' to install the latest version of this package.${STYLE.reset_all}`);
+    term.writeln(`${STYLE.dim}Press any other key to return to the list...${STYLE.reset_all}`);
 
-    await term.wait_for_keypress();
+    const key = await term.wait_for_keypress();
+
+    if (key.domEvent.key === "i") {
+        // double check installation
+        term.write(NEWLINE);
+        term.write(`${STYLE.bold}Are you sure you want to install '${pkg_name}'? (y/N)${STYLE.no_bold_or_dim}`);
+
+        const confirm_key = await term.wait_for_keypress();
+
+        if (confirm_key.domEvent.key.toLowerCase() === "y") {
+            term.write(" yes");
+            term.write(NEWLINE);
+
+            await term.execute(`pkg add ${pkg_name}`);
+
+            term.write(NEWLINE);
+            term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
+            await term.wait_for_keypress();
+        } else {
+            term.write(" no");
+            term.writeln(NEWLINE);
+
+            term.writeln(`${STYLE.dim}Installation cancelled. Press any key to return to the list...${STYLE.reset_all}`);
+            await term.wait_for_keypress();
+        }
+    }
 }
 
 // TODO: accept name argument to jump to specific package
-// TODO: key to trigger install from within browser? could use new multitasking to run this in the background
 
 export const browse_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
@@ -88,11 +117,17 @@ export const browse_subcommand = async (data: ProgramMainData) => {
 
         const slice = provided.slice(offset, offset + ROWS);
         for (const [index, name] of slice.entries()) {
+            // check for installed version
+            const installed_version = graph_query.get_pkg_version(name);
+
+            // highlight selected item
             if (offset + index === selected_index) {
-                term.writeln(`${FG.cyan}${STYLE.dim}> ${STYLE.no_bold_or_dim}${STYLE.bold}${name}${STYLE.reset_all}`);
+                term.write(`${FG.cyan}${STYLE.dim}> ${STYLE.no_bold_or_dim}${STYLE.bold}`);
             } else {
-                term.writeln(`  ${name}`);
+                term.write("  ");
             }
+
+            term.writeln(`${name} ${installed_version ? `${STYLE.italic}(installed: ${installed_version})` : ""}${STYLE.reset_all}`);
         }
 
         // show ... if there are more items below
