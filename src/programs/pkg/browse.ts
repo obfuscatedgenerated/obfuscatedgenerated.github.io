@@ -21,14 +21,35 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
     term.writeln(STYLE.reset_all);
 
     term.write(NEWLINE);
-    term.writeln("Available versions:");
+    term.writeln(`${STYLE.bold}Available versions:${STYLE.no_bold_or_dim}`);
     for (const version of pkg_versions) {
         term.writeln(`  - ${version}`);
     }
     term.write(NEWLINE);
-    term.writeln(`Description: ${pkg_data.description || "No description provided."}`);
-    term.writeln(`Author: ${pkg_data.author || "Unknown"}`);
-    term.writeln(`License: ${pkg_data.license || "Unknown"}`);
+    term.writeln(`${STYLE.bold}Description:${STYLE.no_bold_or_dim} ${pkg_data.description || "No description provided."}`);
+    term.writeln(`${STYLE.bold}Author:${STYLE.no_bold_or_dim} ${pkg_data.author || "Unknown"}`);
+    term.writeln(`${STYLE.bold}License:${STYLE.no_bold_or_dim} ${pkg_data.license || "Unknown"}`);
+
+    let printed_link_header = false;
+
+    if (pkg_data.homepage_url) {
+        if (!printed_link_header) {
+            term.write(NEWLINE);
+            printed_link_header = true;
+        }
+
+        term.writeln(`${STYLE.bold}Homepage:${STYLE.no_bold_or_dim} ${pkg_data.homepage_url}`);
+    }
+
+    if (pkg_data.repo_url) {
+        if (!printed_link_header) {
+            term.write(NEWLINE);
+            printed_link_header = true;
+        }
+
+        term.writeln(`${STYLE.bold}Repository:${STYLE.no_bold_or_dim} ${pkg_data.repo_url}`);
+    }
+
     term.write(NEWLINE);
 
     term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
@@ -37,6 +58,7 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
 }
 
 // TODO: accept name argument to jump to specific package
+// TODO: key to trigger install from within browser? could use new multitasking to run this in the background
 
 export const browse_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
@@ -53,7 +75,7 @@ export const browse_subcommand = async (data: ProgramMainData) => {
         term.clear();
 
         term.write(NEWLINE);
-        term.writeln("(use up/down arrow keys to scroll, enter to show more info, q to quit)");
+        term.writeln("(use up/down arrow keys to scroll, enter to show more info, escape to quit)");
         term.write(NEWLINE);
         term.write(CURSOR.invisible);
 
@@ -90,7 +112,7 @@ export const browse_subcommand = async (data: ProgramMainData) => {
         const key = await term.wait_for_keypress();
         console.log(key);
         switch (key.domEvent.key) {
-            case "q":
+            case "Escape":
                 quit = true;
                 break;
             case "ArrowUp":
