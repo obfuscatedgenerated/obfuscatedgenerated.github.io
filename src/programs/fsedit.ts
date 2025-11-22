@@ -70,7 +70,29 @@ export default {
         // send message
         term.writeln("Opened fsedit in a new window.");
 
-        wind.add_event_listener("close", () => {
+        wind.add_event_listener("close", async () => {
+            // backup unlock logic TODO improve the design of fsedit in general
+            if (await fs.exists("/.fs.lock")) {
+                // check that no other fsedit processes are running
+                let other_fsedit_running = false;
+                const processes = term.get_process_manager().list_pids();
+                for (const pid of processes) {
+                    if (pid === process.pid) {
+                        continue;
+                    }
+
+                    const proc = term.get_process_manager().get_process(pid);
+                    if (proc && proc.source_command.command === "fsedit") {
+                        other_fsedit_running = true;
+                        break;
+                    }
+                }
+
+                if (!other_fsedit_running) {
+                    await fs.delete_file("/.fs.lock");
+                }
+            }
+
             process.kill(0);
         });
 
