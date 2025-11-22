@@ -16,6 +16,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     async erase_all() {
         localStorage.removeItem("fs");
         localStorage.removeItem("fs_readonly_paths");
+        localStorage.removeItem("fs_migrations");
     }
 
     async make_dir(path: string) {
