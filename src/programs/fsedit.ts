@@ -50,7 +50,7 @@ export default {
         }
 
         const iframe = document.createElement("iframe");
-        iframe.src = `./fsedit?type=a${fs_name}&dir=${encoded_dir}`;
+        iframe.src = `./fsedit?type=${fs_name}&dir=${encoded_dir}`;
         iframe.style.border = "none";
         iframe.style.width = "100%";
         iframe.style.height = "100%";
