@@ -10,6 +10,10 @@ export class OPFSFileSystem extends AbstractFileSystem {
     constructor() {
         super();
 
+        if (!localStorage.getItem("fs_readonly_paths")) {
+            localStorage.setItem("fs_readonly_paths", JSON.stringify([]));
+        }
+
         // get the root directory handle
         navigator.storage.getDirectory().then((handle) => {
             this._opfs_handle = handle;
