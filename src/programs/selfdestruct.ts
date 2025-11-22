@@ -17,10 +17,20 @@ export default {
         // get fs
         const fs = term.get_fs();
 
+        const pad = (str: string, invis_codes = "") => {
+            if (str.length >= term.cols) {
+                return str;
+            }
+
+            return str + " ".repeat(term.cols - str.length + invis_codes.length);
+        }
+
         // make sure the user really wants to do this
-        term.writeln(`${BG.red + FG.white + STYLE.bold}WARNING: This will permanently erase the filesystem and other data, and restart the terminal.`);
-        term.writeln("This data cannot be recovered. Are you sure you want to do this?");
-        term.writeln(`Press ${BG.blue}Y${BG.red} 3 times to continue, or anything else to cancel.${STYLE.reset_all}`);
+        term.writeln(BG.red + FG.white + STYLE.bold);
+        term.write(pad("WARNING: This will permanently erase the filesystem and other data, and restart the terminal."));
+        term.writeln(pad("This data cannot be recovered. Are you sure you want to do this?"));
+        term.writeln(pad(`Press ${BG.blue}Y${BG.red} 3 times to continue, or anything else to cancel.`, BG.blue + BG.red));
+        term.write(STYLE.reset_all);
 
         // wait for the user to press Y 3 times
         let y_count = 0;
