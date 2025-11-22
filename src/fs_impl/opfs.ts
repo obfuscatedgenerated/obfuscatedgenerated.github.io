@@ -293,7 +293,11 @@ export class OPFSFileSystem extends AbstractFileSystem {
         const root = this.get_root_handle();
 
         for await (const [name, handle] of root.entries()) {
-            await root.removeEntry(name, { recursive: true });
+            if (handle.kind === "file") {
+                await root.removeEntry(name);
+            } else if (handle.kind === "directory") {
+                await root.removeEntry(name, { recursive: true });
+            }
         }
 
         localStorage.removeItem("fs_readonly_paths");
