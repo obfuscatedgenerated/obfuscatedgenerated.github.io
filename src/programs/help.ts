@@ -14,6 +14,7 @@ const header = (term, includes_mounted: boolean) => {
     term.writeln(`The exit code of the most recently executed program is stored in the ${ANSI.PREFABS.variable_name}$?${ANSI.STYLE.reset_all} variable.`)
     term.writeln(`You can set variables with the syntax ${ANSI.PREFABS.variable_name}variable${ANSI.STYLE.reset_all}=value and unset them with ${ANSI.PREFABS.program_name}unset${ANSI.STYLE.reset_all}.`)
     term.writeln(`To persist the variables, define them in the ${ANSI.PREFABS.file_path}.ollierc${ANSI.STYLE.reset_all} file in your ${ANSI.PREFABS.dir_name}home${ANSI.STYLE.reset_all} directory.`)
+    term.writeln(`You can run commands in the background by appending ${ANSI.STYLE.bold}${ANSI.FG.magenta}&${ANSI.STYLE.reset_all} to the end of the command.`)
     term.write(NEWLINE);
 }
 
