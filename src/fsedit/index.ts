@@ -20,6 +20,11 @@ if (!params.has("type")) {
         showConfirmButton: true,
         confirmButtonText: "Close fsedit",
     }).then(() => {
+        // post message to parent window if exists
+        if (window.parent) {
+            window.parent.postMessage("closing-fsedit", "*");
+        }
+
         window.close();
     });
 }
@@ -37,6 +42,11 @@ if (!fs_impl) {
         showConfirmButton: true,
         confirmButtonText: "Close fsedit",
     }).then(() => {
+        // post message to parent window if exists
+        if (window.parent) {
+            window.parent.postMessage("closing-fsedit", "*");
+        }
+
         window.close();
     });
 }
@@ -59,6 +69,11 @@ const main = async () => {
             showConfirmButton: true,
             confirmButtonText: "Close fsedit",
         });
+
+        // post message to parent window if exists
+        if (window.parent) {
+            window.parent.postMessage("closing-fsedit", "*");
+        }
 
         window.close();
         return;
@@ -453,6 +468,11 @@ const main = async () => {
                 showConfirmButton: true,
                 confirmButtonText: "Close fsedit",
             }).then(() => {
+                // post message to parent window if exists
+                if (window.parent) {
+                    window.parent.postMessage("closing-fsedit", "*");
+                }
+
                 window.close();
             });
         }

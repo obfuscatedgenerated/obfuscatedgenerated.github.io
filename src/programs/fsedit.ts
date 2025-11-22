@@ -42,18 +42,18 @@ export default {
         // url encode the directory
         const encoded_dir = encodeURIComponent(dir);
 
-        const iframe = document.createElement("iframe");
-        iframe.src = `./fsedit?type=${fs_name}&dir=${encoded_dir}`;
-        iframe.style.border = "none";
-        iframe.style.width = "100%";
-        iframe.style.height = "100%";
-
         if (!term.has_window_manager()) {
             // fallback to opening in a popup window
             window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true");
             term.writeln("Opened fsedit in a new popup window.");
             return 0;
         }
+
+        const iframe = document.createElement("iframe");
+        iframe.src = `./fsedit?type=a${fs_name}&dir=${encoded_dir}`;
+        iframe.style.border = "none";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
 
         const wind = process.create_window();
         wind.title = "fsedit";
@@ -95,6 +95,15 @@ export default {
 
             process.kill(0);
         });
+
+        // listen for message from iframe to close window
+        const message_handler = (event: MessageEvent) => {
+            if (event.source === iframe.contentWindow && event.data === "closing-fsedit") {
+                wind.close();
+                window.removeEventListener("message", message_handler);
+            }
+        };
+        window.addEventListener("message", message_handler);
 
         process.detach();
         return 0;
