@@ -41,19 +41,50 @@ export class OPFSFileSystem extends AbstractFileSystem {
     }
 
     async dir_exists(path: string): Promise<boolean> {
-        try {
-            const root = this.get_root_handle();
-            const parts = path.split("/").filter(part => part.length > 0);
+        // should return true only for directories
 
-            let current_handle = root;
-            for (const part of parts) {
+        const root = this.get_root_handle();
+        const parts = path.split("/").filter(part => part.length > 0);
+
+        let current_handle = root;
+        for (const part of parts) {
+            try {
                 current_handle = await current_handle.getDirectoryHandle(part);
+            } catch (err) {
+                if (err instanceof DOMException && (err.name === "NotFoundError" || err.name === "TypeMismatchError")) {
+                    return false;
+                }
+                throw err;
             }
-
-            return true;
-        } catch (err) {
-            return false;
         }
+
+        return true;
+    }
+
+    async exists_direct(path: string) {
+        // should return true for both files and directories
+
+        const root = this.get_root_handle();
+        const parts = path.split("/").filter(part => part.length > 0);
+
+        let current_handle = root;
+        for (const part of parts) {
+            try {
+                current_handle = await current_handle.getDirectoryHandle(part);
+            } catch (err) {
+                try {
+                    await current_handle.getFileHandle(part);
+                    return true;
+                } catch (err2) {
+                    if (err2 instanceof DOMException && err2.name === "NotFoundError") {
+                        return false;
+                    }
+                    throw err2;
+                }
+            }
+        }
+
+        return true;
     }
 
     async delete_dir_direct(path: string, recursive: boolean) {
@@ -99,30 +130,6 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
 
         return entries;
-    }
-
-    async exists_direct(path: string) {
-        const root = this.get_root_handle();
-        const parts = path.split("/").filter(part => part.length > 0);
-
-        let current_handle = root;
-        for (const part of parts) {
-            try {
-                current_handle = await current_handle.getDirectoryHandle(part);
-            } catch (err) {
-                try {
-                    await current_handle.getFileHandle(part);
-                    return true;
-                } catch (err2) {
-                    if (err2 instanceof DOMException && err2.name === "NotFoundError") {
-                        return false;
-                    }
-                    throw err2;
-                }
-            }
-        }
-
-        return true;
     }
 
     async is_readonly_direct(path: string) {

@@ -55,7 +55,7 @@ export default {
         }
 
         // check if path is a directory
-        const is_dir = fs.dir_exists(abs_path);
+        const is_dir = await fs.dir_exists(abs_path);
 
         // perform deletion
         if (is_dir) {
