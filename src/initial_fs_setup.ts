@@ -1,7 +1,7 @@
 import { AbstractFileSystem } from "./filesystem";
 import { ANSI, NEWLINE } from "./term_ctl";
 
-const setup_motd = (fs: AbstractFileSystem) => {
+const setup_motd = async (fs: AbstractFileSystem) => {
     // create etc directory if it doesn't exist
     const absolute_etc = fs.absolute("/etc");
     if (!fs.dir_exists(absolute_etc)) {
@@ -17,28 +17,28 @@ const setup_motd = (fs: AbstractFileSystem) => {
 └───────────────────────────────────────────┘`.replace(/\n/g, NEWLINE);
 
     const absolute_motd = fs.absolute("/etc/motd.txt");
-    if (!fs.exists(absolute_motd)) {
-        fs.write_file(absolute_motd, motd_content);
+    if (!(await fs.exists(absolute_motd))) {
+        await fs.write_file(absolute_motd, motd_content);
     }
 };
 
-const setup_rc_profile = (fs: AbstractFileSystem) => {
+const setup_rc_profile = async (fs: AbstractFileSystem) => {
     // create .ollie_profile file if it doesn't exist
     const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts (before mounting /usr/bin).${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
     const absolute_profile = fs.absolute("~/.ollie_profile");
-    if (!fs.exists(absolute_profile)) {
-        fs.write_file(absolute_profile, profile_content);
+    if (!(await fs.exists(absolute_profile))) {
+        await fs.write_file(absolute_profile, profile_content);
     }
 
     // create .ollierc file if it doesn't exist
     const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created (after mounting /usr/bin).${NEWLINE}${NEWLINE}`;
     const absolute_rc = fs.absolute("~/.ollierc");
-    if (!fs.exists(absolute_rc)) {
-        fs.write_file(absolute_rc, rc_content);
+    if (!(await fs.exists(absolute_rc))) {
+        await fs.write_file(absolute_rc, rc_content);
     }
 };
 
-const setup_credits = (fs: AbstractFileSystem) => {
+const setup_credits = async (fs: AbstractFileSystem) => {
     // create credits file
     const credits_content = `
 Credits
@@ -72,9 +72,9 @@ The source code is available on GitHub at https://github.com/obfuscatedgenerated
 
     // only overwrite the file if it doesn't exist or the content is different
     const absolute_credits = fs.absolute("~/credits.txt");
-    if (!fs.exists(absolute_credits) || fs.read_file(absolute_credits) !== credits_content) {
-        fs.write_file(absolute_credits, credits_content, true);
-        fs.set_readonly(absolute_credits, true);
+    if (!(await fs.exists(absolute_credits)) || await fs.read_file(absolute_credits) !== credits_content) {
+        await fs.write_file(absolute_credits, credits_content, true);
+        await fs.set_readonly(absolute_credits, true);
     }
 };
 
@@ -85,13 +85,13 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
     // check if data dir exists locally
     const data_dir = fs.absolute("/var/lib/data");
     let existing_rev = "";
-    if (!fs.dir_exists(data_dir)) {
-        fs.make_dir(data_dir);
+    if (!(await fs.dir_exists(data_dir))) {
+        await fs.make_dir(data_dir);
     } else {
         // read the existing revision from version.json
         const version_file = fs.join(data_dir, "version.json");
-        if (fs.exists(version_file)) {
-            const version_data = JSON.parse(fs.read_file(version_file) as string);
+        if (await fs.exists(version_file)) {
+            const version_data = JSON.parse(await fs.read_file(version_file) as string);
             existing_rev = version_data.rev;
         }
     }
@@ -108,10 +108,10 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
         }
 
         // back up existing data folder
-        const possible_backup_dir = fs.absolute(`/var/lib/data.old_${existing_rev}`);
+        const possible_backup_dir = fs.absolute(`/var/lib/.data.old_${existing_rev}`);
         if (existing_rev) {
-            fs.move_dir(data_dir, possible_backup_dir);
-            fs.make_dir(data_dir);
+            await fs.move_dir(data_dir, possible_backup_dir);
+            await fs.make_dir(data_dir);
         }
 
         // fetch the index file
@@ -123,8 +123,8 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
         }
 
         // write the index and version file to the data folder
-        fs.write_file(fs.join(data_dir, "index.json"), JSON.stringify(index, null, 2), true);
-        fs.write_file(fs.join(data_dir, "version.json"), JSON.stringify(svc_version, null, 2), true);
+        await fs.write_file(fs.join(data_dir, "index.json"), JSON.stringify(index, null, 2), true);
+        await fs.write_file(fs.join(data_dir, "version.json"), JSON.stringify(svc_version, null, 2), true);
 
         // for each group, fetch the index and then fetch each file listed in its index
         for (const group of index.groups) {
@@ -132,8 +132,8 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
 
             // ensure the group directory exists
             const group_dir = fs.join(data_dir, group);
-            if (!fs.dir_exists(group_dir)) {
-                fs.make_dir(group_dir);
+            if (!(await fs.dir_exists(group_dir))) {
+                await fs.make_dir(group_dir);
             }
 
             // fetch the group index
@@ -145,7 +145,7 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
             }
 
             // write the group index to the group folder
-            fs.write_file(fs.join(group_dir, "index.json"), JSON.stringify(group_index, null, 2), true);
+            await fs.write_file(fs.join(group_dir, "index.json"), JSON.stringify(group_index, null, 2), true);
 
             // for each file in the group index, fetch the file and write it to the data folder
             for (const entry of group_index) {
@@ -154,15 +154,15 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
                 const file_data = await fetch(`https://data.ollieg.codes/${group}/${entry}.json`).then(res => res.text());
                 const file_path = fs.join(group_dir, `${entry}.json`);
 
-                fs.write_file(file_path, file_data, true);
+                await fs.write_file(file_path, file_data, true);
             }
         }
 
         console.log("Data repository synced successfully.");
 
         // delete backup if exists
-        if (fs.dir_exists(possible_backup_dir)) {
-            fs.delete_dir(possible_backup_dir, true);
+        if (await fs.dir_exists(possible_backup_dir)) {
+            await fs.delete_dir(possible_backup_dir, true);
         }
 
         // return new rev
@@ -172,15 +172,15 @@ const setup_data_repo = async (fs: AbstractFileSystem) => {
         console.error(e);
 
         // restore backup if exists
-        const possible_backup_dir = fs.absolute(`/var/lib/data.old_${existing_rev}`);
-        if (fs.dir_exists(possible_backup_dir)) {
+        const possible_backup_dir = fs.absolute(`/var/lib/.data.old_${existing_rev}`);
+        if (await fs.dir_exists(possible_backup_dir)) {
             console.error("Restoring backup...");
-            fs.move_dir(data_dir, fs.absolute("/var/lib/data.discard"));
-            fs.move_dir(possible_backup_dir, data_dir);
-            fs.delete_dir(fs.absolute("/var/lib/data.discard"), true);
+            await fs.move_dir(data_dir, fs.absolute("/var/lib/data.discard"));
+            await fs.move_dir(possible_backup_dir, data_dir);
+            await fs.delete_dir(fs.absolute("/var/lib/data.discard"), true);
         } else {
             // just delete the data dir in progress to prevent partial data
-            fs.delete_dir(data_dir, true);
+            await fs.delete_dir(data_dir, true);
         }
     }
 
@@ -215,7 +215,7 @@ const generate_project_folder = async (fs: AbstractFileSystem, base_dir: string,
     console.log(`Generating project folder for ${project_entry}...`);
 
     const project_dir = fs.join(base_dir, project_entry);
-    fs.make_dir(project_dir);
+    await fs.make_dir(project_dir);
 
     // generate info.txt
     const info_content = `
@@ -226,7 +226,7 @@ ${project_data.primary_language ? `Primary Language: ${project_data.primary_lang
 ${project_data.live_url ? `\nLive URL: ${project_data.live_url}` : ""}${project_data.repo_url ? `\nRepository: ${project_data.repo_url}` : ""}
 `.replace(/\n/g, NEWLINE).trim();
 
-    fs.write_file(fs.join(project_dir, "info.txt"), NEWLINE + info_content + NEWLINE, true);
+    await fs.write_file(fs.join(project_dir, "info.txt"), NEWLINE + info_content + NEWLINE, true);
 
     // download image with ttl if defined
     // not a fatal failure so don't return false on failure
@@ -242,14 +242,14 @@ ${project_data.live_url ? `\nLive URL: ${project_data.live_url}` : ""}${project_
 
             try {
                 // if the file doesn't exist, skip the TTL cache
-                const skip_cache = !fs.exists(absolute_file);
+                const skip_cache = !(await fs.exists(absolute_file));
 
                 // fetch the file if TTL cache is expired or doesn't exist
                 content = await fetch_file_with_ttl(project_data.image, skip_cache);
 
                 // write the file if content is not null
                 if (content) {
-                    fs.write_file(absolute_file, content, true);
+                    await fs.write_file(absolute_file, content, true);
                 }
             } catch (e) {
                 console.error(`Failed to fetch image for project ${project_entry}:`);
@@ -281,8 +281,8 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     if (!data_rev) {
         try {
             const version_file = fs.absolute("/var/lib/data/version.json");
-            if (fs.exists(version_file)) {
-                const version_data = JSON.parse(fs.read_file(version_file) as string);
+            if (await fs.exists(version_file)) {
+                const version_data = JSON.parse(await fs.read_file(version_file) as string);
                 data_rev = version_data.rev;
             } else {
                 throw new Error("Version file does not exist.");
@@ -303,13 +303,13 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     // create projects directory if it doesn't exist
     const absolute_projects = fs.absolute("~/projects");
     let project_rev = "";
-    if (!fs.dir_exists(absolute_projects)) {
-        fs.make_dir(absolute_projects);
+    if (!(await fs.dir_exists(absolute_projects))) {
+        await fs.make_dir(absolute_projects);
     } else {
         // read the existing revision from the hidden .rev file
         const version_file = fs.join(absolute_projects, ".rev");
-        if (fs.exists(version_file)) {
-            project_rev = fs.read_file(version_file) as string;
+        if (await fs.exists(version_file)) {
+            project_rev = await fs.read_file(version_file) as string;
         }
     }
 
@@ -320,10 +320,10 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     }
 
     // back up existing projects folder
-    const possible_backup_dir = fs.absolute(`~/projects.old_${project_rev}`);
+    const possible_backup_dir = fs.absolute(`~/.projects.old_${project_rev}`);
     if (project_rev) {
-        fs.move_dir(absolute_projects, possible_backup_dir);
-        fs.make_dir(absolute_projects);
+        await fs.move_dir(absolute_projects, possible_backup_dir);
+        await fs.make_dir(absolute_projects);
     }
 
     try {
@@ -331,11 +331,11 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
         const data_projects_dir = fs.absolute("/var/lib/data/project");
         const project_index_file = fs.join(data_projects_dir, "index.json");
 
-        if (!fs.exists(project_index_file)) {
+        if (!(await fs.exists(project_index_file))) {
             throw new Error("Project index file does not exist in data repository.");
         }
 
-        const projects = JSON.parse(fs.read_file(project_index_file) as string);
+        const projects = JSON.parse(await fs.read_file(project_index_file) as string);
         if (!Array.isArray(projects)) {
             throw new Error("Project index file is not an array.");
         }
@@ -344,12 +344,12 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
             console.log(`Setting up project: ${project_entry}`);
 
             const project_file = fs.join(data_projects_dir, `${project_entry}.json`);
-            if (!fs.exists(project_file)) {
+            if (!(await fs.exists(project_file))) {
                 console.warn(`Project file for ${project_entry} does not exist; skipping.`);
                 return false;
             }
 
-            const project_data = JSON.parse(fs.read_file(project_file) as string);
+            const project_data = JSON.parse(await fs.read_file(project_file) as string);
 
             const success = await generate_project_folder(fs, absolute_projects, data_projects_dir, project_entry, project_data);
             if (!success) {
@@ -360,7 +360,7 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
 
         // write the new revision to the hidden .rev file
         const version_file = fs.join(absolute_projects, ".rev");
-        fs.write_file(version_file, data_rev, true);
+        await fs.write_file(version_file, data_rev, true);
 
         console.log("Projects set up successfully.");
     } catch (e) {
@@ -368,14 +368,14 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
         console.error(e);
 
         // restore backup if exists
-        if (fs.dir_exists(possible_backup_dir)) {
+        if (await fs.dir_exists(possible_backup_dir)) {
             console.error("Restoring backup...");
-            fs.move_dir(absolute_projects, fs.absolute("~/projects.discard"));
-            fs.move_dir(possible_backup_dir, absolute_projects);
-            fs.delete_dir(fs.absolute("~/projects.discard"), true);
+            await fs.move_dir(absolute_projects, fs.absolute("~/projects.discard"));
+            await fs.move_dir(possible_backup_dir, absolute_projects);
+            await fs.delete_dir(fs.absolute("~/projects.discard"), true);
         } else {
             // just delete the projects dir in progress to prevent partial data
-            fs.delete_dir(absolute_projects, true);
+            await fs.delete_dir(absolute_projects, true);
         }
 
         return;
@@ -383,9 +383,9 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
 };
 
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
-    setup_motd(fs);
-    setup_rc_profile(fs);
-    setup_credits(fs);
+    await setup_motd(fs);
+    await setup_rc_profile(fs);
+    await setup_credits(fs);
 
 
     const latest_rev = await setup_data_repo(fs);

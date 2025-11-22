@@ -16,6 +16,7 @@ export const NON_PRINTABLE_REGEX = /[\0-\x1F\x7F-\x9F\xAD\u0378\u0379\u037F-\u03
 const VAR_ASSIGNMENT_REGEX = /^([a-zA-Z0-9_]+)=(.+)$/;
 export const ANSI_ESCAPE_REGEX = /(\\u001b|\\x1b)(8|7|H|>|\[(\?\d+(h|l)|[0-2]?(K|J)|\d*(A|B|C|D\D|E|F|G|g|i|m|n|S|s|T|u)|1000D\d+|\d*;\d*(f|H|r|m)|\d+;\d+;\d+m))/g;
 
+// eslint-disable-next-line no-control-regex, no-misleading-character-class
 export const ANSI_UNESCAPED_REGEX = /(\u001b|\x1b)\[(\d+)?(;\d+)*m/g;
 
 
@@ -335,7 +336,7 @@ export class WrappedTerminal extends Terminal {
 
             const arg = sub[i];
 
-            if (arg.startsWith('"') && arg.endsWith('"')) {
+            if (arg.startsWith("\"") && arg.endsWith("\"")) {
                 sub[i] = arg.slice(1, -1);
             }
 
@@ -363,7 +364,7 @@ export class WrappedTerminal extends Terminal {
 
                 // remove single or double quotes from the value
                 // TODO: make this more unixy when we add semicolons
-                if (var_value.startsWith("'") || var_value.startsWith('"')) {
+                if (var_value.startsWith("'") || var_value.startsWith("\"")) {
                     var_value = var_value.slice(1, -1);
                 }
 
@@ -874,9 +875,9 @@ export class WrappedTerminal extends Terminal {
     async run_script(path) {
         const fs = this._fs;
 
-        if (fs.exists(path)) {
+        if (await fs.exists(path)) {
             // iter through the lines of the file and execute them
-            const content = fs.read_file(path) as string;
+            const content = await fs.read_file(path) as string;
             for (const line of content.split(NEWLINE)) {
                 // TODO: catch errors
                 await this.execute(line);
@@ -890,7 +891,7 @@ export class WrappedTerminal extends Terminal {
         // mount all programs in any subdirectory of /usr/bin
         // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
         const usr_bin = fs.absolute("/usr/bin");
-        if (fs.exists(usr_bin)) {
+        if (await fs.exists(usr_bin)) {
             await recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
         }
     }

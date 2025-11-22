@@ -153,19 +153,19 @@ export const mount_and_register_with_output = async (filename: string, content: 
 
 // recurses through a directory and mounts and registers all programs in it as well as its subdirectories
 export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry, term: WrappedTerminal) => {
-    const entries = fs.list_dir(dir_path);
+    const entries = await fs.list_dir(dir_path);
 
     for (const entry of entries) {
         const entry_path = fs.join(dir_path, entry);
 
-        if (fs.dir_exists(entry_path)) {
+        if (await fs.dir_exists(entry_path)) {
             await recurse_mount_and_register_with_output(fs, entry_path, prog_registry, term);
         } else {
             if (!entry.endsWith(".js")) {
                 continue;
             }
 
-            const content = fs.read_file(entry_path) as string;
+            const content = await fs.read_file(entry_path) as string;
             await mount_and_register_with_output(entry, content, prog_registry, term);
         }
     }

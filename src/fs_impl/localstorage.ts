@@ -9,12 +9,12 @@ export class LocalStorageFS extends AbstractFileSystem {
         return "localstorage";
     }
 
-    erase_all(): void {
+    async erase_all() {
         localStorage.removeItem("fs");
         localStorage.removeItem("fs_readonly_paths");
     }
 
-    make_dir(path: string): void {
+    async make_dir(path: string) {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
 
@@ -37,7 +37,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    delete_dir_direct(path: string, recursive: boolean): void {
+    async delete_dir_direct(path: string, recursive: boolean) {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
 
@@ -49,7 +49,7 @@ export class LocalStorageFS extends AbstractFileSystem {
             const part = parts[part_idx];
             const absolute_path = parts.slice(0, parts.indexOf(part) + 1).join("/");
 
-            if (!recursive && this.list_dir(absolute_path).length > 0) {
+            if (!recursive && (await this.list_dir(absolute_path)).length > 0) {
                 throw new NonRecursiveDirectoryError(part);
             }
 
@@ -72,7 +72,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): void {
+    async move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean) {
         const state = JSON.parse(localStorage.getItem("fs"));
 
         // using unix style rules, i.e
@@ -163,7 +163,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    list_dir(path: string, dirs_first = false): string[] {
+    async list_dir(path: string, dirs_first = false) {
         this._call_callbacks(FSEventType.LISTING_DIR, path);
 
         const state = JSON.parse(localStorage.getItem("fs"));
@@ -210,7 +210,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
 
-    read_file_direct(path: string, as_uint = false): string | Uint8Array {
+    async read_file_direct(path: string, as_uint = false) {
         const state = JSON.parse(localStorage.getItem("fs"));
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -251,7 +251,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         throw new PathNotFoundError(path);
     }
 
-    write_file_direct(path: string, data: string | ArrayBuffer | Uint8Array): void {
+    async write_file_direct(path: string, data: string | ArrayBuffer | Uint8Array) {
         let uint: Uint8Array;
 
         // convert string to uint8array
@@ -293,7 +293,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    delete_file_direct(path: string): void {
+    async delete_file_direct(path: string) {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_dir = state;
 
@@ -325,7 +325,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
     }
 
-    move_file_direct(src: string, dest: string): void {
+    async move_file_direct(src: string, dest: string) {
         const state = JSON.parse(localStorage.getItem("fs"));
 
         // split paths into parts, if root, use single empty string to avoid doubling
@@ -377,7 +377,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         }
     }
 
-    set_readonly_direct(path: string, readonly: boolean): void {
+    async set_readonly_direct(path: string, readonly: boolean) {
         const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
 
         if (readonly && !state.includes(path)) {
@@ -389,12 +389,12 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs_readonly_paths", JSON.stringify(state));
     }
 
-    is_readonly_direct(path: string): boolean {
+    async is_readonly_direct(path: string) {
         const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
         return state.includes(path);
     }
 
-    exists_direct(path: string): boolean {
+    async exists_direct(path: string) {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_part = state;
 
@@ -419,7 +419,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         return true;
     }
 
-    dir_exists(path: string): boolean {
+    async dir_exists(path: string) {
         const state = JSON.parse(localStorage.getItem("fs"));
         let current_part = state;
 
@@ -481,9 +481,11 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs_migrations", JSON.stringify(migrations));
 
         // initialise root and home directory
-        this.make_dir(this._home);
-
-        this._initialised = true;
+        this.make_dir(this._home).then(() => {
+            this._initialised = true;
+        }).catch((err) => {
+            console.error("Failed to create home directory:", err);
+        });
     }
 }
 

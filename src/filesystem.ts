@@ -55,7 +55,7 @@ export abstract class AbstractFileSystem {
     _cwd = this._home;
 
     abstract get_unique_fs_type_name(): string;
-    abstract erase_all(): void;
+    abstract erase_all(): Promise<void>;
 
     purge_cache(smart = false): void {
         if (smart) {
@@ -119,16 +119,16 @@ export abstract class AbstractFileSystem {
     }
 
 
-    abstract read_file_direct(path: string, as_uint: boolean): string | Uint8Array;
-    abstract write_file_direct(path: string, data: string | Uint8Array): void;
-    abstract delete_file_direct(path: string): void;
+    abstract read_file_direct(path: string, as_uint: boolean): Promise<string | Uint8Array>;
+    abstract write_file_direct(path: string, data: string | Uint8Array): Promise<void>;
+    abstract delete_file_direct(path: string): Promise<void>;
     // does not check if destination exists
-    abstract move_file_direct(src: string, new_path: string): void;
-    abstract set_readonly_direct(path: string, readonly: boolean): void;
-    abstract is_readonly_direct(path: string): boolean;
+    abstract move_file_direct(src: string, new_path: string): Promise<void>;
+    abstract set_readonly_direct(path: string, readonly: boolean): Promise<void>;
+    abstract is_readonly_direct(path: string): Promise<boolean>;
 
 
-    read_file(path: string, as_uint = false): string | Uint8Array {
+    async read_file(path: string, as_uint = false): Promise<string | Uint8Array> {
         // prevent prototype pollution
 
         this._call_callbacks(FSEventType.READING_FILE, path);
@@ -139,16 +139,16 @@ export abstract class AbstractFileSystem {
         }
 
         // if not, read it from disk and cache it
-        const content = this.read_file_direct(path, as_uint);
-        this._cache.set(path, { readonly: this.is_readonly(path), content, as_uint });
+        const content = await this.read_file_direct(path, as_uint);
+        this._cache.set(path, { readonly: await this.is_readonly(path), content, as_uint });
         return content;
     }
 
-    write_file(path: string, data: string | Uint8Array, force = false): void {
+    async write_file(path: string, data: string | Uint8Array, force = false): Promise<void> {
         // check if file is readonly
         let readonly = false;
         if (this.exists(path)) {
-            readonly = this.is_readonly(path);
+            readonly = await this.is_readonly(path);
             
             if (!force && readonly) {
                 throw new ReadOnlyError(path);
@@ -157,29 +157,29 @@ export abstract class AbstractFileSystem {
 
         // write to disk and cache
         this._cache.set(path, { readonly, content: data, as_uint: data instanceof Uint8Array });
-        this.write_file_direct(path, data);
+        await this.write_file_direct(path, data);
         this._call_callbacks(FSEventType.WROTE_FILE, path);
     }
 
-    delete_file(path: string): void {
+    async delete_file(path: string): Promise<void> {
         // delete from cache and disk
         if (this._cache.has(path)) {
             this._cache.delete(path);
         }
-        this.delete_file_direct(path);
+        await this.delete_file_direct(path);
         this._call_callbacks(FSEventType.DELETED_FILE, path);
     }
 
     // does not check if destination exists
-    move_file(path: string, new_path: string): void {
+    async move_file(path: string, new_path: string): Promise<void> {
         // move in cache and disk
         this._cache.set(new_path, this._cache.get(path));
         this._cache.delete(path);
-        this.move_file_direct(path, new_path);
+        await this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
     }
 
-    set_readonly(path: string, readonly: boolean): void {
+    async set_readonly(path: string, readonly: boolean): Promise<void> {
         // check if file exists
         if (!this.exists(path)) {
             throw new PathNotFoundError(path);
@@ -191,14 +191,14 @@ export abstract class AbstractFileSystem {
             entry.readonly = readonly;
             this._cache.set(path, entry);
         } else {
-            this._cache.set(path, {readonly, content: this.read_file(path), as_uint: false});
+            this._cache.set(path, {readonly, content: await this.read_file(path), as_uint: false});
         }
 
-        this.set_readonly_direct(path, readonly);
+        await this.set_readonly_direct(path, readonly);
         this._call_callbacks(FSEventType.SET_READONLY, path);
     }
 
-    is_readonly(path: string): boolean {
+    async is_readonly(path: string): Promise<boolean> {
         // check if file exists
         if (!this.exists(path)) {
             throw new PathNotFoundError(path);
@@ -214,21 +214,21 @@ export abstract class AbstractFileSystem {
     }
 
 
-    abstract list_dir(path: string, dirs_first?: boolean): string[];
+    abstract list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
     // (recursive)
-    abstract make_dir(path: string): void;
-    abstract delete_dir_direct(path: string, recursive: boolean): void;
-    abstract move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): void;
+    abstract make_dir(path: string): Promise<void>;
+    abstract delete_dir_direct(path: string, recursive: boolean): Promise<void>;
+    abstract move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): Promise<void>;
 
-    delete_dir(path: string, recursive = false): void {
-        this.delete_dir_direct(path, recursive);
+    async delete_dir(path: string, recursive = false): Promise<void> {
+        await this.delete_dir_direct(path, recursive);
 
         // smart purge cache
         this.purge_cache(true);
     }
 
-    move_dir(src: string, dest: string, no_overwrite = false, move_inside = false): void {
-        this.move_dir_direct(src, dest, no_overwrite, move_inside);
+    async move_dir(src: string, dest: string, no_overwrite = false, move_inside = false): Promise<void> {
+        await this.move_dir_direct(src, dest, no_overwrite, move_inside);
 
         // smart purge cache
         this.purge_cache(true);
@@ -276,10 +276,10 @@ export abstract class AbstractFileSystem {
     }
 
 
-    abstract exists_direct(path: string): boolean;
-    abstract dir_exists(path: string): boolean;
+    abstract exists_direct(path: string): Promise<boolean>;
+    abstract dir_exists(path: string): Promise<boolean>;
 
-    exists(path: string): boolean {
+    async exists(path: string): Promise<boolean> {
         // check if file is in cache
         if (this._cache.has(path)) {
             return true;
@@ -374,18 +374,29 @@ export abstract class AbstractFileSystem {
         return this.join(effective_cwd, path);
     }
 
-    // TODO: support vargs for path joining multiple parts
-    join(base_dir: string, path: string): string {
+    join(base_dir: string, ...paths: string[]): string {
         // drop trailing /
         if (base_dir.endsWith("/")) {
             base_dir = base_dir.slice(0, base_dir.length - 1);
         }
 
         // join base_dir and path, using slash if path is not empty
-        return base_dir + (path === "" ? "" : "/" + path);
+        for (let path of paths) {
+            if (path.startsWith("/")) {
+                path = path.slice(1);
+            }
+
+            if (path === "") {
+                continue;
+            }
+
+            base_dir += "/" + path;
+        }
+
+        return base_dir;
     }
 
-    constructor() {
+    protected constructor() {
         // check if the cache should be purged from remote changes
         setInterval(() => this._remote_listener(), 100);
     }

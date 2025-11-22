@@ -48,23 +48,27 @@ const fs: AbstractFileSystem = new fs_impl();
 // create a lock file at root
 const lock_path = fs.absolute("/.fs.lock");
 let is_locked = false;
-if (fs.exists_direct(lock_path)) {
-    Swal.fire({
-        title: "Locked",
-        text: "fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)",
-        icon: "error",
 
-        showConfirmButton: true,
-        confirmButtonText: "Close fsedit",
-    }).then(() => {
+fs.exists_direct(lock_path).then(async (exists) => {
+    if (exists) {
+        await Swal.fire({
+            title: "Locked",
+            text: "fsedit is already running on this filesystem. (If this is not the case, delete the file '.fs.lock' in the root directory and try again.)",
+            icon: "error",
+
+            showConfirmButton: true,
+            confirmButtonText: "Close fsedit",
+        });
+
         window.close();
-    });
-}
+        return;
+    }
 
-const lock_str = `locked at ${new Date().toISOString()}`;
-fs.write_file(lock_path, lock_str);
-fs.set_readonly(lock_path, true);
-is_locked = true;
+    const lock_str = `locked at ${new Date().toISOString()}`;
+    await fs.write_file(lock_path, lock_str);
+    await fs.set_readonly(lock_path, true);
+    is_locked = true;
+});
 
 
 // save a reference to the editor and the file tree
@@ -84,18 +88,18 @@ content_area.oninput = () => {
 }
 
 
-let render_directory: (dir: string) => void;
+let render_directory: (dir: string) => Promise<void>;
 
 let current_abs_path: string;
 let current_readonly: boolean;
-const render_file_editor = (abs_path: string, name: string) => {
+const render_file_editor = async (abs_path: string, name: string) => {
     // hide the file tree
     file_tree.style.display = "none";
 
     // show the file editor
     file_editor.style.display = "block";
 
-    current_readonly = fs.is_readonly_direct(abs_path);
+    current_readonly = await fs.is_readonly_direct(abs_path);
 
     // lock the file by setting it to readonly when editing
     if (!current_readonly) {
@@ -103,7 +107,7 @@ const render_file_editor = (abs_path: string, name: string) => {
         fs.remote_remove_from_cache(abs_path);
 
         // set the file to readonly
-        fs.set_readonly_direct(abs_path, true);
+        await fs.set_readonly_direct(abs_path, true);
     }
 
     // set the heading
@@ -117,7 +121,7 @@ const render_file_editor = (abs_path: string, name: string) => {
     document.getElementById("delete-button").style.display = current_readonly ? "none" : "block";
 
     // get the file contents
-    let content = fs.read_file_direct(abs_path, false) as string;
+    let content = await fs.read_file_direct(abs_path, false) as string;
 
     // replace NEWLINE with local newline
     content = content.replace(new RegExp(NEWLINE, "g"), "\n");
@@ -130,12 +134,12 @@ const render_file_editor = (abs_path: string, name: string) => {
     current_abs_path = abs_path;
 }
 
-const close_file_editor = () => {
+const close_file_editor = async () => {
     // unset from cache
     fs.remote_remove_from_cache(current_abs_path);
 
     // revert the file to original readonly state
-    fs.set_readonly_direct(current_abs_path, current_readonly);
+    await fs.set_readonly_direct(current_abs_path, current_readonly);
 
     // unset current values
     current_abs_path = undefined;
@@ -148,7 +152,7 @@ const close_file_editor = () => {
     file_tree.style.display = "block";
 }
 
-const save_file_in_editor = () => {
+const save_file_in_editor = async () => {
     // get the file contents
     let content = content_area.value;
 
@@ -158,13 +162,13 @@ const save_file_in_editor = () => {
     // save the file
     // TODO: removing from cache not always working??
     fs.remote_remove_from_cache(current_abs_path);
-    fs.write_file_direct(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
+    await fs.write_file_direct(current_abs_path, content); // TODO: works with localstorage but not guaranteed to work with other fs implementations. make specific remote methods for ops
 
     dirty = false;
 }
 
 
-const render_item = (dir: string, name: string) => {
+const render_item = async (dir: string, name: string) => {
     const abs_path = fs.absolute(name);
 
     // if the absolute path is the same as the absolute path of the dir, skip
@@ -178,7 +182,7 @@ const render_item = (dir: string, name: string) => {
 
     icon.classList.add("fa-solid");
 
-    if (fs.dir_exists(abs_path)) {
+    if (await fs.dir_exists(abs_path)) {
         icon.classList.add("fa-folder");
         icon.title = "Directory";
     } else {
@@ -190,7 +194,7 @@ const render_item = (dir: string, name: string) => {
     text.href = "#";
     text.onclick = async () => {
         // check path still exists
-        if (!fs.exists(abs_path)) {
+        if (!(await fs.exists(abs_path))) {
             await Swal.fire({
                 title: "Error",
                 text: "The file or directory you are trying to access no longer exists.",
@@ -201,17 +205,17 @@ const render_item = (dir: string, name: string) => {
             });
 
             // re-render the directory
-            render_directory(dir);
+            await render_directory(dir);
             return;
         }
 
 
-        if (fs.dir_exists(abs_path)) {
+        if (await fs.dir_exists(abs_path)) {
             // if dir, render the dir
-            render_directory(abs_path);
+            await render_directory(abs_path);
         } else {
             // open the file in the editor
-            render_file_editor(abs_path, name);
+            await render_file_editor(abs_path, name);
         }
     };
 
@@ -221,24 +225,24 @@ const render_item = (dir: string, name: string) => {
     file_tree.appendChild(li);
 };
 
-render_directory = (dir: string) => {
+render_directory = async (dir: string) => {
     // set the cwd
     fs.set_cwd(fs.absolute(dir));
 
     // list files in the directory
-    const dir_contents = fs.list_dir(dir, true);
+    const dir_contents = await fs.list_dir(dir, true);
 
     // clear the file tree
     file_tree.innerHTML = "";
 
     // if this isn't root, add a link to go up a directory
     if (dir !== fs.get_root()) {
-        render_item(dir, "..");
+        await render_item(dir, "..");
     }
 
     // render the list, using the correct font awesome icon for each file (dir or file)
     for (const name of dir_contents) {
-        render_item(dir, name);
+        await render_item(dir, name);
     }
 
     // set title
@@ -276,7 +280,7 @@ const bind_buttons = (base: Document | Element) => {
             const save = res.isConfirmed;
 
             if (save) {
-                save_file_in_editor();
+                await save_file_in_editor();
             } else {
                 const res2 = await Swal.fire({
                     title: "Are you sure?",
@@ -290,19 +294,19 @@ const bind_buttons = (base: Document | Element) => {
                 });
 
                 if (res2.isConfirmed) {
-                    close_file_editor();
+                    await close_file_editor();
                 }
             }
         }
 
         // close the editor
-        close_file_editor();
+        await close_file_editor();
     }
 
 
     // bind the save button
-    (base.querySelector("#save-button") as HTMLButtonElement).onclick = () => {
-        save_file_in_editor();
+    (base.querySelector("#save-button") as HTMLButtonElement).onclick = async () => {
+        await save_file_in_editor();
 
         Swal.fire({
             title: "Success",
@@ -327,7 +331,7 @@ const bind_buttons = (base: Document | Element) => {
             denyButtonText: "Download From Editor",
             denyButtonColor: "#3085d6",
             showCloseButton: true,
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isDismissed) {
                 return;
             }
@@ -337,7 +341,7 @@ const bind_buttons = (base: Document | Element) => {
             let content: Uint8Array;
 
             if (download_direct) {
-                content = fs.read_file_direct(current_abs_path, true) as Uint8Array;
+                content = await fs.read_file_direct(current_abs_path, true) as Uint8Array;
             } else {
                 content = new TextEncoder().encode(content_area.value);
             }
