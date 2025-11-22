@@ -136,9 +136,10 @@ async function main() {
 
 
     // create a filesystem
-    // try opfs but use localstorage if not available
+    // try opfs but use localstorage if not available, or already in use
+    // TODO migrate from localstorage to opfs automatically
     let fs: AbstractFileSystem;
-    if (navigator.storage && "getDirectory" in navigator.storage) {
+    if (!localStorage.getItem("fs") && navigator.storage && "getDirectory" in navigator.storage) {
         fs = new OPFSFileSystem();
     } else {
         fs = new LocalStorageFS();
