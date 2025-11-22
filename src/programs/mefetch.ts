@@ -43,43 +43,40 @@ const convert_to_ascii = async (url: string, size: number): Promise<string> => {
 }
 
 
-const my_info = (info: GHInfo | null, version_str: string) => {
+const known_info = (username: string, data: { [key: string]: any }, gh_info: GHInfo | null, version_str: string) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG, PREFABS } = ANSI;
 
     return `
-${STYLE.bold}obfuscatedgenerated
+${STYLE.bold}${username}
 -------------------
 ${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
-${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: Ollie
-${STYLE.bold}Pronouns${STYLE.reset_all + FG.cyan}: he/him
-${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: UK
-${STYLE.bold}Interests${STYLE.reset_all + FG.cyan}: Programming, Games, Photography, 3D Stuff
+${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${data.name || gh_info?.name || "Unknown"}
+${STYLE.bold}Pronouns${STYLE.reset_all + FG.cyan}: ${data.pronouns.subject}/${data.pronouns.object_or_alt}${data.pronouns.possessive ? `/${data.pronouns.possessive}` : ""}
+${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${data.location || gh_info?.location || "Unknown"}
+${STYLE.bold}Interests${STYLE.reset_all + FG.cyan}: ${data.interests.join(", ") || "None listed"}
 
-${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: https://ollieg.codes
-${STYLE.bold}Blog${STYLE.reset_all + FG.cyan}: https://blog.ollieg.codes (or use the ${PREFABS.program_name}rss${STYLE.reset_all + FG.cyan} command)
+${data.websites ? Object.entries(data.websites).map(
+    ([name, url]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${url}`
+).join(NEWLINE) : ""}
 
-${STYLE.bold}GitHub${STYLE.reset_all + FG.cyan}: https://github.com/obfuscatedgenerated
-${STYLE.bold}Mastodon${STYLE.reset_all + FG.cyan}: https://fosstodon.org/@ollieg
-${STYLE.bold}PyPI${STYLE.reset_all + FG.cyan}: https://pypi.org/user/obfuscatedgenerated
-${STYLE.bold}NPM${STYLE.reset_all + FG.cyan}: https://www.npmjs.com/~obfuscatedgenerated
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${info.following || 0}
-
-${STYLE.bold}Current Favourite Language${STYLE.reset_all + FG.cyan}: C
-${STYLE.bold}Favourite Project${STYLE.reset_all + FG.cyan}: This website!
+${data.extra ? Object.entries(data.extra).map(
+    ([name, value]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${value}`
+).join(NEWLINE) : ""}
         `.replace(/\n/g, NEWLINE);
 }
 
-const stranger_info = (username: string, info: GHInfo | null, cols: number, version_str: string) => {
+const stranger_info = (username: string, gh_info: GHInfo | null, cols: number, version_str: string) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG } = ANSI;
 
     // line wrap the bio and make sure newlines ARE NOT CRLF (to retain columns)
-    if (info.bio) {
-        info.bio = info.bio.replace(/\r\n/g, "\n").replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n");
+    if (gh_info.bio) {
+        gh_info.bio = gh_info.bio.replace(/\r\n/g, "\n").replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n");
     }
 
     // TODO: messy, clean up
@@ -89,17 +86,17 @@ ${STYLE.bold}${username}
 ${"-".repeat(username.length)}
 ${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
-${info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${info.name}` : "\x1b[1A"}
-${info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${info.location}` : "\x1b[1A"}
-${info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${info.bio}` : "\x1b[1A"}
+${gh_info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${gh_info.name}` : "\x1b[1A"}
+${gh_info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${gh_info.location}` : "\x1b[1A"}
+${gh_info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${gh_info.bio}` : "\x1b[1A"}
 
-${info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${info.blog}` : "\x1b[1A"}
+${gh_info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${gh_info.blog}` : "\x1b[1A"}
 
 ${STYLE.bold}GitHub${STYLE.reset_all + FG.cyan}: https://github.com/${username}
-${info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${info.twitter}` : "\x1b[1A"}
+${gh_info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${gh_info.twitter}` : "\x1b[1A"}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${info.following || 0}
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
     `.replace(/\n/g, NEWLINE);
 }
 
@@ -137,10 +134,10 @@ export default {
         }
 
         // get info from GitHub
-        const info = await get_github_info(username);
+        const gh_info = await get_github_info(username);
 
         // if info is null, then the user doesn't exist
-        if (info === null) {
+        if (gh_info === null) {
             term.write(`${STYLE.bold}${FG.red}User not found.${STYLE.reset_all}\n`);
             return 1;
         }
@@ -151,8 +148,26 @@ export default {
         // convert image to ascii
         const ascii_pfp = await convert_to_ascii(avatar_url, asc_width);
 
+        // check synced data if username exists in data repo
+        let known_data = null;
+        const fs = term.get_fs();
+        if (fs.exists("/var/lib/data/person/index.json")) {
+            const data_index_str = fs.read_file("/var/lib/data/person/index.json") as string;
+            const data_index = JSON.parse(data_index_str) as string[];
+
+            if (data_index.includes(username)) {
+                const user_data_str = fs.read_file(`/var/lib/data/person/${username}.json`) as string;
+                known_data = JSON.parse(user_data_str);
+            }
+        }
+
         // text is written with \n as newlines for simplicity, replaced with NEWLINE
-        const text = MY_USERNAME === username ? my_info(info, version_str) : stranger_info(username, info, term.cols, version_str);
+        let text: string;
+        if (known_data) {
+            text = known_info(username, known_data, gh_info, version_str);
+        } else {
+            text = stranger_info(username, gh_info, term.cols, version_str);
+        }
 
         // reapply style each line as image will override it
         const txt_line_prefix = FG.cyan;

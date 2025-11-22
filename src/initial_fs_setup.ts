@@ -382,9 +382,6 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     }
 };
 
-
-// TODO: move mefetch to pull from person data
-
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
     setup_motd(fs);
     setup_rc_profile(fs);
