@@ -38,7 +38,7 @@ export default {
         let destination = fs.absolute(args[1]);
 
         // check if source exists
-        if (!fs.exists(source)) {
+        if (!(await fs.exists(source))) {
             term.writeln(`${PREFABS.error}No such file or directory: ${source}${STYLE.reset_all}`);
             return 1;
         }
@@ -54,24 +54,24 @@ export default {
 
         // check if destination exists if -n is passed OR we are moving a FILE (not a directory) into a DIRECTORY ending specifically with /
         // TODO: there must be a way to adjust logic of the fs functions to make this check unnecessary or simpler. oh well.
-        const do_exists_check = no_overwrite || (dest_is_dir && !fs.dir_exists(source) && ended_with_slash);
-        if (do_exists_check && fs.exists(destination)) {
+        const do_exists_check = no_overwrite || (dest_is_dir && !(await fs.dir_exists(source)) && ended_with_slash);
+        if (do_exists_check && await fs.exists(destination)) {
             term.writeln(`${PREFABS.error}File or directory already exists: ${destination}${STYLE.reset_all}`);
             return 1;
         }
 
         // move source to destination
         // TODO: abstractfilesystem should have a file_exists function so we don't have to check if it's a directory first
-        if (fs.dir_exists(source)) {
+        if (await fs.dir_exists(source)) {
             // temporary warning
             term.writeln(`${FG.yellow + STYLE.bold}Warning: Moving directories is not fully supported yet. Some features may not work as expected! The operation will be performed anyway.${STYLE.reset_all}`);
 
             // move inside if ended with slash OR the destination is a directory that already exists
             // TODO: is this correct???? maybe???
-            const move_inside = ended_with_slash || (dest_is_dir && fs.dir_exists(destination));
-            fs.move_dir(source, destination, no_overwrite, move_inside);
-        } else if (fs.exists(source)) {
-            fs.move_file(source, destination);
+            const move_inside = ended_with_slash || (dest_is_dir && await fs.dir_exists(destination));
+            await fs.move_dir(source, destination, no_overwrite, move_inside);
+        } else if (await fs.exists(source)) {
+            await fs.move_file(source, destination);
         } else {
             term.writeln(`${PREFABS.error}Source is neither a file nor a directory: ${source}${STYLE.reset_all}`);
             return 1;

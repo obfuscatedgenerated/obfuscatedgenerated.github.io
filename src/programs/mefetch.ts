@@ -151,12 +151,12 @@ export default {
         // check synced data if username exists in data repo
         let known_data = null;
         const fs = term.get_fs();
-        if (fs.exists("/var/lib/data/person/index.json")) {
-            const data_index_str = fs.read_file("/var/lib/data/person/index.json") as string;
+        if (await fs.exists("/var/lib/data/person/index.json")) {
+            const data_index_str = await fs.read_file("/var/lib/data/person/index.json") as string;
             const data_index = JSON.parse(data_index_str) as string[];
 
             if (data_index.includes(username)) {
-                const user_data_str = fs.read_file(`/var/lib/data/person/${username}.json`) as string;
+                const user_data_str = await fs.read_file(`/var/lib/data/person/${username}.json`) as string;
                 known_data = JSON.parse(user_data_str);
             }
         }

@@ -85,7 +85,7 @@ export default {
         if (!is_web_url) {
             // process the path
             url = fs.absolute(path);
-            if (!fs.exists(url)) {
+            if (!(await fs.exists(url))) {
                 term.writeln(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
                 return 1;
             }
@@ -112,7 +112,7 @@ export default {
 
 
             // convert to blob URL
-            const content = fs.read_file(url, true) as Uint8Array;
+            const content = await fs.read_file(url, true) as Uint8Array;
             url = URL.createObjectURL(new Blob([content]));
 
         } else {

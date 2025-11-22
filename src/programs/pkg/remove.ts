@@ -65,7 +65,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         const pkg_dir = `/usr/bin/${pkg}`;
 
         // check if pkg exists
-        if (!fs.dir_exists(pkg_dir)) {
+        if (!(await fs.dir_exists(pkg_dir))) {
             term.writeln(`${PREFABS.error}Package '${pkg}' not installed.${STYLE.reset_all}`);
             error_count++;
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
@@ -76,7 +76,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
         try {
             // TODO: does this handle deps properly?
-            graph_query.remove_pkg(fs, pkg);
+            await graph_query.remove_pkg(fs, pkg);
         } catch (e) {
             term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
             error_count++;
@@ -86,7 +86,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
         term.writeln(`${FG.cyan}Unmounting programs...${STYLE.reset_all}`);
 
-        const files = fs.list_dir(pkg_dir);
+        const files = await fs.list_dir(pkg_dir);
 
         for (const file of files) {
             if (!file.endsWith(".js")) {
@@ -97,7 +97,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
             let program_name: string;
             try {
-                const content = fs.read_file(file_path) as string;
+                const content = await fs.read_file(file_path) as string;
                 program_name = await determine_program_name_from_js(content);
             } catch (e) {
                 if (e.message.endsWith("is not compatible with Node.js.")) {
@@ -120,7 +120,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
-        fs.delete_dir(pkg_dir, true);
+        await fs.delete_dir(pkg_dir, true);
         fs.purge_cache();
 
         term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);

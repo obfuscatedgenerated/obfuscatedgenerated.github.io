@@ -42,13 +42,13 @@ export default {
         }
 
         // check if path is a directory and exists
-        if (!fs.dir_exists(path)) {
+        if (!(await fs.dir_exists(path))) {
             term.writeln(`${PREFABS.error}No such directory: ${path}${STYLE.reset_all}`);
             return 1;
         }
 
         // list dir
-        let dir = fs.list_dir(path);
+        let dir = await fs.list_dir(path);
 
         // sort alphabetically (usually already sorted by Object.keys but just in case)
         dir.sort();
@@ -72,7 +72,7 @@ export default {
             }
 
             // add to line
-            if (fs.dir_exists(fs.join(path, file))) {
+            if (await fs.dir_exists(fs.join(path, file))) {
                 line += `${PREFABS.dir_name}${file}${STYLE.reset_all} `;
             } else {
                 line += `${PREFABS.file_path}${file}${STYLE.reset_all} `;

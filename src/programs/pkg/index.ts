@@ -259,7 +259,7 @@ export const graph_query = {
     },
 
     // installs a NEW package. if this is not a top level package, you must specify an initial dependent. you cannot modify an existing package unless you use the defined functions.
-    install_new_pkg: (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: PkgAtVersion) => {
+    install_new_pkg: async (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: PkgAtVersion) => {
         // TODO: resolve what to do if the package is already installed rather than exploding, makes using it a lot simpler
 
         if (graph[pkg]) {
@@ -285,11 +285,11 @@ export const graph_query = {
         };
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // makes a package a top level package, no checks are performed as top level packages may have dependents
-    promote_pkg_to_top_level: (fs: AbstractFileSystem, pkg: string) => {
+    promote_pkg_to_top_level: async (fs: AbstractFileSystem, pkg: string) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -297,11 +297,11 @@ export const graph_query = {
         graph[pkg].top_level = true;
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // makes a package not a top level package, but only if it has no dependents. use add_pkg_dependent FIRST before demoting if it has dependents now.
-    demote_pkg_from_top_level: (fs: AbstractFileSystem, pkg: string) => {
+    demote_pkg_from_top_level: async (fs: AbstractFileSystem, pkg: string) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -313,11 +313,11 @@ export const graph_query = {
         graph[pkg].top_level = false;
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // adds a dependent to a package, provided the dependent is already installed. also adds the dependency to the dependent package.
-    add_pkg_dependent: (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
+    add_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -334,11 +334,11 @@ export const graph_query = {
         graph[dependent_name].deps.add(pkg_at_version);
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // removes a dependent from a package, as well as clearing the dependency from the dependent package
-    remove_pkg_dependent: (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
+    remove_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -364,13 +364,13 @@ export const graph_query = {
         graph[dependent_name].deps.delete(pkg_at_version);
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
 
         // uninstall if it has no dependents now? probably not, we can have a separate command for that
     },
 
     // removes a package from the graph, provided it has no dependents. you can skip this check, but this will leave dangling dependencies.
-    remove_pkg: (fs: AbstractFileSystem, pkg: string, skip_dep_check = false) => {
+    remove_pkg: async (fs: AbstractFileSystem, pkg: string, skip_dep_check = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -399,7 +399,7 @@ export const graph_query = {
         delete graph[pkg];
 
         // write to file
-        fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
+        await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // lists all packages that are not installed as top level and have no dependents
@@ -469,7 +469,7 @@ export default {
                     // load graph
                     let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
                     try {
-                        local_graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+                        local_graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
                     } catch (e) {
                         return [];
                     }
@@ -501,18 +501,18 @@ export default {
         }
 
         // create /var/lib/pkg if it doesn't exist so subcommands don't have to check
-        if (!fs.exists(GRAPH_DIR)) {
-            fs.make_dir(GRAPH_DIR);
+        if (!(await fs.exists(GRAPH_DIR))) {
+            await fs.make_dir(GRAPH_DIR);
         }
 
         // create /var/lib/pkg/graph.json if it doesn't exist
-        if (!fs.exists(GRAPH_PATH)) {
-            fs.write_file(GRAPH_PATH, "{}");
+        if (!(await fs.exists(GRAPH_PATH))) {
+            await fs.write_file(GRAPH_PATH, "{}");
         }
 
         // load graph
         try {
-            graph = JSON.parse(fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+            graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
         } catch (e) {
             term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
             return 2;

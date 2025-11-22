@@ -25,18 +25,18 @@ export default {
             const abs_path = fs.absolute(filepath);
 
             // check if the file exists and is a file
-            if (fs.dir_exists(abs_path)) {
+            if (await fs.dir_exists(abs_path)) {
                 term.writeln(`${PREFABS.error}Cannot read a directory: ${abs_path}${STYLE.reset_all}`);
                 return 1;
             }
 
-            if (!fs.exists(abs_path)) {
+            if (!(await fs.exists(abs_path))) {
                 term.writeln(`${PREFABS.error}File not found: ${abs_path}${STYLE.reset_all}`);
                 return 1;
             }
 
             // get file
-            const content = fs.read_file(abs_path);
+            const content = await fs.read_file(abs_path);
 
             // print file content to terminal
             term.writeln(content);

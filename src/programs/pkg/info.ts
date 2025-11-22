@@ -107,7 +107,7 @@ export const info_subcommand = async (data: ProgramMainData) => {
             return 3;
         }
 
-        const pkg_json = fs.read_file(pkg_json_path) as string;
+        const pkg_json = await fs.read_file(pkg_json_path) as string;
         const pkg_data = JSON.parse(pkg_json);
 
         print_info(term, pkg_name, pkg_version, pkg_data, true);

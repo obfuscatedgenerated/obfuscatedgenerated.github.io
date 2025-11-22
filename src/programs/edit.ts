@@ -83,9 +83,9 @@ export default {
 
         // if the file exists, load it in. otherwise, keep the content empty
         let readonly = false;
-        if (fs.exists(path)) {
-            content = fs.read_file(path) as string;
-            readonly = fs.is_readonly(path);
+        if (await fs.exists(path)) {
+            content = await fs.read_file(path) as string;
+            readonly = await fs.is_readonly(path);
 
             // lock the file by making it read-only
             // TODO: the user can lock the file permanently if edit crashes, they close the tab, reload, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
@@ -112,8 +112,8 @@ export default {
             switch (key.domEvent.code) {
                 case "Escape":
                     // revert the file to its original read-only status
-                    if (fs.exists(path)) {
-                        fs.set_readonly(path, readonly);
+                    if (await fs.exists(path)) {
+                        await fs.set_readonly(path, readonly);
                     }
 
                     exit_code = 0;
@@ -124,11 +124,11 @@ export default {
                         break;
                     }
 
-                    fs.write_file(path, split_content.join(NEWLINE));
+                    await fs.write_file(path, split_content.join(NEWLINE));
                     saved = true;
 
                     // revert the file to its original read-only status
-                    fs.set_readonly(path, readonly);
+                    await fs.set_readonly(path, readonly);
 
                     exit_code = 0;
                     break;

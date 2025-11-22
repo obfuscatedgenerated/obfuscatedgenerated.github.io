@@ -150,24 +150,24 @@ export default {
         // check if the file already exists
         const abs_path = fs.absolute(file_path);
 
-        if (fs.exists(abs_path) && !overwrite) {
+        if (await fs.exists(abs_path) && !overwrite) {
             term.writeln(`${PREFABS.error}File already exists.${STYLE.reset_all}`);
             return 1;
         }
 
         // if overwriting, run initial check of readonly status
         if (overwrite) {
-            if (fs.is_readonly(abs_path)) {
+            if (await fs.is_readonly(abs_path)) {
                 term.writeln(`${PREFABS.error}File is readonly.${STYLE.reset_all}`);
                 return 1;
             }
         }
 
         // lock the file, creating it if it does not exist
-        if (!fs.exists(abs_path)) {
-            fs.write_file(abs_path, "");
+        if (!(await fs.exists(abs_path))) {
+            await fs.write_file(abs_path, "");
         }
-        fs.set_readonly(abs_path, true);
+        await fs.set_readonly(abs_path, true);
 
         // fetch the file
         let response: Response;
@@ -188,11 +188,11 @@ export default {
             console.error(e);
 
             // reset readonly state
-            fs.set_readonly(abs_path, false);
+            await fs.set_readonly(abs_path, false);
 
             //  if this wasn't an overwrite, delete the file that was created
             if (!overwrite) {
-                fs.delete_file(abs_path);
+                await fs.delete_file(abs_path);
             }
 
             return 1;
@@ -209,11 +209,11 @@ export default {
             }
 
             // reset readonly state
-            fs.set_readonly(abs_path, false);
+            await fs.set_readonly(abs_path, false);
 
             //  if this wasn't an overwrite, delete the file that was created
             if (!overwrite) {
-                fs.delete_file(abs_path);
+                await fs.delete_file(abs_path);
             }
 
             return 1;
@@ -223,16 +223,16 @@ export default {
             // write the file as binary
             const buffer = await response.arrayBuffer();
 
-            fs.write_file(abs_path, new Uint8Array(buffer), true);
+            await fs.write_file(abs_path, new Uint8Array(buffer), true);
         } else {
             // write the file as text
             const text = await response.text();
 
-            fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE), true);
+            await fs.write_file(abs_path, text.replace(/\r?\n/g, NEWLINE), true);
         }
 
         // reset readonly state (must've be writable or else this wouldn't be reached)
-        fs.set_readonly(abs_path, false);
+        await fs.set_readonly(abs_path, false);
 
         term.writeln(`${FG.green}File downloaded successfully.${STYLE.reset_all}`);
 

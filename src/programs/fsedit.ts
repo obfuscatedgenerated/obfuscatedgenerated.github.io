@@ -34,7 +34,7 @@ export default {
         }
 
         // check if directory exists
-        if (!fs.dir_exists(dir)) {
+        if (!(await fs.dir_exists(dir))) {
             term.writeln(`${PREFABS.error}Directory '${args[0]}' does not exist.${STYLE.reset_all}`);
             return 1;
         }

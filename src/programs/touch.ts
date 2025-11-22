@@ -39,20 +39,20 @@ export default {
         const file = args[0];
         const absolute_file = fs.absolute(file);
 
-        if (fs.exists(absolute_file)) {
+        if (await fs.exists(absolute_file)) {
             return 0;
         }
 
         // check if the directory exists
         // TODO: should abstractfilesystem have basename and dirname functions? check other programs for similar code!
         const dir = absolute_file.split("/").slice(0, -1).join("/");
-        if (!fs.dir_exists(dir)) {
+        if (!(await fs.dir_exists(dir))) {
             term.writeln(`${PREFABS.error}No such directory: ${dir}${STYLE.reset_all}`);
             return 1;
         }
 
         // create the file
-        fs.write_file(absolute_file, "");
+        await fs.write_file(absolute_file, "");
 
         return 0;
     }

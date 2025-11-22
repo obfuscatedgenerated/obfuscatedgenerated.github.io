@@ -195,7 +195,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         // this is guaranteed to be a new install (whether first time or remove was just run)
         // TODO: test if that's true! test it more!
         try {
-            graph_query.install_new_pkg(fs, pkg_name, pkg_version, meta.deps, !depended_by, depended_by);
+            await graph_query.install_new_pkg(fs, pkg_name, pkg_version, meta.deps, !depended_by, depended_by);
         } catch (e) {
             term.writeln(`${PREFABS.error}Failed to add to graph: ${e.message}${STYLE.reset_all}`);
             error_count++;
@@ -208,7 +208,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             if (meta.deps && meta.deps.size > 0) {
                 for (const dep of meta.deps) {
                     const dep_name = dep.split("@")[0];
-                    graph_query.add_pkg_dependent(fs, dep_name, pkg_at_version as PkgAtVersion);
+                    await graph_query.add_pkg_dependent(fs, dep_name, pkg_at_version as PkgAtVersion);
                 }
             }
         } catch (e) {
@@ -216,18 +216,18 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             error_count++;
             term.writeln(`${FG.yellow}Rolling back graph...${STYLE.reset_all}`);
             // TODO: safety check? is it safer to capture the entire graph before starting and then rollback to that? add a capture and rollback method to graph_query?
-            graph_query.remove_pkg(fs, pkg_name);
+            await graph_query.remove_pkg(fs, pkg_name);
             term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
         }
 
         term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
 
-        fs.make_dir(pkg_dir);
+        await fs.make_dir(pkg_dir);
 
         // write each file
         for (const [file, value] of file_map) {
-            fs.write_file(`${pkg_dir}/${file}`, value, true);
+            await fs.write_file(`${pkg_dir}/${file}`, value, true);
         }
 
         // TODO: check if this fails somehow, and if it does, rollback the graph

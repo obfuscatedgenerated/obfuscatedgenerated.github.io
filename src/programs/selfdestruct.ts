@@ -48,7 +48,7 @@ export default {
         term.reset();
 
         term.writeln("Erasing filesystem and other data...");
-        fs.erase_all();
+        await fs.erase_all();
         localStorage.removeItem("fetch_ttl_cache");
 
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);

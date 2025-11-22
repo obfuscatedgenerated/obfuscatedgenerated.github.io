@@ -64,13 +64,13 @@ export default {
             return 1;
         }
 
-        if (!fs.exists(abs_path)) {
+        if (!(await fs.exists(abs_path))) {
             term.writeln(`${PREFABS.error}File not found: ${abs_path}${STYLE.reset_all}`);
             return 1;
         }
 
         // get file
-        const content = fs.read_file(abs_path, true) as Uint8Array;
+        const content = await fs.read_file(abs_path, true) as Uint8Array;
 
         // convert uint8array to hex string
         const hex = Array.from(content).map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"));

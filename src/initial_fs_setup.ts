@@ -4,8 +4,8 @@ import { ANSI, NEWLINE } from "./term_ctl";
 const setup_motd = async (fs: AbstractFileSystem) => {
     // create etc directory if it doesn't exist
     const absolute_etc = fs.absolute("/etc");
-    if (!fs.dir_exists(absolute_etc)) {
-        fs.make_dir(absolute_etc);
+    if (!(await fs.dir_exists(absolute_etc))) {
+        await fs.make_dir(absolute_etc);
     }
 
     // create motd file if it doesn't exist

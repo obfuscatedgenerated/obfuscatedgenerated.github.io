@@ -43,23 +43,23 @@ export default {
         const abs_dir = fs.absolute(dir);
 
         // check if directory already exists
-        if (fs.dir_exists(abs_dir)) {
+        if (await fs.dir_exists(abs_dir)) {
             return 0;
         }
 
         // create directory
         // make_dir is recursive by default, so just check the directories exist already if NOT recursive
         if (recursive) {
-            fs.make_dir(abs_dir);
+            await fs.make_dir(abs_dir);
         } else {
             // check if the directory exists
             const parent = abs_dir.split("/").slice(0, -1).join("/");
-            if (!fs.dir_exists(parent)) {
+            if (!(await fs.dir_exists(parent))) {
                 term.writeln(`${PREFABS.error}No such directory: ${parent}${STYLE.reset_all}`);
                 return 1;
             }
 
-            fs.make_dir(abs_dir);
+            await fs.make_dir(abs_dir);
         }
 
         return 0;

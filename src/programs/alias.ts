@@ -35,7 +35,7 @@ export default {
                 // remove surrounding quotes if present
                 let final_value = value;
                 if ((final_value.startsWith("'") && final_value.endsWith("'")) ||
-                    (final_value.startsWith('"') && final_value.endsWith('"'))) {
+                    (final_value.startsWith("\"") && final_value.endsWith("\""))) {
                     final_value = final_value.slice(1, -1);
                 }
 

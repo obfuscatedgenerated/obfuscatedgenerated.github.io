@@ -54,13 +54,13 @@ export default {
         if (!is_web_url) {
             // process the path
             url = fs.absolute(path);
-            if (!fs.exists(url)) {
+            if (!(await fs.exists(url))) {
                 term.writeln(`${PREFABS.error}No such file or directory: ${path}${STYLE.reset_all}`);
                 return 1;
             }
 
             // convert to blob
-            const content = fs.read_file(url, true) as Uint8Array;
+            const content = await fs.read_file(url, true) as Uint8Array;
             const blob = new Blob([content]);
 
             // attempt createImageBitmap on the file to determine if it's a canvas-compatible image in the browser

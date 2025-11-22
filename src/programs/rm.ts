@@ -49,7 +49,7 @@ export default {
         const abs_path = fs.absolute(path);
 
         // check if path exists
-        if (!fs.exists(abs_path)) {
+        if (!(await fs.exists(abs_path))) {
             term.writeln(`${PREFABS.error}Path does not exist.${STYLE.reset_all}`);
             return 1;
         }
@@ -60,7 +60,7 @@ export default {
         // perform deletion
         if (is_dir) {
             try {
-                fs.delete_dir(abs_path, rimraf);
+                await fs.delete_dir(abs_path, rimraf);
             } catch (e) {
                 if (e instanceof NonRecursiveDirectoryError) {
                     term.writeln(`${PREFABS.error}Directory is not empty. Refusing to delete without -rf flag.${STYLE.reset_all}`);
@@ -76,12 +76,12 @@ export default {
             }
         } else {
             // if not forcing, check if file is readonly
-            if (!force && fs.is_readonly(abs_path)) {
+            if (!force && await fs.is_readonly(abs_path)) {
                 term.writeln(`${PREFABS.error}File is readonly. Refusing to delete without -f flag.${STYLE.reset_all}`);
                 return 1;
             }
 
-            fs.delete_file(abs_path);
+            await fs.delete_file(abs_path);
         }
 
         return 0;
