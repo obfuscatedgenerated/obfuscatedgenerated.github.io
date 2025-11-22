@@ -44,7 +44,7 @@ export default {
         }
 
         const ended_with_slash = destination.endsWith("/");
-        const dest_is_dir = fs.dir_exists(destination);
+        const dest_is_dir = await fs.dir_exists(destination);
 
         // if destination is a directory and ending with a slash, append the basename of source to destination
         if (dest_is_dir && ended_with_slash) {
