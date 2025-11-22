@@ -444,7 +444,7 @@ const main = async () => {
 
     // render the initial directory
     if (params.has("dir")) {
-        if (!fs.dir_exists(params.get("dir"))) {
+        if (!(await fs.dir_exists(params.get("dir")))) {
             Swal.fire({
                 title: "Parameter Error",
                 text: "Directory specified does not exist.",
@@ -460,6 +460,7 @@ const main = async () => {
         // set cwd
         fs.set_cwd(params.get("dir"));
 
+        document.querySelector("#loading").remove();
         render_directory(params.get("dir"));
     } else {
         render_directory(fs.get_root());
