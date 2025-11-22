@@ -347,6 +347,7 @@ const bind_buttons = (base: Document | Element) => {
             }
 
             // create a blob
+            //@ts-expect-error
             const blob = new Blob([content], { type: download_direct ? "application/octet-stream" : "text/plain" });
             const url = URL.createObjectURL(blob);
 

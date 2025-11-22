@@ -9,6 +9,10 @@ export class LocalStorageFS extends AbstractFileSystem {
         return "localstorage";
     }
 
+    async is_ready() {
+        return true;
+    }
+
     async erase_all() {
         localStorage.removeItem("fs");
         localStorage.removeItem("fs_readonly_paths");

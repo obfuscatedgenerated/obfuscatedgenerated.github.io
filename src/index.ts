@@ -11,7 +11,9 @@ import * as programs from "./programs/@ALL";
 
 import { SoundRegistry } from "./sfx_registry";
 
+import type {AbstractFileSystem} from "./filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
+import { OPFSFileSystem } from "./fs_impl/opfs";
 import { initial_fs_setup } from "./initial_fs_setup";
 
 import Swal from "sweetalert2";
@@ -134,7 +136,25 @@ async function main() {
 
 
     // create a filesystem
-    const fs = new LocalStorageFS();
+    // try opfs but use localstorage if not available
+    let fs: AbstractFileSystem;
+    if (navigator.storage && "getDirectory" in navigator.storage) {
+        fs = new OPFSFileSystem();
+    } else {
+        fs = new LocalStorageFS();
+    }
+
+    if (!(await fs.is_ready())) {
+        // poll every 10ms until ready
+        await new Promise<void>((resolve) => {
+            const interval = setInterval(async () => {
+                if (await fs.is_ready()) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 10);
+        });
+    }
 
     // create initial files
     await initial_fs_setup(fs);

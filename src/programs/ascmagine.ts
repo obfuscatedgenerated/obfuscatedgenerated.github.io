@@ -61,6 +61,7 @@ export default {
 
             // convert to blob
             const content = await fs.read_file(url, true) as Uint8Array;
+            //@ts-expect-error
             const blob = new Blob([content]);
 
             // attempt createImageBitmap on the file to determine if it's a canvas-compatible image in the browser
@@ -85,6 +86,7 @@ export default {
             }
 
             // create a blob URL
+            //@ts-expect-error
             url = URL.createObjectURL(new Blob([content]));
 
         } else {

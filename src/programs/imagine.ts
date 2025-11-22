@@ -113,6 +113,7 @@ export default {
 
             // convert to blob URL
             const content = await fs.read_file(url, true) as Uint8Array;
+            //@ts-expect-error
             url = URL.createObjectURL(new Blob([content]));
 
         } else {

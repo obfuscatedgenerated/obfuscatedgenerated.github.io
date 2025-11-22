@@ -57,6 +57,8 @@ export abstract class AbstractFileSystem {
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
 
+    abstract is_ready(): Promise<boolean>;
+
     purge_cache(smart = false): void {
         if (smart) {
             for (const path in this._cache) {
