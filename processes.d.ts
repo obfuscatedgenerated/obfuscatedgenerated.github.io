@@ -17,6 +17,7 @@ export declare class IPCManager {
     create_channel(initiator_pid: number, service_name: string): number | null;
     destroy_channel(channel_id: number): void;
     channel_listen(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean;
+    channel_unlisten(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean;
     channel_send(channel_id: number, from_pid: number, data: unknown): boolean;
 }
 declare enum ProcessAttachment {
