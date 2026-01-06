@@ -191,6 +191,8 @@ export class IPCManager {
     }
 }
 
+// TODO: make async
+
 // TODO: could migrate the stuff where programs grab "scary" stuff like WindowManager and ProcessManager to be services
 
 enum ProcessAttachment {
