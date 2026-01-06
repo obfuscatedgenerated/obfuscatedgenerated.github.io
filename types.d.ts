@@ -17,6 +17,7 @@ export interface Program {
     usage_suffix: string;
     arg_descriptions: arg_descriptions;
     node_opt_out?: boolean;
+    hide_from_help?: boolean;
     main: ProgramMain;
     completion?: CompletionGenerator;
 }
