@@ -56,11 +56,22 @@ export default {
 
         const pids = pm.list_pids();
 
-        term.write(NEWLINE);
-        term.writeln(`${STYLE.bold}PID\tCOMMAND\t\tCREATED AT${STYLE.reset_all}`);
+        // get longest source command length for formatting
+        let longest_command_length = 7 // length of "COMMAND"
         for (const pid of pids) {
             const process = pm.get_process(pid)!;
-            term.writeln(`${pid}\t${process.source_command.command}\t\t${process.created_at.toLocaleString()}`);
+            if (process.source_command.command.length > longest_command_length) {
+                longest_command_length = process.source_command.command.length;
+            }
+        }
+
+        const get_command_space = (subtract = 0) => " ".repeat(longest_command_length - subtract);
+
+        term.write(NEWLINE);
+        term.writeln(`${STYLE.bold}PID\tCOMMAND${get_command_space(7)}\t\tCREATED${STYLE.reset_all}`);
+        for (const pid of pids) {
+            const process = pm.get_process(pid)!;
+            term.writeln(`${pid}\t${process.source_command.command}${get_command_space(process.source_command.command.length)}\t\t${process.created_at.toLocaleString()}`);
         }
 
         return 0;
