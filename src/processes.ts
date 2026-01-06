@@ -15,7 +15,8 @@ interface IPCChannel {
     initiator_to_peer_queue: IPCMessage[];
     peer_to_initiator_queue: IPCMessage[];
 
-    listeners: Set<(msg: IPCMessage) => void>;
+    // pid -> set of listeners
+    listeners: Map<number, Set<(msg: IPCMessage) => void>>;
 }
 
 interface IPCService {
@@ -99,7 +100,7 @@ export class IPCManager {
             initiator_to_peer_queue: [],
             peer_to_initiator_queue: [],
 
-            listeners: new Set(),
+            listeners: new Map(),
         });
 
         // notify service of new connection
@@ -123,7 +124,30 @@ export class IPCManager {
             return false;
         }
 
-        channel.listeners.add(listener);
+        if (!channel.listeners.has(listening_pid)) {
+            channel.listeners.set(listening_pid, new Set());
+        }
+
+        channel.listeners.get(listening_pid)!.add(listener);
+        return true;
+    }
+
+    channel_unlisten(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean {
+        const channel = this._channels.get(channel_id);
+        if (!channel) {
+            return false;
+        }
+
+        if (channel.initiator !== listening_pid && channel.peer !== listening_pid) {
+            return false;
+        }
+
+        const listeners = channel.listeners.get(listening_pid);
+        if (!listeners) {
+            return false;
+        }
+
+        listeners.delete(listener);
         return true;
     }
 
@@ -154,9 +178,13 @@ export class IPCManager {
             return false;
         }
 
-        // notify listeners
-        for (const listener of channel.listeners) {
-            listener(msg);
+        // notify listeners on the receiving end
+        const to_pid = msg.to;
+        const listeners = channel.listeners.get(to_pid);
+        if (listeners) {
+            for (const listener of listeners) {
+                listener(msg);
+            }
         }
 
         return true;
