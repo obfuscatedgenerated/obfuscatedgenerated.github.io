@@ -18,7 +18,7 @@ export interface Program {
     usage_suffix: string,
     arg_descriptions: arg_descriptions,
     node_opt_out?: boolean, // default false, if true it will not be registered if running in node
-    hide_from_help?: boolean, // default false, if true it will be hidden from the help program, but can still be run by the user
+    hide_from_help?: boolean, // default false, if true it will be hidden from the program listing in help, but can still be found by typing help <program>. useful for services
     main: ProgramMain,
     completion?: CompletionGenerator,
 }

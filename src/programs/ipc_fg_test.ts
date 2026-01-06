@@ -5,6 +5,7 @@ export default {
     description: "",
     usage_suffix: "",
     arg_descriptions: {},
+    hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

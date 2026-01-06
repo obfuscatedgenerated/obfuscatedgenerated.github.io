@@ -159,7 +159,7 @@ export default {
         // if an argument remains, get help for it
         const program = registry.getProgram(args[0]);
 
-        if (program === undefined || program.hide_from_help) {
+        if (program === undefined) {
             term.writeln(`${PREFABS.error}Could not resolve help for ${args[0]}.${STYLE.reset_all}`);
             return 1;
         }

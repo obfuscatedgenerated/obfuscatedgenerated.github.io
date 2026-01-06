@@ -5,6 +5,7 @@ export default {
     description: "",
     usage_suffix: "",
     arg_descriptions: {},
+    hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -18,6 +19,8 @@ export default {
                 term.writeln(`Received message on channel ${channel_id} from PID ${msg.from}: ${JSON.stringify(msg.data)}`);
             });
         });
+
+        term.writeln("ipc_bg_test service started and listening for messages.");
 
         return 0;
     }
