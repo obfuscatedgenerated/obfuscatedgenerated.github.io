@@ -79,8 +79,14 @@ export default {
             // get program names
             const programs = registry.listProgramNames(includes_builtin, includes_mounted);
 
+            // remove hidden programs
+            const visible_programs = programs.filter((program_name) => {
+                const program = registry.getProgram(program_name);
+                return program !== undefined && !program.hide_from_help;
+            });
+
             // add usage suffix and styling to each program name
-            const programs_fmt = programs.map((program) => {
+            const programs_fmt = visible_programs.map((program) => {
                 return `${PREFABS.program_name}${program}${STYLE.reset_all} ${registry.getProgram(program).usage_suffix}`;
             });
 
@@ -153,7 +159,7 @@ export default {
         // if an argument remains, get help for it
         const program = registry.getProgram(args[0]);
 
-        if (program === undefined) {
+        if (program === undefined || program.hide_from_help) {
             term.writeln(`${PREFABS.error}Could not resolve help for ${args[0]}.${STYLE.reset_all}`);
             return 1;
         }
