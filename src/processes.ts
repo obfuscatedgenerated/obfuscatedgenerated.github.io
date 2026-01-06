@@ -1,7 +1,7 @@
 import type {LineParseResultCommand} from "./term_ctl";
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 
-interface IPCMessage {
+export interface IPCMessage {
     from: number;
     to: number;
 
