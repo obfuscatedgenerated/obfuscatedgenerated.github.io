@@ -4,7 +4,7 @@ import type { AbstractFileSystem } from "./filesystem";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager } from "./windowing";
-import { ProcessManager } from "./processes";
+import { IPCManager, ProcessManager } from "./processes";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -169,6 +169,7 @@ export declare class WrappedTerminal extends Terminal {
     get_window_manager(): AbstractWindowManager | null;
     has_window_manager(): boolean;
     get_process_manager(): ProcessManager;
+    get_ipc(): IPCManager;
     list_variables(): Map<string, string>;
     get_variable(name: string): string | undefined;
     set_variable(name: string, value: string): void;

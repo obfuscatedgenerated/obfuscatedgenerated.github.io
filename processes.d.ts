@@ -1,5 +1,24 @@
 import type { LineParseResultCommand } from "./term_ctl";
 import type { AbstractWindow, AbstractWindowManager } from "./windowing";
+interface IPCMessage {
+    from: number;
+    to: number;
+    data: unknown;
+}
+export declare class IPCManager {
+    private readonly _process_manager;
+    private readonly _services;
+    private readonly _channels;
+    private _next_channel_id;
+    constructor(process_manager: ProcessManager);
+    service_register(name: string, pid: number, on_connection: (channel_id: number, from_pid: number) => void): void;
+    service_unregister(name: string): void;
+    service_lookup(name: string): number | undefined;
+    create_channel(initiator_pid: number, service_name: string): number | null;
+    destroy_channel(channel_id: number): void;
+    channel_listen(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean;
+    channel_send(channel_id: number, from_pid: number, data: unknown): boolean;
+}
 declare enum ProcessAttachment {
     FOREGROUND = 0,
     BACKGROUND = 1,
@@ -34,8 +53,10 @@ export declare class ProcessManager {
     private readonly _processes;
     private _next_pid;
     private readonly _wm;
+    private readonly _ipc_manager;
     constructor(wm?: AbstractWindowManager | null);
     get window_manager(): AbstractWindowManager | null;
+    get ipc_manager(): IPCManager;
     create_process(source_command: LineParseResultCommand): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
