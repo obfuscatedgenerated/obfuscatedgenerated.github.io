@@ -32,6 +32,9 @@ export { default as unalias } from "./unalias";
 export { default as ps } from "./ps";
 export { default as kill } from "./kill";
 
+// export { default as ipc_bg_test } from "./ipc_bg_test";
+// export { default as ipc_fg_test } from "./ipc_fg_test";
+
 // TODO: copy program
 // TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)
 // TODO: video player from files or youtube using ascii video streaming or some super duper optimised sixel

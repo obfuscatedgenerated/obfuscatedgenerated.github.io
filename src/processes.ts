@@ -1,6 +1,170 @@
 import type {LineParseResultCommand} from "./term_ctl";
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 
+interface IPCMessage {
+    from: number;
+    to: number;
+
+    data: unknown;
+}
+
+interface IPCChannel {
+    initiator: number;
+    peer: number;
+
+    initiator_to_peer_queue: IPCMessage[];
+    peer_to_initiator_queue: IPCMessage[];
+
+    listeners: Set<(msg: IPCMessage) => void>;
+}
+
+interface IPCService {
+    pid: number;
+    on_connection: (channel_id: number, from_pid: number) => void;
+}
+
+export class IPCManager {
+    private readonly _process_manager: ProcessManager;
+
+    // service name -> IPCService
+    private readonly _services: Map<string, IPCService> = new Map();
+
+    // channel id -> IPCChannel
+    private readonly _channels: Map<number, IPCChannel> = new Map();
+    private _next_channel_id = 1;
+
+    constructor(process_manager: ProcessManager) {
+        this._process_manager = process_manager;
+
+        // clean up dead services and channels periodically
+        // TODO: add a global exit listener to process manager to be immediately notified of process exits
+        setInterval(() => {
+            // clean up services
+            for (const [name, service] of this._services) {
+                const process = this._process_manager.get_process(service.pid);
+                if (!process) {
+                    this._services.delete(name);
+                }
+            }
+
+            // clean up channels
+            for (const [channel_id, channel] of this._channels) {
+                const initiator_process = this._process_manager.get_process(channel.initiator);
+                const peer_process = this._process_manager.get_process(channel.peer);
+
+                if (!initiator_process || !peer_process) {
+                    this._channels.delete(channel_id);
+                }
+            }
+        }, 10000);
+    }
+
+    service_register(name: string, pid: number, on_connection: (channel_id: number, from_pid: number) => void): void {
+        this._services.set(name, { pid, on_connection });
+    }
+
+    service_unregister(name: string): void {
+        this._services.delete(name);
+    }
+
+    service_lookup(name: string): number | undefined {
+        const service = this._services.get(name);
+
+        if (!service) {
+            return undefined;
+        }
+
+        // check if process is still running
+        const process = this._process_manager.get_process(service.pid);
+        if (!process) {
+            this._services.delete(name);
+            return undefined;
+        }
+
+        return service.pid;
+    }
+
+    create_channel(initiator_pid: number, service_name: string): number | null {
+        const channel_id = this._next_channel_id++;
+        const peer_pid = this.service_lookup(service_name);
+
+        if (!peer_pid) {
+            return null;
+        }
+
+        this._channels.set(channel_id, {
+            initiator: initiator_pid,
+            peer: peer_pid,
+
+            initiator_to_peer_queue: [],
+            peer_to_initiator_queue: [],
+
+            listeners: new Set(),
+        });
+
+        // notify service of new connection
+        const service = this._services.get(service_name)!;
+        service.on_connection(channel_id, initiator_pid);
+
+        return channel_id;
+    }
+
+    destroy_channel(channel_id: number): void {
+        this._channels.delete(channel_id);
+    }
+
+    channel_listen(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean {
+        const channel = this._channels.get(channel_id);
+        if (!channel) {
+            return false;
+        }
+
+        if (channel.initiator !== listening_pid && channel.peer !== listening_pid) {
+            return false;
+        }
+
+        channel.listeners.add(listener);
+        return true;
+    }
+
+    channel_send(channel_id: number, from_pid: number, data: unknown): boolean {
+        const channel = this._channels.get(channel_id);
+        if (!channel) {
+            return false;
+        }
+
+        let msg: IPCMessage;
+        if (channel.initiator === from_pid) {
+            msg = {
+                from: from_pid,
+                to: channel.peer,
+                data,
+            };
+
+            channel.initiator_to_peer_queue.push(msg);
+        } else if (channel.peer === from_pid) {
+            msg = {
+                from: from_pid,
+                to: channel.initiator,
+                data,
+            };
+
+            channel.peer_to_initiator_queue.push(msg);
+        } else {
+            return false;
+        }
+
+        // notify listeners
+        for (const listener of channel.listeners) {
+            listener(msg);
+        }
+
+        return true;
+    }
+}
+
+// TODO: could migrate the stuff where programs grab "scary" stuff like WindowManager and ProcessManager to be services
+
 enum ProcessAttachment {
     FOREGROUND,
     BACKGROUND,
@@ -126,6 +290,7 @@ export class ProcessManager {
     private _next_pid = 1;
 
     private readonly _wm: AbstractWindowManager | null;
+    private readonly _ipc_manager: IPCManager = new IPCManager(this);
 
     constructor(wm: AbstractWindowManager | null = null) {
         this._wm = wm;
@@ -133,6 +298,10 @@ export class ProcessManager {
 
     get window_manager(): AbstractWindowManager | null {
         return this._wm;
+    }
+
+    get ipc_manager(): IPCManager {
+        return this._ipc_manager;
     }
 
     create_process(source_command: LineParseResultCommand): ProcessContext {

@@ -7,7 +7,7 @@ import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
-import {ProcessManager} from "./processes";
+import {IPCManager, ProcessManager} from "./processes";
 
 
 export const NEWLINE = "\r\n";
@@ -184,6 +184,10 @@ export class WrappedTerminal extends Terminal {
 
     get_process_manager(): ProcessManager {
         return this._process_manager;
+    }
+
+    get_ipc(): IPCManager {
+        return this._process_manager.ipc_manager;
     }
 
     list_variables(): Map<string, string> {
