@@ -7,7 +7,7 @@ import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./
 import { register_builtin_key_handlers, change_prompt as change_prompt, register_builtin_fs_handlers } from "./event_handlers";
 import { SoundRegistry } from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
-import {IPCManager, ProcessManager} from "./processes";
+import {IPCManager, ProcessContext, ProcessManager} from "./processes";
 
 
 export const NEWLINE = "\r\n";
@@ -111,6 +111,11 @@ export interface LineParseResultVarAssignment {
 }
 
 export type LineParseResult = LineParseResultCommand | LineParseResultVarAssignment | null;
+
+export interface SpawnResult {
+    process: ProcessContext;
+    completion: Promise<number>;
+}
 
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
@@ -437,6 +442,48 @@ export class WrappedTerminal extends Terminal {
         };
     }
 
+    spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand): SpawnResult => {
+        // search for the command in the registry
+        const program = this._prog_registry.getProgram(command);
+        if (program === undefined) {
+            throw new Error(`Command not found: ${command}`);
+        }
+
+        // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
+        const parsed_line: LineParseResultCommand = original_line_parse ?? {
+            type: "command",
+            command,
+            args,
+            unsubbed_args: args,
+            raw_parts: [command, ...args],
+            run_in_bg: false
+        };
+
+        // create new process context
+        const process = this._process_manager.create_process(parsed_line);
+
+        // if the command is found, run it
+        const data = {
+            term: this,
+            args,
+            unsubbed_args: parsed_line.unsubbed_args,
+            raw_parts: parsed_line.raw_parts,
+            process
+        }
+
+        // create a promise that resolves when the program completes
+        let result_promise: Promise<number>;
+        if ("main" in program) {
+            result_promise = Promise.resolve(program.main(data));
+        } else {
+            throw new Error("Invalid program type");
+        }
+
+        return {
+            process,
+            completion: result_promise
+        };
+    }
 
     // returns success flag (or error if critical)
     execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
@@ -470,28 +517,13 @@ export class WrappedTerminal extends Terminal {
         }
 
         // otherwise, it's a command. destructure it
-        const { command, args, unsubbed_args, raw_parts } = parsed_line;
+        const { command } = parsed_line;
 
-        // search for the command in the registry
-        const program = this._prog_registry.getProgram(command);
-
-        // if the command is not found, print an error message
-        if (program === undefined) {
+        // check if the command exists
+        if (!this._prog_registry.getProgram(command)) {
             this.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             return false;
         }
-
-        // create new process context
-        const process = this._process_manager.create_process(parsed_line);
-
-        // if the command is found, run it
-        const data = {
-            term: this,
-            args,
-            unsubbed_args,
-            raw_parts,
-            process
-        };
 
         let old_title = "";
         if (edit_doc_title) {
@@ -499,7 +531,23 @@ export class WrappedTerminal extends Terminal {
             document.title = command;
         }
 
-        const on_program_completion = (exit_code?: number) => {
+        // spawn the process
+        let spawn_result: SpawnResult;
+        try {
+            spawn_result = this.spawn(command, parsed_line.args, parsed_line);
+        } catch (e) {
+            if (edit_doc_title) {
+                document.title = old_title;
+            }
+
+            this.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            console.error(e);
+            return false;
+        }
+
+        const { process, completion } = spawn_result;
+
+        const on_execute_completion = (exit_code?: number) => {
             if (exit_code === undefined) {
                 exit_code = -2;
                 console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
@@ -512,10 +560,6 @@ export class WrappedTerminal extends Terminal {
             }
 
             if (process.is_detached) {
-                if (!process.detaches_silently) {
-                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
-                }
-
                 process.add_exit_listener((code) => {
                     if (program_final_completion_callback) {
                         try {
@@ -560,44 +604,48 @@ export class WrappedTerminal extends Terminal {
             }
         }
 
-        if ("main" in program) {
-            try {
-                if (process.is_foreground) {
-                    const exit_code = await program.main(data);
-                    on_program_completion(exit_code);
-
-                    // set the exit code variable
-                    this.set_variable("?", exit_code.toString());
-                } else {
-                    this.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
-
-                    program.main(data).then((exit_code) => {
-                        on_program_completion(exit_code);
-                    }).catch((e) => {
-                        this.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
-                        console.error(e);
-
-                        on_program_completion(-1);
-                    });
+        // now handle awaiting program completion
+        try {
+            if (process.is_detached) {
+                if (!process.detaches_silently) {
+                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
                 }
-            } catch (e) {
-                this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
-                console.error(e);
 
-                on_program_completion(-1);
-                return false;
-            }
-        } else {
-            if (edit_doc_title) {
-                document.title = old_title;
-            }
+                completion.then((exit_code) => {
+                    on_execute_completion(exit_code);
+                }).catch((e) => {
+                    this.writeln(`${PREFABS.error}An unhandled error occurred in detached process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                    console.error(e);
+                    on_execute_completion(-1);
+                });
+            } else if (process.is_foreground) {
+                const exit_code = await completion;
+                on_execute_completion(exit_code);
 
-            throw new Error("Invalid program type");
+                // set the exit code variable
+                this.set_variable("?", exit_code.toString());
+            } else {
+                this.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
+
+                completion.then((exit_code) => {
+                    on_execute_completion(exit_code);
+                }).catch((e) => {
+                    this.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                    console.error(e);
+
+                    on_execute_completion(-1);
+                });
+            }
+        } catch (e) {
+            this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            console.error(e);
+
+            on_execute_completion(-1);
+            return false;
         }
 
         return true;
     }
-
 
     _search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
         for (const pair of this._key_handlers.entries()) {
