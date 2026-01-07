@@ -465,8 +465,11 @@ export const triggers = {
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
             }
+
+            spawn_result.process.kill(exit_code);
         } catch (e) {
             term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
+            spawn_result.process.kill(-1);
         }
 
         return true;
@@ -496,8 +499,11 @@ export const triggers = {
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
             }
+
+            spawn_result.process.kill(exit_code)
         } catch (e) {
             term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
+            spawn_result.process.kill(-1);
         }
 
         return true;
