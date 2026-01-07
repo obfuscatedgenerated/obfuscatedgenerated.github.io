@@ -173,15 +173,29 @@ async function main() {
     term.set_variable("ENV", "web");
 
     // run ignition to set up the terminal, then call loaded() once detached
-    term.execute("ignition").then((success) => {
-        // check if lodestar was successfully loaded
-        if (!success || term.get_variable("?") !== "0") {
-            term.panic("ignition failed to run!");
+    try {
+        const ignition = term.spawn("ignition", []);
+
+        if (ignition.process.pid !== 1) {
+            term.panic("ignition did not start as PID 1!");
+            return;
         }
 
-        loaded(term);
-    });
+        ignition.completion.then((exit_code) => {
+            if (exit_code !== 0) {
+                term.panic("ignition error!", `Exit code: ${exit_code}`);
+                return;
+            }
 
+            loaded(term);
+        }).catch((e) => {
+            boot_screen.remove();
+            term.panic("ignition error!", e.toString());
+        });
+    } catch (e) {
+        term.panic("Failed to start ignition!", e.toString());
+        return;
+    }
 
     // load addons
     const fit = new FitAddon();
