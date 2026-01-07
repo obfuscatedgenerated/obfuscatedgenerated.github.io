@@ -1,6 +1,17 @@
 import type { Program } from "../../types";
 import {recurse_mount_and_register_with_output} from "../../prog_registry";
 import {ANSI, NEWLINE} from "../../term_ctl";
+
+interface IgnitionIPCMessageBase {
+    type: string;
+}
+
+interface IgnitionIPCPowerMessage extends IgnitionIPCMessageBase {
+    type: "power";
+    action: "shutdown" | "reboot";
+    hard?: boolean;
+}
+
 export default {
     name: "ignition",
     description: "System init process",
@@ -17,6 +28,8 @@ export default {
         }
 
         const fs = term.get_fs();
+
+        // TODO: move this stuff as well as term_ctl lifecycle stuff to a new program, jetty (like getty)
 
         // enable screen reader mode if stored in local storage
         if (localStorage.getItem("reader") === "true") {
@@ -37,6 +50,24 @@ export default {
         // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
         const absolute_rc = fs.absolute("~/.ollierc");
         await term.run_script(absolute_rc);
+
+        // open and handle ipc communication
+        const ipc = term.get_ipc();
+
+        ipc.service_register("init", process.pid, async (channel_id) => {
+            ipc.channel_listen(channel_id, process.pid, async (msg) => {
+                const payload = msg.data as IgnitionIPCMessageBase;
+
+                switch (payload.type) {
+                    // TODO: handle ipc messages (move to a function)
+                    default:
+                        ipc.channel_send(channel_id, process.pid, {
+                            type: "error",
+                            message: `Unknown message type: ${payload.type}`
+                        });
+                }
+            });
+        });
 
         process.add_exit_listener(async (exit_code) => {
             // TODO: panic here?
