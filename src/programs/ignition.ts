@@ -10,14 +10,10 @@ export default {
     main: async (data) => {
         const { term, process } = data;
 
-        // check if ignition is already running
+        // check if ignition is already running (only allowed to be PID 1)
         if (process.pid !== 1) {
-            const proc_manager = term.get_process_manager();
-            const pid_1 = proc_manager.get_process(1);
-            if (pid_1 && pid_1.source_command.command === "ignition") {
-                term.writeln("Cannot run ignition.");
-                return 1;
-            }
+            term.writeln("Cannot run ignition.");
+            return 1;
         }
 
         const fs = term.get_fs();
