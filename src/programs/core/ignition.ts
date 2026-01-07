@@ -1,6 +1,7 @@
 import type { Program } from "../../types";
-import {recurse_mount_and_register_with_output} from "../../prog_registry";
 import {ANSI, NEWLINE} from "../../term_ctl";
+
+import {recurse_mount_and_register_with_output} from "../../prog_registry";
 
 interface IgnitionIPCMessageBase {
     type: string;
@@ -26,30 +27,6 @@ export default {
             term.writeln("Cannot run ignition.");
             return 1;
         }
-
-        const fs = term.get_fs();
-
-        // TODO: move this stuff as well as term_ctl lifecycle stuff to a new program, jetty (like getty)
-
-        // enable screen reader mode if stored in local storage
-        if (localStorage.getItem("reader") === "true") {
-            await term.execute("reader -s on");
-        }
-
-        // run .ollie_profile if it exists
-        const absolute_profile = fs.absolute("~/.ollie_profile");
-        await term.run_script(absolute_profile);
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const usr_bin = fs.absolute("/usr/bin");
-        if (await fs.exists(usr_bin)) {
-            await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), this);
-        }
-
-        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
-        const absolute_rc = fs.absolute("~/.ollierc");
-        await term.run_script(absolute_rc);
 
         // open and handle ipc communication
         const ipc = term.get_ipc();
@@ -94,6 +71,28 @@ export default {
 
             term.writeln(ANSI.STYLE.reset_all);
         });
+
+        const fs = term.get_fs();
+
+        // mount all programs in any subdirectory of /usr/bin
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const usr_bin = fs.absolute("/usr/bin");
+        if (await fs.exists(usr_bin)) {
+            await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), term);
+        }
+
+        // execute jetty, respawning it if it exits
+        const run_jetty = async () => {
+            await term.execute("jetty", true, async (exit_code) => {
+                console.warn(`jetty exited with code ${exit_code}, respawning...`);
+
+                // respawn jetty
+                run_jetty();
+            });
+        }
+
+        // await ONLY the first run of jetty
+        await run_jetty();
 
         process.detach(true);
         return 0;

@@ -433,7 +433,7 @@ export class WrappedTerminal extends Terminal {
 
 
     // returns success flag (or error if critical)
-    execute = async (line: string, edit_doc_title = true): Promise<boolean> => {
+    execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
         // TODO: semicolon to run multiple commands regardless of success
         // TODO: double ampersand to run multiple commands only if previous succeeded
         // TODO: double pipe to run multiple commands only if previous failed
@@ -507,6 +507,14 @@ export class WrappedTerminal extends Terminal {
                 }
 
                 process.add_exit_listener((code) => {
+                    if (program_final_completion_callback) {
+                        try {
+                            program_final_completion_callback(code);
+                        } catch (e) {
+                            console.error("Error in program final completion callback for detached process:", e);
+                        }
+                    }
+
                     if (process.detaches_silently) {
                         return;
                     }
@@ -528,6 +536,14 @@ export class WrappedTerminal extends Terminal {
             }
 
             process.kill(exit_code);
+
+            if (program_final_completion_callback) {
+                try {
+                    program_final_completion_callback(exit_code);
+                } catch (e) {
+                    console.error("Error in program final completion callback:", e);
+                }
+            }
 
             if (process.is_background) {
                 this.writeln(`\n${FG.gray}[${process.pid}] + Done \t ${command}${STYLE.reset_all}`);
