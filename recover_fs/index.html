@@ -3,12 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OllieOS FS localStorage Recovery</title>
+    <title>OllieOS FS Recovery</title>
 
     <script>
         const erase = () => {
             if (confirm("Are you sure you want to erase the filesystem? This action cannot be undone.")) {
-                localStorage.clear();
+                localStorage.removeItem("fs_readonly_paths");
+                localStorage.removeItem("fs");
+
+                // check if OPFS is in use and clear it
+                if ("storage" in navigator && "getDirectory" in navigator.storage) {
+                    navigator.storage.getDirectory().then(async (root) => {
+                        // delete root
+                        const entries = root.entries();
+                        for await (const [name, handle] of entries) {
+                            await root.removeEntry(name, { recursive: true });
+                        }
+                    }).catch((err) => {
+                        console.error("Error clearing OPFS:", err);
+                    });
+                }
+
                 alert("Filesystem erased. Heading back to OllieOS.");
                 window.location.href = "/";
             }
