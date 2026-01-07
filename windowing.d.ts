@@ -40,4 +40,5 @@ export declare abstract class AbstractWindowManager {
     abstract get Window(): new (owner_pid: number) => AbstractWindow;
     abstract get_all_windows(): AbstractWindow[];
     abstract get_window_by_id(id: number): AbstractWindow | null;
+    abstract dispose_all(): void;
 }

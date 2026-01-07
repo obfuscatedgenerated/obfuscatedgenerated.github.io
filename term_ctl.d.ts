@@ -102,6 +102,7 @@ export declare class WrappedTerminal extends Terminal {
     _is_handling_key_events: boolean;
     _vars: Map<string, string>;
     _aliases: Map<string, string>;
+    _panicked: boolean;
     get ansi(): {
         FG: {
             reset: string;
@@ -189,7 +190,7 @@ export declare class WrappedTerminal extends Terminal {
     set_prompt_suffix(suffix: string): void;
     next_line(): Promise<void>;
     parse_line: (line: string) => LineParseResult;
-    execute: (line: string, edit_doc_title?: boolean) => Promise<boolean>;
+    execute: (line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void) => Promise<boolean>;
     _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
         handler: KeyEventHandler;
         block: boolean;
@@ -224,7 +225,6 @@ export declare class WrappedTerminal extends Terminal {
     paste(): void;
     copy_or_paste(): void;
     run_script(path: any): Promise<void>;
-    _mount_usr_bin(): Promise<void>;
-    initialise(term_loaded_callback?: (term: WrappedTerminal) => void): Promise<void>;
+    panic(message: string, debug_info?: string): void;
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean, wm?: AbstractWindowManager);
 }

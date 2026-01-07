@@ -13,6 +13,7 @@ export declare class IPCManager {
     private readonly _channels;
     private _next_channel_id;
     constructor(process_manager: ProcessManager);
+    dispose_all(): void;
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
@@ -34,6 +35,7 @@ export declare class ProcessContext {
     private readonly _created_at;
     private readonly _exit_listeners;
     private _attachment;
+    private _detach_silently;
     private readonly _timeouts;
     private readonly _intervals;
     private readonly _windows;
@@ -45,7 +47,9 @@ export declare class ProcessContext {
     get is_background(): boolean;
     get is_foreground(): boolean;
     get attachment(): ProcessAttachment;
-    detach(): void;
+    get detaches_silently(): boolean;
+    detach(silently?: boolean): void;
+    dispose_resources(): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
     create_timeout(callback: () => void, delay: number): number;
@@ -60,6 +64,7 @@ export declare class ProcessManager {
     constructor(wm?: AbstractWindowManager | null);
     get window_manager(): AbstractWindowManager | null;
     get ipc_manager(): IPCManager;
+    dispose_all(): void;
     create_process(source_command: LineParseResultCommand): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
