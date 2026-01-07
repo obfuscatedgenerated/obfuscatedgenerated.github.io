@@ -602,6 +602,17 @@ export default {
             await fs.make_dir(TRIGGER_DIR);
         }
 
+        // write /var/lib/pkg/triggers/create_trigger.json if it doesn't exist
+        const create_trigger_path = fs.join(TRIGGER_DIR, "create_trigger.json");
+        if (!(await fs.exists(create_trigger_path))) {
+            const create_trigger_data: TriggerFile = {
+                install_exec: "trigger_create_trigger",
+                uninstall_exec: "trigger_remove_trigger"
+            };
+
+            await fs.write_file(create_trigger_path, JSON.stringify(create_trigger_data));
+        }
+
         // load graph
         try {
             graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
