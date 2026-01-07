@@ -8,6 +8,8 @@ export interface IPCMessage {
     data: unknown;
 }
 
+export type IPCChannelListener = (msg: IPCMessage) => Promise<void>;
+
 interface IPCChannel {
     initiator: number;
     peer: number;
@@ -16,12 +18,14 @@ interface IPCChannel {
     peer_to_initiator_queue: IPCMessage[];
 
     // pid -> set of listeners
-    listeners: Map<number, Set<(msg: IPCMessage) => void>>;
+    listeners: Map<number, Set<IPCChannelListener>>;
 }
+
+export type IPCServiceOnConnectionCallback = (channel_id: number, from_pid: number) => Promise<void>;
 
 interface IPCService {
     pid: number;
-    on_connection: (channel_id: number, from_pid: number) => void;
+    on_connection: IPCServiceOnConnectionCallback;
 }
 
 export class IPCManager {
@@ -60,9 +64,11 @@ export class IPCManager {
         }, 10000);
     }
 
-    service_register(name: string, pid: number, on_connection: (channel_id: number, from_pid: number) => void): void {
+    service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void {
         this._services.set(name, { pid, on_connection });
     }
+
+    // TODO: disconnect callback? or change the on_connection to on_event with different event types
 
     service_unregister(name: string): void {
         this._services.delete(name);
@@ -103,9 +109,11 @@ export class IPCManager {
             listeners: new Map(),
         });
 
-        // notify service of new connection
+        // notify service of new connection without blocking
         const service = this._services.get(service_name)!;
-        service.on_connection(channel_id, initiator_pid);
+        service.on_connection(channel_id, initiator_pid).catch((err) => {
+            console.error("IPC service on_connection error:", err);
+        });
 
         return channel_id;
     }
@@ -114,7 +122,7 @@ export class IPCManager {
         this._channels.delete(channel_id);
     }
 
-    channel_listen(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean {
+    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
         const channel = this._channels.get(channel_id);
         if (!channel) {
             return false;
@@ -132,7 +140,7 @@ export class IPCManager {
         return true;
     }
 
-    channel_unlisten(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean {
+    channel_unlisten(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
         const channel = this._channels.get(channel_id);
         if (!channel) {
             return false;
@@ -178,20 +186,20 @@ export class IPCManager {
             return false;
         }
 
-        // notify listeners on the receiving end
+        // notify listeners on the receiving end without blocking
         const to_pid = msg.to;
         const listeners = channel.listeners.get(to_pid);
         if (listeners) {
             for (const listener of listeners) {
-                listener(msg);
+                listener(msg).catch((err) => {
+                    console.error("IPC channel listener error:", err);
+                });
             }
         }
 
         return true;
     }
 }
-
-// TODO: make async
 
 // TODO: could migrate the stuff where programs grab "scary" stuff like WindowManager and ProcessManager to be services
 

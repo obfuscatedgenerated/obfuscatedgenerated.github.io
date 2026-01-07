@@ -14,8 +14,8 @@ export default {
         process.detach();
 
         const ipc = term.get_ipc();
-        ipc.service_register("ipc_bg_test", process.pid, (channel_id, from_pid) => {
-            ipc.channel_listen(channel_id, process.pid, (msg) => {
+        ipc.service_register("ipc_bg_test", process.pid, async (channel_id, from_pid) => {
+            ipc.channel_listen(channel_id, process.pid, async (msg) => {
                 term.writeln(`Received message on channel ${channel_id} from PID ${msg.from}: ${JSON.stringify(msg.data)}`);
             });
         });
