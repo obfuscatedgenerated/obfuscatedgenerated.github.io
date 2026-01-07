@@ -1,6 +1,6 @@
 import type { Program } from "../types";
 import {recurse_mount_and_register_with_output} from "../prog_registry";
-import {ANSI} from "../term_ctl";
+import {ANSI, NEWLINE} from "../term_ctl";
 export default {
     name: "ignition",
     description: "System init process",
@@ -38,10 +38,30 @@ export default {
         const absolute_rc = fs.absolute("~/.ollierc");
         await term.run_script(absolute_rc);
 
-        process.add_exit_listener(async () => {
+        process.add_exit_listener(async (exit_code) => {
             // TODO: panic here?
             term.reset();
-            term.writeln(`${ANSI.BG.red + ANSI.FG.white}Critical Error: ignition process was killed. The terminal may not function correctly.${ANSI.STYLE.reset_all}`);
+            term.writeln(`${ANSI.BG.red + ANSI.FG.white}Critical Error: ignition process was killed. The terminal may not function correctly.`);
+
+            term.write(NEWLINE);
+            term.writeln("Debug info:");
+            term.writeln(`ignition exited with code ${exit_code}`);
+            term.writeln(`at time: ${new Date().toISOString()}`);
+
+            term.write(NEWLINE);
+            term.writeln("Processes running at time of ignition exit:");
+
+            const proc = term.get_process_manager();
+            const pids = proc.list_pids();
+            for (const pid of pids) {
+                const p = proc.get_process(pid);
+
+                if (p) {
+                    term.writeln(`- PID ${p.pid}: ${p.source_command.command} (started at ${p.created_at.toISOString()})`);
+                }
+            }
+
+            term.writeln(ANSI.STYLE.reset_all);
         });
 
         process.detach(true);
