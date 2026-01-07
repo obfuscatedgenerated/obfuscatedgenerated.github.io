@@ -5,19 +5,21 @@ export interface IPCMessage {
     to: number;
     data: unknown;
 }
+export type IPCChannelListener = (msg: IPCMessage) => Promise<void>;
+export type IPCServiceOnConnectionCallback = (channel_id: number, from_pid: number) => Promise<void>;
 export declare class IPCManager {
     private readonly _process_manager;
     private readonly _services;
     private readonly _channels;
     private _next_channel_id;
     constructor(process_manager: ProcessManager);
-    service_register(name: string, pid: number, on_connection: (channel_id: number, from_pid: number) => void): void;
+    service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
     create_channel(initiator_pid: number, service_name: string): number | null;
     destroy_channel(channel_id: number): void;
-    channel_listen(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean;
-    channel_unlisten(channel_id: number, listening_pid: number, listener: (msg: IPCMessage) => void): boolean;
+    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
+    channel_unlisten(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, from_pid: number, data: unknown): boolean;
 }
 declare enum ProcessAttachment {
