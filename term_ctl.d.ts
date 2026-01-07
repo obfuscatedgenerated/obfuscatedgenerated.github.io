@@ -4,7 +4,7 @@ import type { AbstractFileSystem } from "./filesystem";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager } from "./windowing";
-import { IPCManager, ProcessManager } from "./processes";
+import { IPCManager, ProcessContext, ProcessManager } from "./processes";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -80,6 +80,10 @@ export interface LineParseResultVarAssignment {
     var_value: string;
 }
 export type LineParseResult = LineParseResultCommand | LineParseResultVarAssignment | null;
+export interface SpawnResult {
+    process: ProcessContext;
+    completion: Promise<number>;
+}
 export declare class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
     _history: string[];
@@ -190,6 +194,7 @@ export declare class WrappedTerminal extends Terminal {
     set_prompt_suffix(suffix: string): void;
     next_line(): Promise<void>;
     parse_line: (line: string) => LineParseResult;
+    spawn: (command: string, args?: string[], original_line_parse?: LineParseResultCommand) => SpawnResult;
     execute: (line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void) => Promise<boolean>;
     _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
         handler: KeyEventHandler;
