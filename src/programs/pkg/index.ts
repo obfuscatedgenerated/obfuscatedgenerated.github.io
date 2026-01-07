@@ -429,7 +429,12 @@ export const triggers = {
         }
 
         const data = await fs.read_file(trigger_path) as string;
-        return JSON.parse(data) as TriggerFile;
+
+        try {
+            return JSON.parse(data) as TriggerFile;
+        } catch (e) {
+            return null;
+        }
     },
 
     trigger_exists: async (fs: AbstractFileSystem, trigger_name: string): Promise<boolean> => {
