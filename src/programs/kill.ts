@@ -53,3 +53,5 @@ export default {
         return 0;
     }
 } as Program;
+
+// TODO: move this to be literal SIGTERM and SIGKILL signals sent to processes

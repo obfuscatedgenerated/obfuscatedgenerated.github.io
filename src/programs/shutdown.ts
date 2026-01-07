@@ -77,3 +77,5 @@ export default {
         await new Promise(() => {});
     }
 } as Program;
+
+// TODO: move this to talk to ignition to perform a soft (or hard) shutdown via IPC
