@@ -592,6 +592,11 @@ export default {
             await fs.write_file(GRAPH_PATH, "{}");
         }
 
+        // create /var/lib/pkg/triggers if it doesn't exist
+        if (!(await fs.exists(TRIGGER_DIR))) {
+            await fs.make_dir(TRIGGER_DIR);
+        }
+
         // load graph
         try {
             graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
