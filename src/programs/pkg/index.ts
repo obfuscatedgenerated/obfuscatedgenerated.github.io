@@ -49,6 +49,7 @@ interface PackageMeta {
     files: string[];
     version: string;
     deps: Set<PkgAtVersion>;
+    triggers: { [trigger_name: string]: unknown };
     build_timestamp: number;
     externals: "global" | undefined;
 }

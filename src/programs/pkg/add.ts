@@ -248,6 +248,12 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
+
+        // check for any triggers
+        // TODO: run the triggers
+        if (meta && meta.triggers) {
+            console.log(Object.keys(meta.triggers));
+        }
     }
 
     term.writeln(`${NEWLINE}${FG.magenta + STYLE.bold}========================${STYLE.reset_all}${NEWLINE}`);

@@ -119,11 +119,27 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             }
         }
 
+        // last chance to read the triggers from meta.json before deleting
+        let triggers = {};
+        if (await fs.exists(fs.join(pkg_dir, "meta.json"))) {
+            try {
+                const meta_raw = await fs.read_file(fs.join(pkg_dir, "meta.json")) as string;
+                const meta = JSON.parse(meta_raw);
+                triggers = meta.triggers || {};
+            } catch (e) {
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not read meta.json for package ${pkg}: ${e.message}${STYLE.reset_all}`);
+            }
+        }
+
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
         await fs.delete_dir(pkg_dir, true);
         fs.purge_cache();
 
         term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
+
+        // check for any removal triggers
+        // TODO: run the triggers
+        console.log(Object.keys(triggers));
     }
 
     term.writeln(`${NEWLINE}${FG.magenta + STYLE.bold}========================${STYLE.reset_all}${NEWLINE}`);
