@@ -1,4 +1,4 @@
-import type {WrappedTerminal} from "../../../term_ctl";
+import type {SpawnResult, WrappedTerminal} from "../../../term_ctl";
 
 const SERVICES_DIR = "/etc/services/";
 
@@ -18,6 +18,7 @@ interface ServiceFile {
     name: string;
     dependencies: string[];
     exec: string;
+    args?: string[];
     oneshot?: boolean;
     restart?: ServiceRestartPolicy;
 }
@@ -26,11 +27,13 @@ interface ServiceFileWithId extends ServiceFile {
     id: string;
 }
 
+const CLEAN_EXIT_CODES = new Set([0, 143]); // 0 = success, 143 = SIGTERM
+
 export class ServiceManager {
     private readonly _term: WrappedTerminal;
 
     private readonly _service_files: Map<string, ServiceFileWithId> = new Map();
-    private readonly _running_services: Map<string, number> = new Map(); // service ID to PID
+    private readonly _running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
 
     constructor(term: WrappedTerminal) {
         this._term = term;
@@ -128,7 +131,59 @@ export class ServiceManager {
             return;
         }
 
-        // TODO: actually start the service process here
-        console.log(`Starting service ${service_id} with exec: ${service.exec}`);
+        let spawn_result: SpawnResult;
+        try {
+            spawn_result = this._term.spawn(service.exec, service.args || []);
+        } catch (e) {
+            console.error(`Failed to start service ${service_id}:`, e);
+            return;
+        }
+
+        this._running_services.set(service_id, spawn_result);
+
+        const { process, completion } = spawn_result;
+
+        // mark process as detached
+        process.detach(true);
+
+        // check for errors
+        completion.catch((e) => {
+            console.error(`Service ${service_id} encountered an error:`, e);
+            this._running_services.delete(service_id);
+            this._handle_service_exit(service_id, -1);
+        });
+
+        // handle normal exit
+        process.add_exit_listener((exit_code) => {
+            this._running_services.delete(service_id);
+            this._handle_service_exit(service_id, exit_code);
+        });
+    }
+
+    private _handle_service_exit(service_id: string, exit_code: number) {
+        console.warn(`Service ${service_id} exited with code ${exit_code}.`);
+
+        const service = this._service_files.get(service_id);
+        if (!service) {
+            return;
+        }
+
+        const restart_policy = service.restart;
+        if (!restart_policy || restart_policy.on === "never") {
+            return;
+        }
+
+        if (restart_policy.on === "always" || (restart_policy.on === "failure" && !CLEAN_EXIT_CODES.has(exit_code))) {
+            console.log(`Restarting service ${service_id} as per restart policy.`);
+
+            let delay_ms = 0;
+            if ("delay_ms" in restart_policy && restart_policy.delay_ms) {
+                delay_ms = restart_policy.delay_ms;
+            }
+
+            setTimeout(() => {
+                this.start_service(service_id);
+            }, delay_ms);
+        }
     }
 }
