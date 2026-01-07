@@ -76,6 +76,7 @@ export default {
         svc_mgr.start_initial_services();
 
         // execute jetty, respawning it if it exits
+        // TODO: move to spawn, not execute for cleaner control
         const run_jetty = async () => {
             await term.execute("jetty", true, async (exit_code) => {
                 console.warn(`jetty exited with code ${exit_code}, respawning...`);
