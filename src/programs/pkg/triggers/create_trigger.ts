@@ -25,7 +25,7 @@ export default {
         const fs = term.get_fs();
 
         const pkg_name = args[0];
-        const trigger_file = args[2];
+        const trigger_file = JSON.parse(args[2]);
 
         // trigger must end with .json
         if (!trigger_file.endsWith(".json")) {
