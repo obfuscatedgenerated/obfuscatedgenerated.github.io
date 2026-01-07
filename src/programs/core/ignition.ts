@@ -1,6 +1,6 @@
-import type { Program } from "../types";
-import {recurse_mount_and_register_with_output} from "../prog_registry";
-import {ANSI, NEWLINE} from "../term_ctl";
+import type { Program } from "../../types";
+import {recurse_mount_and_register_with_output} from "../../prog_registry";
+import {ANSI, NEWLINE} from "../../term_ctl";
 export default {
     name: "ignition",
     description: "System init process",

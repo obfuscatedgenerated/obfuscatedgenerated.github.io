@@ -1,4 +1,4 @@
-export { default as ignition } from "./ignition";
+export { default as ignition } from "./core/ignition";
 
 export { default as help } from "./help";
 export { default as shutdown } from "./shutdown";
