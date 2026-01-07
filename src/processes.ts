@@ -219,6 +219,8 @@ export class ProcessContext {
     private readonly _exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
 
     private _attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
+    private _detach_silently = false;
+
     private readonly _timeouts: Set<number> = new Set();
     private readonly _intervals: Set<number> = new Set();
     private readonly _windows: Set<AbstractWindow> = new Set();
@@ -261,8 +263,13 @@ export class ProcessContext {
         return this._attachment;
     }
 
-    detach(): void {
+    get detaches_silently(): boolean {
+        return this._detach_silently;
+    }
+
+    detach(silently = false): void {
         this._attachment = ProcessAttachment.DETACHED;
+        this._detach_silently = silently;
     }
 
     kill(exit_code = 0): void {

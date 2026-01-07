@@ -172,7 +172,16 @@ async function main() {
     term.set_variable("VERSION", document.body.dataset.version);
     term.set_variable("ENV", "web");
 
-    term.initialise(loaded);
+    // run ignition to set up the terminal, then call loaded() once detached
+    term.execute("ignition").then((success) => {
+        // check if lodestar was successfully loaded
+        if (!success || term.get_variable("?") !== "0") {
+            // TODO: panic here?
+            term.writeln(`${ANSI.BG.red + ANSI.FG.white}Critical Error: Failed to run ignition. The terminal may not function correctly.${ANSI.STYLE.reset_all}`);
+        }
+
+        loaded(term);
+    });
 
 
     // load addons

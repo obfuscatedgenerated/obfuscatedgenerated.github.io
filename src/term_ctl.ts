@@ -1,6 +1,6 @@
 import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
 
-import { ProgramRegistry, recurse_mount_and_register_with_output } from "./prog_registry";
+import { ProgramRegistry } from "./prog_registry";
 import type { AbstractFileSystem } from "./filesystem";
 
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
@@ -502,9 +502,15 @@ export class WrappedTerminal extends Terminal {
             }
 
             if (process.is_detached) {
-                this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
+                if (!process.detaches_silently) {
+                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
+                }
 
                 process.add_exit_listener((code) => {
+                    if (process.detaches_silently) {
+                        return;
+                    }
+
                     const status = code === 0 ? "Done" : `Exit ${code}`;
                     const color = code === 0 ? FG.green : FG.red;
 
@@ -889,39 +895,6 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    async _mount_usr_bin() {
-        const fs = this._fs;
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const usr_bin = fs.absolute("/usr/bin");
-        if (await fs.exists(usr_bin)) {
-            await recurse_mount_and_register_with_output(fs, usr_bin, this._prog_registry, this);
-        }
-    }
-
-    async initialise(term_loaded_callback?: (term: WrappedTerminal) => void) {
-        const fs = this._fs;
-
-        // enable screen reader mode if stored in local storage
-        if (localStorage.getItem("reader") === "true") {
-            await this.execute("reader -s on");
-        }
-
-        // run .ollie_profile if it exists
-        const absolute_profile = fs.absolute("~/.ollie_profile");
-        await this.run_script(absolute_profile);
-
-        await this._mount_usr_bin();
-
-        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
-        const absolute_rc = fs.absolute("~/.ollierc");
-        await this.run_script(absolute_rc);
-
-        term_loaded_callback?.(this);
-    }
-
-    // be sure to call initialise after this
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true, wm?: AbstractWindowManager) {
         super(xterm_opts);
 
@@ -940,8 +913,5 @@ export class WrappedTerminal extends Terminal {
 
         // set prompt to initial cwd
         change_prompt(fs.get_cwd(), fs, this);
-
-        // no longer run here to make overriding xterm behaviour easier (for an exciting secret project)
-        //this.initialise(term_loaded_callback);
     }
 }

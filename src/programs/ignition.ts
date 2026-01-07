@@ -1,0 +1,54 @@
+import type { Program } from "../types";
+import {recurse_mount_and_register_with_output} from "../prog_registry";
+import {ANSI} from "../term_ctl";
+export default {
+    name: "ignition",
+    description: "System init process",
+    usage_suffix: "",
+    arg_descriptions: {},
+    hide_from_help: true,
+    main: async (data) => {
+        const { term, process } = data;
+
+        // check if ignition is already running
+        if (process.pid !== 1) {
+            const proc_manager = term.get_process_manager();
+            const pid_1 = proc_manager.get_process(1);
+            if (pid_1 && pid_1.source_command.command === "ignition") {
+                term.writeln("Cannot run ignition.");
+                return 1;
+            }
+        }
+
+        const fs = term.get_fs();
+
+        // enable screen reader mode if stored in local storage
+        if (localStorage.getItem("reader") === "true") {
+            await term.execute("reader -s on");
+        }
+
+        // run .ollie_profile if it exists
+        const absolute_profile = fs.absolute("~/.ollie_profile");
+        await term.run_script(absolute_profile);
+
+        // mount all programs in any subdirectory of /usr/bin
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const usr_bin = fs.absolute("/usr/bin");
+        if (await fs.exists(usr_bin)) {
+            await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), this);
+        }
+
+        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
+        const absolute_rc = fs.absolute("~/.ollierc");
+        await term.run_script(absolute_rc);
+
+        process.add_exit_listener(async () => {
+            // TODO: panic here?
+            term.reset();
+            term.writeln(`${ANSI.BG.red + ANSI.FG.white}Critical Error: ignition process was killed. The terminal may not function correctly.${ANSI.STYLE.reset_all}`);
+        });
+
+        process.detach(true);
+        return 0;
+    }
+} as Program;
