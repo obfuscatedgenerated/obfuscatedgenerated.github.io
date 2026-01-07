@@ -139,6 +139,8 @@ export class WrappedTerminal extends Terminal {
     _vars: Map<string, string> = new Map();
     _aliases: Map<string, string> = new Map();
 
+    _panicked = false;
+
     // TODO: this exporting is a bit lazy, but it works for now
 
     get ansi() {
@@ -248,6 +250,10 @@ export class WrappedTerminal extends Terminal {
 
 
     async insert_preline(newline = true) {
+        if (this._panicked) {
+            return;
+        }
+
         if (newline) {
             this.write(NEWLINE);
         }
@@ -434,6 +440,10 @@ export class WrappedTerminal extends Terminal {
 
     // returns success flag (or error if critical)
     execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
+        if (this._panicked) {
+            return false;
+        }
+
         // TODO: semicolon to run multiple commands regardless of success
         // TODO: double ampersand to run multiple commands only if previous succeeded
         // TODO: double pipe to run multiple commands only if previous failed
@@ -909,6 +919,49 @@ export class WrappedTerminal extends Terminal {
                 await this.execute(line);
             }
         }
+    }
+
+    panic(message: string, debug_info?: string) {
+        if (this._panicked) {
+            return;
+        }
+
+        this._panicked = true;
+
+        this.reset();
+
+        // stop reading key events
+        this._disposable_onkey.dispose();
+        this.textarea.disabled = true;
+        this.write(ANSI.CURSOR.invisible);
+
+        this.writeln(`${ANSI.BG.red + ANSI.FG.white}Panic: ${message}`);
+        this.writeln(`at time: ${new Date().toISOString()}`);
+
+        this.write(NEWLINE);
+        this.writeln("Debug info:");
+        if (debug_info) {
+            this.writeln(debug_info);
+        } else {
+            this.writeln("No debug info provided.");
+        }
+
+        this.write(NEWLINE);
+        this.writeln("Processes running at time of panic:");
+
+        const proc = this.get_process_manager();
+        const pids = proc.list_pids();
+        for (const pid of pids) {
+            const p = proc.get_process(pid);
+
+            if (p) {
+                this.writeln(`- PID ${p.pid}: ${p.source_command.command} (started at ${p.created_at.toISOString()})`);
+            }
+        }
+
+        proc.dispose_all();
+
+        this.writeln(ANSI.STYLE.reset_all);
     }
 
     constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true, wm?: AbstractWindowManager) {

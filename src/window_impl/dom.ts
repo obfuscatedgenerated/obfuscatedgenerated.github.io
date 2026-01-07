@@ -24,6 +24,14 @@ export class DOMWindowManager extends AbstractWindowManager {
         return this._window_map.get(id) || null;
     }
 
+    dispose_all() {
+        for (const window of this._window_map.values()) {
+            window.dispose();
+        }
+
+        this._window_map.clear();
+    }
+
     constructor() {
         super();
 

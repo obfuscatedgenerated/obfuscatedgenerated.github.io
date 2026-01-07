@@ -76,6 +76,8 @@ export abstract class AbstractWindowManager {
     abstract get_all_windows(): AbstractWindow[];
 
     abstract get_window_by_id(id: number): AbstractWindow | null;
+
+    abstract dispose_all(): void;
 }
 
 // TODO: use separate interfaces so that only the process registry can create windows

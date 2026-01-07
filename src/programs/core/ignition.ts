@@ -47,29 +47,7 @@ export default {
         });
 
         process.add_exit_listener(async (exit_code) => {
-            // TODO: panic here?
-            term.reset();
-            term.writeln(`${ANSI.BG.red + ANSI.FG.white}Critical Error: ignition process was killed. The terminal may not function correctly.`);
-
-            term.write(NEWLINE);
-            term.writeln("Debug info:");
-            term.writeln(`ignition exited with code ${exit_code}`);
-            term.writeln(`at time: ${new Date().toISOString()}`);
-
-            term.write(NEWLINE);
-            term.writeln("Processes running at time of ignition exit:");
-
-            const proc = term.get_process_manager();
-            const pids = proc.list_pids();
-            for (const pid of pids) {
-                const p = proc.get_process(pid);
-
-                if (p) {
-                    term.writeln(`- PID ${p.pid}: ${p.source_command.command} (started at ${p.created_at.toISOString()})`);
-                }
-            }
-
-            term.writeln(ANSI.STYLE.reset_all);
+            term.panic("ignition process exited unexpectedly!", `Exit code: ${exit_code}`);
         });
 
         const fs = term.get_fs();

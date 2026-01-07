@@ -64,6 +64,11 @@ export class IPCManager {
         }, 10000);
     }
 
+    dispose_all(): void {
+        this._services.clear();
+        this._channels.clear();
+    }
+
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void {
         this._services.set(name, { pid, on_connection });
     }
@@ -272,7 +277,7 @@ export class ProcessContext {
         this._detach_silently = silently;
     }
 
-    kill(exit_code = 0): void {
+    dispose_resources(): void {
         this._intervals.forEach((id) => {
             clearInterval(id);
         });
@@ -284,6 +289,10 @@ export class ProcessContext {
         this._windows.forEach((win) => {
             win.dispose();
         });
+    }
+
+    kill(exit_code = 0): void {
+        this.dispose_resources();
 
         this._manager.mark_terminated(this._pid);
 
@@ -347,6 +356,16 @@ export class ProcessManager {
 
     get ipc_manager(): IPCManager {
         return this._ipc_manager;
+    }
+
+    dispose_all(): void {
+        this._ipc_manager.dispose_all();
+
+        for (const process of this._processes.values()) {
+            process.dispose_resources();
+        }
+
+        this._processes.clear();
     }
 
     create_process(source_command: LineParseResultCommand): ProcessContext {
