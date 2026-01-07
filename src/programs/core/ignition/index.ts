@@ -1,6 +1,7 @@
-import type { Program } from "../../types";
+import type { Program } from "../../../types";
 
-import {recurse_mount_and_register_with_output} from "../../prog_registry";
+import {recurse_mount_and_register_with_output} from "../../../prog_registry";
+import {ServiceManager} from "./services";
 
 interface IgnitionIPCMessageBase {
     type: string;
@@ -18,7 +19,7 @@ interface IgnitionIPCServiceMessage extends IgnitionIPCMessageBase {
     service_id: string;
 }
 
-// TODO: split into files for service management, ipc handling etc
+// TODO: split ipc handling etc into files
 
 export default {
     name: "ignition",
@@ -34,6 +35,12 @@ export default {
             term.writeln("Cannot run ignition.");
             return 1;
         }
+
+        // create service manager
+        const svc_mgr = new ServiceManager(term);
+
+        // load service files but don't start them yet
+        await svc_mgr.load_initial_service_files();
 
         // open and handle ipc communication
         const ipc = term.get_ipc();
@@ -57,14 +64,16 @@ export default {
             term.panic("ignition process exited unexpectedly!", `Exit code: ${exit_code}`);
         });
 
-        const fs = term.get_fs();
-
         // mount all programs in any subdirectory of /usr/bin
         // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const fs = term.get_fs();
         const usr_bin = fs.absolute("/usr/bin");
         if (await fs.exists(usr_bin)) {
             await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), term);
         }
+
+        // start initial services
+        svc_mgr.start_initial_services();
 
         // execute jetty, respawning it if it exits
         const run_jetty = async () => {
