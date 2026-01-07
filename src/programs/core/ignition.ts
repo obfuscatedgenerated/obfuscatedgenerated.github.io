@@ -1,5 +1,4 @@
 import type { Program } from "../../types";
-import {ANSI, NEWLINE} from "../../term_ctl";
 
 import {recurse_mount_and_register_with_output} from "../../prog_registry";
 

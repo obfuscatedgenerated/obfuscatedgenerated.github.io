@@ -13,7 +13,7 @@ export default {
 
         const fs = term.get_fs();
 
-        // TODO: move this stuff term_ctl lifecycle stuff here
+        // TODO: move this stuff term_ctl lifecycle stuff here, and some to a shell program
 
         // enable screen reader mode if stored in local storage
         if (localStorage.getItem("reader") === "true") {
