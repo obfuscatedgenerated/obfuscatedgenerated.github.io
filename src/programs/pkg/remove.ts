@@ -1,7 +1,7 @@
 import {determine_program_name_from_js} from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {graph_query} from "./index";
+import {graph_query, triggers} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -119,13 +119,15 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             }
         }
 
-        // last chance to read the triggers from meta.json before deleting
-        let triggers = {};
+        // last chance to read the triggers and version from meta.json before deleting
+        let meta_triggers = {};
+        let meta_version = "unknown";
         if (await fs.exists(fs.join(pkg_dir, "meta.json"))) {
             try {
                 const meta_raw = await fs.read_file(fs.join(pkg_dir, "meta.json")) as string;
                 const meta = JSON.parse(meta_raw);
-                triggers = meta.triggers || {};
+                meta_triggers = meta.triggers || {};
+                meta_version = meta.version || "unknown";
             } catch (e) {
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not read meta.json for package ${pkg}: ${e.message}${STYLE.reset_all}`);
             }
@@ -138,8 +140,22 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
 
         // check for any removal triggers
-        // TODO: run the triggers
-        console.log(Object.keys(triggers));
+        // check for any triggers
+        if (meta_triggers && Object.keys(meta_triggers).length > 0) {
+            term.writeln(`${FG.cyan}Processing uninstall triggers...${STYLE.reset_all}`);
+
+            for (const [trigger_name, trigger_data] of Object.entries(meta_triggers)) {
+                if (!await triggers.trigger_exists(fs, trigger_name)) {
+                    term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
+                    continue;
+                }
+
+                term.writeln(`${FG.cyan}Processing uninstall trigger: ${trigger_name}...${STYLE.reset_all}`);
+                await triggers.process_uninstall_trigger(term, trigger_name, trigger_data, pkg, meta_version);
+            }
+
+            term.writeln(`${FG.cyan}Uninstall trigger processing complete.${STYLE.reset_all}`);
+        }
     }
 
     term.writeln(`${NEWLINE}${FG.magenta + STYLE.bold}========================${STYLE.reset_all}${NEWLINE}`);

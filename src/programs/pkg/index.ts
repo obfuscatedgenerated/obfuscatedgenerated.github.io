@@ -1,7 +1,7 @@
 import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
-import {ANSI} from "../../term_ctl";
+import {ANSI, WrappedTerminal} from "../../term_ctl";
 import type {Program} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
@@ -18,6 +18,8 @@ const GRAPH_DIR = "/var/lib/pkg";
 const GRAPH_PATH = GRAPH_DIR + "/graph.json";
 
 const BIN_DIR = "/usr/bin";
+
+const TRIGGER_DIR = "/var/lib/pkg/triggers";
 
 // TODO: subcommand template / helper
 
@@ -411,6 +413,85 @@ export const graph_query = {
     get_file_path_in_pkg_bin: (fs: AbstractFileSystem, pkg: string, filepath: string) => {
         const pkg_dir = fs.join(BIN_DIR, pkg);
         return fs.join(pkg_dir, filepath);
+    }
+}
+
+interface TriggerFile {
+    install_exec?: string;
+    uninstall_exec?: string;
+}
+
+export const triggers = {
+    load_trigger_file: async (fs: AbstractFileSystem, trigger_name: string): Promise<TriggerFile | null> => {
+        const trigger_path = fs.join(TRIGGER_DIR, trigger_name + ".json");
+        if (!(await fs.exists(trigger_path))) {
+            return null;
+        }
+
+        const data = await fs.read_file(trigger_path) as string;
+        return JSON.parse(data) as TriggerFile;
+    },
+
+    trigger_exists: async (fs: AbstractFileSystem, trigger_name: string): Promise<boolean> => {
+        return (await triggers.load_trigger_file(fs, trigger_name)) !== null;
+    },
+
+    // returns boolean indicating if the trigger was found and processed
+    process_install_trigger: async (term: WrappedTerminal, trigger_name: string, data: unknown, pkg_name: string, pkg_version: string) => {
+        const fs = term.get_fs();
+
+        const trigger = await triggers.load_trigger_file(fs, trigger_name);
+        if (!trigger) {
+            return false;
+        }
+
+        if (!trigger.install_exec) {
+            // nothing to do
+            return true;
+        }
+
+        const data_str = JSON.stringify(data);
+        const spawn_result = term.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str]);
+
+        try {
+            const exit_code = await spawn_result.completion;
+            if (exit_code !== 0) {
+                term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
+            }
+        } catch (e) {
+            term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
+        }
+
+        return true;
+    },
+
+    // returns boolean indicating if the trigger was found and processed
+    process_uninstall_trigger: async (term: WrappedTerminal, trigger_name: string, data: unknown, pkg_name: string, pkg_version: string) => {
+        const fs = term.get_fs();
+
+        const trigger = await triggers.load_trigger_file(fs, trigger_name);
+        if (!trigger) {
+            return false;
+        }
+
+        if (!trigger.uninstall_exec) {
+            // nothing to do
+            return true;
+        }
+
+        const data_str = JSON.stringify(data);
+        const spawn_result = term.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str]);
+
+        try {
+            const exit_code = await spawn_result.completion;
+            if (exit_code !== 0) {
+                term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
+            }
+        } catch (e) {
+            term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
+        }
+
+        return true;
     }
 }
 

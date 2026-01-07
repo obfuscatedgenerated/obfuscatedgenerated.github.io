@@ -1,4 +1,4 @@
-import {graph_query, json_convert_dep_sets_to_arrs, PkgAtVersion, repo_query} from ".";
+import {graph_query, json_convert_dep_sets_to_arrs, PkgAtVersion, repo_query, triggers} from ".";
 import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
@@ -250,9 +250,20 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
 
         // check for any triggers
-        // TODO: run the triggers
-        if (meta && meta.triggers) {
-            console.log(Object.keys(meta.triggers));
+        if (meta && meta.triggers && Object.keys(meta.triggers).length > 0) {
+            term.writeln(`${FG.cyan}Processing install triggers...${STYLE.reset_all}`);
+
+            for (const [trigger_name, trigger_data] of Object.entries(meta.triggers)) {
+                if (!await triggers.trigger_exists(fs, trigger_name)) {
+                    term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
+                    continue;
+                }
+
+                term.writeln(`${FG.cyan}Processing install trigger: ${trigger_name}...${STYLE.reset_all}`);
+                await triggers.process_install_trigger(term, trigger_name, trigger_data, pkg_name, pkg_version);
+            }
+
+            term.writeln(`${FG.cyan}Install trigger processing complete.${STYLE.reset_all}`);
         }
     }
 
