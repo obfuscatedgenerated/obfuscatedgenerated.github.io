@@ -456,6 +456,8 @@ export const triggers = {
         }
 
         const data_str = JSON.stringify(data);
+
+        console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
         const spawn_result = term.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str]);
 
         try {
@@ -485,6 +487,8 @@ export const triggers = {
         }
 
         const data_str = JSON.stringify(data);
+
+        console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
         const spawn_result = term.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str]);
 
         try {
