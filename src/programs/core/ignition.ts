@@ -71,6 +71,7 @@ export default {
         // await ONLY the first run of jetty
         await run_jetty();
 
+        // TODO: when the shell is a distinct program, dont detach but instead block somehow instead
         process.detach(true);
         return 0;
     }
