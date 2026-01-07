@@ -28,6 +28,12 @@ app.get("/fsedit", function (req, res) {
   console.log("Served fsedit to " + ip)
 })
 
+app.get("/recover_fs", function (req, res) {
+  var ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  res.sendFile(__dirname + "/recover_fs/index.html")
+  console.log("Served recover_fs to " + ip)
+})
+
 app.use(function (req, res, next) {
   res.status(404);
 
