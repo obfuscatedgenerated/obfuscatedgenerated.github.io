@@ -15,13 +15,17 @@ interface ServiceRestartPolicyWithRules extends ServiceRestartPolicyBase {
 type ServiceRestartPolicy = ServiceRestartPolicyBase | ServiceRestartPolicyWithRules;
 
 interface ServiceFile {
-    name: string;
-    dependencies: string[];
+    name?: string;
+    dependencies?: string[];
     exec: string;
     args?: string[];
     oneshot?: boolean;
     restart?: ServiceRestartPolicy;
 }
+
+// TODO: support oneshot
+// TODO: do something with name
+// TODO: do something with max_retries
 
 interface ServiceFileWithId extends ServiceFile {
     id: string;
@@ -94,7 +98,7 @@ export class ServiceManager {
             temp_mark.add(service_id);
 
             const service = this._service_files.get(service_id);
-            if (service) {
+            if (service && service.dependencies) {
                 for (const dep of service.dependencies) {
                     visit(dep);
                 }
