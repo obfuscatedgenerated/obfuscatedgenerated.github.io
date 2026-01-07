@@ -96,8 +96,13 @@ export class OPFSFileSystem extends AbstractFileSystem {
         const parts = path.split("/").filter(part => part.length > 0);
 
         try {
-            // TODO: tell the difference between file and directory somehow?
-            await root.removeEntry(parts[parts.length - 1], { recursive });
+            // recurse into directories
+            let current_handle = root;
+            for (let i = 0; i < parts.length - 1; i++) {
+                current_handle = await current_handle.getDirectoryHandle(parts[i]);
+            }
+
+            await current_handle.removeEntry(parts[parts.length - 1], { recursive });
         } catch (err) {
             if (err instanceof DOMException && err.name === "NotFoundError") {
                 throw new PathNotFoundError(path);
