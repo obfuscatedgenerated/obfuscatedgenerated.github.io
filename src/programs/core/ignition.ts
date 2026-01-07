@@ -12,6 +12,14 @@ interface IgnitionIPCPowerMessage extends IgnitionIPCMessageBase {
     hard?: boolean;
 }
 
+interface IgnitionIPCServiceMessage extends IgnitionIPCMessageBase {
+    type: "service";
+    action: "start" | "stop" | "restart" | "status";
+    service_id: string;
+}
+
+// TODO: split into files for service management, ipc handling etc
+
 export default {
     name: "ignition",
     description: "System init process",
