@@ -3,6 +3,7 @@ import type {Program} from "../../types";
 import {helper_completion_options} from "../../tab_completion";
 
 import {service_subcommand} from "./service";
+import {reload_services_subcommand} from "./reload_services";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
@@ -15,6 +16,7 @@ export default {
     arg_descriptions: {
         "Subcommands:": {
             "service": "Manage running services.",
+            "reload_services": "Reload the service definition files.",
         },
         "Arguments:": {
             "-h": "Displays this help message.",
@@ -51,6 +53,8 @@ export default {
         switch (args[0]) {
             case "service":
                 return await service_subcommand(data);
+            case "reload_services":
+                return await reload_services_subcommand(data);
             default:
                 term.writeln(`${PREFABS.error}Invalid subcommand.`);
                 term.writeln(`Try 'spark -h' for more information.${STYLE.reset_all}`);
