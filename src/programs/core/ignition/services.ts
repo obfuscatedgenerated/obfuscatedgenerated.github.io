@@ -33,21 +33,37 @@ interface ServiceFileWithId extends ServiceFile {
 
 const CLEAN_EXIT_CODES = new Set([0, 143]); // 0 = success, 143 = SIGTERM
 
+interface ServiceStatusBase {
+    state: "running" | "stopped" | "failed";
+}
+
+interface ServiceStatusNotRunning extends ServiceStatusBase {
+    state: "stopped" | "failed";
+}
+
+interface ServiceStatusRunning extends ServiceStatusBase {
+    state: "running";
+    pid: number;
+}
+
+// TODO: store stop code for failed services
+// TODO: store start time for running services
+
+export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
+
 export class ServiceManager {
     private readonly _term: WrappedTerminal;
 
     private readonly _service_files: Map<string, ServiceFileWithId> = new Map();
     private readonly _running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
+    private readonly _should_be_running_services: Set<string> = new Set();
+    private readonly _failed_services: Set<string> = new Set();
 
     constructor(term: WrappedTerminal) {
         this._term = term;
     }
 
-    async load_initial_service_files() {
-        if (this._service_files.size > 0) {
-            throw new Error("Initial service files have already been loaded.");
-        }
-
+    async load_service_files() {
         const fs = this._term.get_fs();
 
         if (!await fs.exists(SERVICES_DIR)) {
@@ -74,10 +90,18 @@ export class ServiceManager {
                         ...service_data
                     };
 
+                    // add or update service file
                     this._service_files.set(service_id, service);
                 } catch (e) {
                     console.error(`Failed to parse service file ${file_name}:`, e);
                 }
+            }
+        }
+
+        // remove any services that no longer exist
+        for (const existing_service_id of this._service_files.keys()) {
+            if (!service_files.includes(existing_service_id + ".service.json")) {
+                this._service_files.delete(existing_service_id);
             }
         }
     }
@@ -124,6 +148,8 @@ export class ServiceManager {
     }
 
     start_service(service_id: string) {
+        // TODO: check dependencies are running
+
         if (this._running_services.has(service_id)) {
             console.warn(`Service ${service_id} is already running.`);
             return;
@@ -135,6 +161,9 @@ export class ServiceManager {
             return;
         }
 
+        // mark service as should be running, so exit handlers know to restart it
+        this._should_be_running_services.add(service_id);
+
         let spawn_result: SpawnResult;
         try {
             spawn_result = this._term.spawn(service.exec, service.args || []);
@@ -144,6 +173,7 @@ export class ServiceManager {
         }
 
         this._running_services.set(service_id, spawn_result);
+        this._failed_services.delete(service_id);
 
         const { process, completion } = spawn_result;
 
@@ -154,6 +184,7 @@ export class ServiceManager {
         completion.catch((e) => {
             console.error(`Service ${service_id} encountered an error:`, e);
             this._running_services.delete(service_id);
+            this._failed_services.add(service_id);
             this._handle_service_exit(service_id, -1);
         });
 
@@ -164,8 +195,66 @@ export class ServiceManager {
         });
     }
 
+    stop_service(service_id: string) {
+        if (!this._running_services.has(service_id)) {
+            console.warn(`Service ${service_id} is not running.`);
+            return;
+        }
+
+        const spawn_result = this._running_services.get(service_id);
+        if (!spawn_result) {
+            console.error(`Service ${service_id} spawn result not found.`);
+            return;
+        }
+
+        const { process } = spawn_result;
+
+        // mark service as should not be running
+        this._should_be_running_services.delete(service_id);
+
+        // send SIGTERM
+        process.kill(143);
+
+        // removal from running services will be handled in exit listener
+    }
+
+    restart_service(service_id: string) {
+        this.stop_service(service_id);
+        this.start_service(service_id); // TODO: will this conflict with the exit listener?
+    }
+
+    get_service_status(service_id: string): ServiceStatus | null {
+        if (!this._service_files.has(service_id)) {
+            return null;
+        }
+
+        if (this._running_services.has(service_id)) {
+            const spawn_result = this._running_services.get(service_id);
+            if (spawn_result) {
+                return {
+                    state: "running",
+                    pid: spawn_result.process.pid
+                };
+            }
+        } else {
+            if (this._failed_services.has(service_id)) {
+                return {
+                    state: "failed"
+                };
+            } else {
+                return {
+                    state: "stopped"
+                };
+            }
+        }
+    }
+
     private _handle_service_exit(service_id: string, exit_code: number) {
         console.warn(`Service ${service_id} exited with code ${exit_code}.`);
+
+        if (!this._should_be_running_services.has(service_id)) {
+            return;
+        }
 
         const service = this._service_files.get(service_id);
         if (!service) {

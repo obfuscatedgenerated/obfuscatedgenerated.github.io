@@ -19,6 +19,35 @@ interface IgnitionIPCServiceMessage extends IgnitionIPCMessageBase {
     service_id: string;
 }
 
+interface IgnitionIPCReloadServicesMessage extends IgnitionIPCMessageBase {
+    type: "reload_services";
+}
+
+export type IgnitionIPCMessage =
+    IgnitionIPCPowerMessage |
+    IgnitionIPCServiceMessage |
+    IgnitionIPCReloadServicesMessage;
+
+interface IgnitionIPCResponse extends IgnitionIPCMessageBase {
+    type: "response";
+    message: string;
+}
+
+interface IgnitionIPCDataResponse extends IgnitionIPCMessageBase {
+    type: "data";
+    data: unknown;
+}
+
+interface IgnitionIPCError extends IgnitionIPCMessageBase {
+    type: "error";
+    message: string;
+}
+
+export type IgnitionIPCReply =
+    IgnitionIPCResponse |
+    IgnitionIPCDataResponse |
+    IgnitionIPCError;
+
 // TODO: split ipc handling etc into files
 
 export default {
@@ -40,17 +69,78 @@ export default {
         const svc_mgr = new ServiceManager(term);
 
         // load service files but don't start them yet
-        await svc_mgr.load_initial_service_files();
+        await svc_mgr.load_service_files();
 
         // open and handle ipc communication
         const ipc = term.get_ipc();
 
         ipc.service_register("init", process.pid, async (channel_id) => {
             ipc.channel_listen(channel_id, process.pid, async (msg) => {
-                const payload = msg.data as IgnitionIPCMessageBase;
+                const payload = msg.data as IgnitionIPCMessage;
+
+                // TODO: clean up when it gets more complex
 
                 switch (payload.type) {
-                    // TODO: handle ipc messages (move to a function)
+                    case "reload_services": {
+                        await svc_mgr.load_service_files();
+                        ipc.channel_send(channel_id, process.pid, {
+                            type: "response",
+                            message: "Service files reloaded."
+                        });
+                        break;
+                    }
+                    case "service": {
+                        const service_msg = payload as IgnitionIPCServiceMessage;
+                        switch (service_msg.action) {
+                            case "start": {
+                                svc_mgr.start_service(service_msg.service_id);
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: `Service ${service_msg.service_id} started.`
+                                });
+                                break;
+                            }
+                            case "stop": {
+                                svc_mgr.stop_service(service_msg.service_id);
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: `Service ${service_msg.service_id} stopped.`
+                                });
+                                break;
+                            }
+                            case "restart": {
+                                svc_mgr.restart_service(service_msg.service_id);
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: `Service ${service_msg.service_id} restarted.`
+                                });
+                                break;
+                            }
+                            case "status": {
+                                const status = svc_mgr.get_service_status(service_msg.service_id);
+
+                                if (!status) {
+                                    ipc.channel_send(channel_id, process.pid, {
+                                        type: "error",
+                                        message: `Service ${service_msg.service_id} not found.`
+                                    });
+                                    break;
+                                }
+
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "data",
+                                    data: status
+                                });
+                                break;
+                            }
+                            default:
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "error",
+                                    message: `Unknown service action: ${service_msg.action}`
+                                });
+                        }
+                    }
+                        break;
                     default:
                         ipc.channel_send(channel_id, process.pid, {
                             type: "error",

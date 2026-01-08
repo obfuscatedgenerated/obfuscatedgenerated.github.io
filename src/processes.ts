@@ -227,7 +227,11 @@ export class ProcessContext {
     private _detach_silently = false;
 
     private readonly _timeouts: Set<number> = new Set();
+    private readonly _timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
+    private readonly _timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
+
     private readonly _intervals: Set<number> = new Set();
+
     private readonly _windows: Set<AbstractWindow> = new Set();
 
     constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager) {
@@ -286,6 +290,9 @@ export class ProcessContext {
             clearTimeout(id);
         });
 
+        this._timeout_promises.clear();
+        this._timeout_cancel_callbacks.clear();
+
         this._windows.forEach((win) => {
             win.dispose();
         });
@@ -305,20 +312,91 @@ export class ProcessContext {
         this._exit_listeners.add(listener);
     }
 
-    create_timeout(callback: () => void, delay: number): number {
+    create_timeout(callback: () => void, delay: number, on_cancel? : () => void): number {
         const id = window.setTimeout(() => {
             this._timeouts.delete(id);
+
+            // resolve any waiters
+            if (this._timeout_promises.has(id)) {
+                const resolvers = this._timeout_promises.get(id)!;
+                for (const { resolve } of resolvers) {
+                    resolve(true);
+                }
+                this._timeout_promises.delete(id);
+            }
+
             callback();
+
+            if (on_cancel) {
+                this._timeout_cancel_callbacks.delete(id);
+            }
         }, delay);
 
         this._timeouts.add(id);
+
+        if (on_cancel) {
+            this._timeout_cancel_callbacks.set(id, on_cancel);
+        }
+
         return id;
+    }
+
+    cancel_timeout(id: number): void {
+        if (this._timeouts.has(id)) {
+            clearTimeout(id);
+            this._timeouts.delete(id);
+
+            // resolve any waiters as cancelled
+            if (this._timeout_promises.has(id)) {
+                const resolvers = this._timeout_promises.get(id)!;
+                for (const {resolve} of resolvers) {
+                    resolve(false);
+                }
+                this._timeout_promises.delete(id);
+            }
+
+            // call cancel callback if exists
+            if (this._timeout_cancel_callbacks.has(id)) {
+                const cancel_callback = this._timeout_cancel_callbacks.get(id)!;
+                cancel_callback();
+                this._timeout_cancel_callbacks.delete(id);
+            }
+        }
+    }
+
+    has_timeout(id: number): boolean {
+        return this._timeouts.has(id);
     }
 
     create_interval(callback: () => void, interval: number): number {
         const id = window.setInterval(callback, interval);
         this._intervals.add(id);
         return id;
+    }
+
+    has_interval(id: number): boolean {
+        return this._intervals.has(id);
+    }
+
+    clear_interval(id: number): void {
+        if (this._intervals.has(id)) {
+            clearInterval(id);
+            this._intervals.delete(id);
+        }
+    }
+
+    async wait_for_timeout(id: number): Promise<boolean> {
+        if (!this._timeouts.has(id)) {
+            throw new Error(`Timeout ID ${id} does not exist.`);
+        }
+
+        return new Promise<boolean>((resolve) => {
+            if (!this._timeout_promises.has(id)) {
+                this._timeout_promises.set(id, new Set());
+            }
+
+            this._timeout_promises.get(id)!.add({ resolve });
+        });
     }
 
     create_window(): AbstractWindow | null {
