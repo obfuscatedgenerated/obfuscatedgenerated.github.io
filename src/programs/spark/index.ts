@@ -16,7 +16,7 @@ export default {
     arg_descriptions: {
         "Subcommands:": {
             "service": "Manage running services.",
-            "reload_services": "Reload the service definition files.",
+            "reload-services": "Reload the service definition files.",
         },
         "Arguments:": {
             "-h": "Displays this help message.",
@@ -53,7 +53,7 @@ export default {
         switch (args[0]) {
             case "service":
                 return await service_subcommand(data);
-            case "reload_services":
+            case "reload-services":
                 return await reload_services_subcommand(data);
             default:
                 term.writeln(`${PREFABS.error}Invalid subcommand.`);
