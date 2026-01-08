@@ -37,6 +37,8 @@ export declare class ProcessContext {
     private _attachment;
     private _detach_silently;
     private readonly _timeouts;
+    private readonly _timeout_promises;
+    private readonly _timeout_cancel_callbacks;
     private readonly _intervals;
     private readonly _windows;
     constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager);
@@ -52,8 +54,13 @@ export declare class ProcessContext {
     dispose_resources(): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
-    create_timeout(callback: () => void, delay: number): number;
+    create_timeout(callback: () => void, delay: number, on_cancel?: () => void): number;
+    cancel_timeout(id: number): void;
+    has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
+    has_interval(id: number): boolean;
+    clear_interval(id: number): void;
+    wait_for_timeout(id: number): Promise<boolean>;
     create_window(): AbstractWindow | null;
 }
 export declare class ProcessManager {
