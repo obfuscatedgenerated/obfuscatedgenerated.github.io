@@ -22,11 +22,18 @@ export const list_subcommand = async (data: ProgramMainData) => {
 
     const pkg_names = graph_query.list_pkgs(only_top_level);
 
-    // print each package, marking top level packages in green and dependencies in gray
-    // TODO: mark top level packages that are also dependencies in another color?
+    // print each package, marking top level packages in green, dependencies in white, and unused dependencies in gray
     for (const pkg_name of pkg_names) {
         const info = graph_query.get_pkg_info(pkg_name);
-        term.writeln(`${STYLE.bold}${info.top_level ? FG.green : FG.gray}${pkg_name}${STYLE.no_bold_or_dim}@${info.version}${STYLE.reset_all}`);
+
+        let color = FG.gray;
+        if (info.top_level) {
+            color = FG.green;
+        } else if (info.dependents.size !== 0) {
+            color = FG.white;
+        }
+
+        term.writeln(`${STYLE.bold}${color}${pkg_name}${STYLE.no_bold_or_dim}@${info.version}${STYLE.reset_all}`);
     }
 
     return 0;

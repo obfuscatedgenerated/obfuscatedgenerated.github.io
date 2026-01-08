@@ -46,6 +46,7 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
 }
 
 export type PkgAtVersion = `${string}@${string}`;
+// TODO: honestly handling of pakcage version sucks rn, need to test if even having deps = "pkg@version" works properly
 
 interface PackageMeta {
     files: string[];
@@ -183,8 +184,8 @@ export const repo_query = {
 
 interface PkgGraphEntry {
     version: string;
-    deps: Set<PkgAtVersion>;
-    dependents: Set<PkgAtVersion>;
+    deps: Set<PkgAtVersion | string>;
+    dependents: Set<string>;
     top_level: boolean; // as in, specified by the user at install time
 }
 
@@ -252,17 +253,17 @@ export const graph_query = {
     },
 
     // gets the dependents of a package, or undefined if not installed
-    get_pkg_dependents: (pkg: string): Set<PkgAtVersion> | undefined => {
+    get_pkg_dependents: (pkg: string): Set<string> | undefined => {
         return graph[pkg]?.dependents;
     },
 
     // gets the dependencies of a package, or undefined if not installed
-    get_pkg_dependencies: (pkg: string): Set<PkgAtVersion> | undefined => {
+    get_pkg_dependencies: (pkg: string): Set<PkgAtVersion | string> | undefined => {
         return graph[pkg]?.deps;
     },
 
     // installs a NEW package. if this is not a top level package, you must specify an initial dependent. you cannot modify an existing package unless you use the defined functions.
-    install_new_pkg: async (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: PkgAtVersion) => {
+    install_new_pkg: async (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: string) => {
         // TODO: resolve what to do if the package is already installed rather than exploding, makes using it a lot simpler
 
         if (graph[pkg]) {
@@ -274,7 +275,7 @@ export const graph_query = {
             throw new Error(`Package ${pkg} is not installed as a top-level package but does not have a dependent it was installed by.`);
         }
 
-        const dependents = new Set<PkgAtVersion>();
+        const dependents = new Set<string>();
 
         if (dependended_by) {
             dependents.add(dependended_by);
@@ -320,51 +321,52 @@ export const graph_query = {
     },
 
     // adds a dependent to a package, provided the dependent is already installed. also adds the dependency to the dependent package.
-    add_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
+    add_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_pkg: string, add_to_deps = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
 
-        const dependent_name = dependent_at_version.split("@")[0];
-
-        if (!graph[dependent_name]) {
-            throw new Error(`Dependent ${dependent_name} is not installed.`);
+        if (!graph[dependent_pkg]) {
+            throw new Error(`Dependent ${dependent_pkg} is not installed.`);
         }
 
         const pkg_at_version = `${pkg}@${graph[pkg].version}` as PkgAtVersion;
 
-        graph[pkg].dependents.add(dependent_at_version);
-        graph[dependent_name].deps.add(pkg_at_version);
+        graph[pkg].dependents.add(dependent_pkg);
+
+        if (add_to_deps) {
+            graph[dependent_pkg].deps.add(pkg_at_version);
+        }
 
         // write to file
         await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));
     },
 
     // removes a dependent from a package, as well as clearing the dependency from the dependent package
-    remove_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_at_version: PkgAtVersion) => {
+    remove_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_pkg: string, remove_from_deps = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
 
-        const dependent_name = dependent_at_version.split("@")[0];
-
-        if (!graph[dependent_name]) {
-            throw new Error(`Dependent ${dependent_name} is not installed.`);
+        if (!graph[dependent_pkg]) {
+            throw new Error(`Dependent ${dependent_pkg} is not installed.`);
         }
 
-        if (!graph[pkg].dependents.has(dependent_at_version)) {
-            throw new Error(`Package ${pkg} does not have dependent ${dependent_at_version}.`);
+        if (!graph[pkg].dependents.has(dependent_pkg)) {
+            throw new Error(`Package ${pkg} does not have dependent ${dependent_pkg}.`);
         }
 
         const pkg_at_version = `${pkg}@${graph[pkg].version}` as PkgAtVersion;
 
-        if (!graph[dependent_name].deps.has(pkg_at_version)) {
-            throw new Error(`Inconsistent graph! Dependent ${dependent_name} does not have dependency ${pkg}, but ${pkg} has dependent ${dependent_at_version}.`);
+        if (!graph[dependent_pkg].deps.has(pkg) && !graph[dependent_pkg].deps.has(pkg_at_version)) {
+            throw new Error(`Inconsistent graph! Dependent ${dependent_pkg} does not have dependency ${pkg}, but ${pkg} has dependent ${dependent_pkg}.`);
         }
 
-        // need to remove both the dependent from the target package as well as the dependency from the dependent package
-        graph[pkg].dependents.delete(dependent_at_version);
-        graph[dependent_name].deps.delete(pkg_at_version);
+        graph[pkg].dependents.delete(dependent_pkg);
+
+        if (remove_from_deps) {
+            graph[dependent_pkg].deps.delete(pkg_at_version);
+        }
 
         // write to file
         await fs.write_file(GRAPH_PATH, JSON.stringify(graph, json_convert_dep_sets_to_arrs));

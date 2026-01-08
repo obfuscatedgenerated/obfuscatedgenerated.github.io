@@ -1,7 +1,7 @@
 import {determine_program_name_from_js} from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {graph_query, triggers} from "./index";
+import {graph_query, PkgAtVersion, triggers} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -74,8 +74,35 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
         term.writeln(`${FG.yellow}Updating graph...${STYLE.reset_all}`);
 
+        let meta_triggers = {};
+        let meta_version = "unknown";
+        let meta_deps: string[] = [];
+
+        if (await fs.exists(fs.join(pkg_dir, "meta.json"))) {
+            try {
+                const meta_raw = await fs.read_file(fs.join(pkg_dir, "meta.json")) as string;
+                const meta = JSON.parse(meta_raw);
+
+                meta_triggers = meta.triggers || {};
+                meta_version = meta.version || "unknown";
+                meta_deps = meta.deps || [];
+            } catch (e) {
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not read meta.json for package ${pkg}: ${e.message}${STYLE.reset_all}`);
+            }
+        }
+
+        // remove self as a dependent from packages listed as dependencies
+        for (const dep_pkg of meta_deps) {
+            try {
+                // split into name and version if @ present
+                const dep_pkg_name = dep_pkg.split("@")[0];
+                await graph_query.remove_pkg_dependent(fs, dep_pkg_name, pkg);
+            } catch (e) {
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not remove dependent ${pkg} from package ${dep_pkg}: ${e.message}${STYLE.reset_all}`);
+            }
+        }
+
         try {
-            // TODO: does this handle deps properly?
             await graph_query.remove_pkg(fs, pkg);
         } catch (e) {
             term.writeln(`${PREFABS.error}Error removing package '${pkg}': ${e.message}${STYLE.reset_all}`);
@@ -116,20 +143,6 @@ export const remove_subcommand = async (data: ProgramMainData) => {
                 term.writeln(`${FG.cyan}(-) ${program_name}${STYLE.reset_all}`);
             } catch (e) {
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: Program ${program_name} was never registered.${STYLE.reset_all}`);
-            }
-        }
-
-        // last chance to read the triggers and version from meta.json before deleting
-        let meta_triggers = {};
-        let meta_version = "unknown";
-        if (await fs.exists(fs.join(pkg_dir, "meta.json"))) {
-            try {
-                const meta_raw = await fs.read_file(fs.join(pkg_dir, "meta.json")) as string;
-                const meta = JSON.parse(meta_raw);
-                meta_triggers = meta.triggers || {};
-                meta_version = meta.version || "unknown";
-            } catch (e) {
-                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not read meta.json for package ${pkg}: ${e.message}${STYLE.reset_all}`);
             }
         }
 

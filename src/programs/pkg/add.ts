@@ -11,7 +11,7 @@ const {STYLE, PREFABS, FG} = ANSI;
 // we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
 
-export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtVersion) => {
+export const add_subcommand = async (data: ProgramMainData, depended_by?: string) => {
     // extract from data to make code less verbose
     const {args, term} = data;
 
@@ -135,7 +135,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
 
             // we need to also pass the name of the dependent package to the virtual call to let the graph know
             const virtual_data = {term, process: data.process, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args]};
-            const virtual_exit_code = await add_subcommand(virtual_data, pkg_at_version as PkgAtVersion);
+            const virtual_exit_code = await add_subcommand(virtual_data, pkg_name);
 
             if (virtual_exit_code !== 0) {
                 term.writeln(`${PREFABS.error}Failed to install dependencies.${STYLE.reset_all}`);
@@ -208,7 +208,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: PkgAtV
             if (meta.deps && meta.deps.size > 0) {
                 for (const dep of meta.deps) {
                     const dep_name = dep.split("@")[0];
-                    await graph_query.add_pkg_dependent(fs, dep_name, pkg_at_version as PkgAtVersion);
+                    await graph_query.add_pkg_dependent(fs, dep_name, pkg_name);
                 }
             }
         } catch (e) {
