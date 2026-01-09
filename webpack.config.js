@@ -5,6 +5,7 @@ const path = require("path");
 const hb = require("handlebars");
 const fs = require("fs");
 const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
+const {LicenseWebpackPlugin} = require("license-webpack-plugin");
 
 // make fsedit dir
 if (!fs.existsSync("./fsedit")) {
@@ -69,6 +70,9 @@ module.exports = (env, argv) => {
             new ExtraWatchWebpackPlugin({
                 files: ["./src/*.handlebars", "./src/fsedit/*.handlebars"],
             }),
+            new LicenseWebpackPlugin({
+                outputFilename: "licenses.txt"
+            })
         ],
         entry: {
             main: "./src/index.ts",
