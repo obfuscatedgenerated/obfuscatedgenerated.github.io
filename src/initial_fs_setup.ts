@@ -98,6 +98,8 @@ As well as the following libraries:
 - html-to-text
 - some code from rss-parser (modified)
 
+Please consult https://ollieg.codes/public/script/3rdpartylicenses.txt for full license information.
+
 Additionally, fsedit uses:
 
 - Font Awesome
