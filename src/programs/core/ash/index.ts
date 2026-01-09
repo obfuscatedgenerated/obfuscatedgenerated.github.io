@@ -2,7 +2,6 @@ import type {Program} from "../../../types";
 
 import {AshShell} from "./core";
 import {make_read_line_key_handlers, make_read_line_printable_handler} from "./key_handlers";
-import {apply_special_vars} from "../../../abstract_shell";
 
 export default {
     name: "ash",
@@ -17,7 +16,10 @@ export default {
         const {kernel, term, process, args} = data;
 
         const shell = new AshShell(term, kernel);
-        apply_special_vars(shell);
+
+        const env_info = kernel.get_env_info();
+        shell.memory.set_variable("VERSION", env_info.version);
+        shell.memory.set_variable("ENV", env_info.env);
 
         const fs = kernel.get_fs();
 

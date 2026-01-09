@@ -6,7 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
 import "./load_global_externals";
-import {ProgramRegistry, recurse_mount_and_register_with_output} from "./prog_registry";
+import {ProgramRegistry} from "./prog_registry";
 import * as programs from "./programs/@ALL";
 
 import { SoundRegistry } from "./sfx_registry";
@@ -16,10 +16,8 @@ import { LocalStorageFS } from "./fs_impl/localstorage";
 import { OPFSFileSystem } from "./fs_impl/opfs";
 import { initial_fs_setup } from "./initial_fs_setup";
 
-import Swal from "sweetalert2";
 import {DOMWindowManager} from "./window_impl/dom";
 import {Kernel} from "./kernel";
-import {set_special_vars} from "./abstract_shell";
 
 
 const boot_screen = document.getElementById("boot_screen");
@@ -216,9 +214,7 @@ async function main() {
 
     // create the kernel
     const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm);
-
-    // set version and env info in shell special vars
-    set_special_vars(document.body.dataset.version, "web");
+    kernel.set_env_info(document.body.dataset.version, "web");
 
     loaded(term);
 

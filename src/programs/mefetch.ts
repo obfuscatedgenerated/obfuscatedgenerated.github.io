@@ -110,13 +110,13 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, term, shell, args } = data;
+        const { kernel, term, args } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, FG } = ANSI;
 
         // get version string
-        const version_str = shell ? shell.memory.get_variable("VERSION") || "unknown" : "unknown";
+        const version_str = kernel.get_env_info().version;
 
         // restrict to first 3 quarters of screen
         const max_columns = Math.floor(term.cols * 0.75);

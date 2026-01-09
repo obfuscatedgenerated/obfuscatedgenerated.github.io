@@ -27,6 +27,11 @@ export class Kernel {
 
     _panicked = false;
 
+    _env_info = {
+        version: "unknown",
+        env: "unknown"
+    }
+
     get panicked(): boolean {
         return this._panicked;
     }
@@ -57,6 +62,15 @@ export class Kernel {
 
     get_ipc(): IPCManager {
         return this._process_manager.ipc_manager;
+    }
+
+    get_env_info(): {version: string, env: string} {
+        return this._env_info;
+    }
+
+    set_env_info(version: string, env: string) {
+        this._env_info.version = version;
+        this._env_info.env = env;
     }
 
     spawn = (command: string, args: string[] = [], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult => {
