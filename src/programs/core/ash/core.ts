@@ -49,7 +49,7 @@ export class AshShell implements AbstractShell {
             return true;
         }
 
-        const parsed_line = parse_line(line);
+        const parsed_line = parse_line(line, memory);
 
         if (parsed_line === null) {
             // if the line is a comment or empty, do nothing

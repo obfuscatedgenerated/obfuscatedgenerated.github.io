@@ -1,4 +1,3 @@
-import {WrappedTerminal} from "../../../term_ctl";
 import {AshMemory} from "./memory";
 
 export interface LineParseResultCommand {

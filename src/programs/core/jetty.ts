@@ -12,18 +12,6 @@ export default {
 
         term.reset();
 
-        const fs = kernel.get_fs();
-
-        // TODO: get these to work again, may need a mini shell implementation
-        // // enable screen reader mode if stored in local storage
-        // if (localStorage.getItem("reader") === "true") {
-        //     await term.execute("reader -s on");
-        // }
-
-        // // run .ollie_profile if it exists
-        // const absolute_profile = fs.absolute("~/.ollie_profile");
-        // await term.run_script(absolute_profile);
-
         let running = true;
         let final_code = 0;
         let current_shell_process: ProcessContext;
@@ -42,7 +30,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn("ash", []);
+            const shell_proc = kernel.spawn("ash", ["--login"]);
             current_shell_process = shell_proc.process;
 
             const exit_code = await shell_proc.completion;

@@ -14,10 +14,14 @@ const detect_node = () => {
 export default {
     name: "ash",
     description: "A shell.",
-    usage_suffix: "",
-    arg_descriptions: {},
+    usage_suffix: "[--login]",
+    arg_descriptions: {
+        "Arguments:": {
+            "--login": "Start the shell as a login shell. Don't pass this flag manually, it's handled by the system."
+        }
+    },
     main: async (data) => {
-        const {kernel, term, process} = data;
+        const {kernel, term, process, args} = data;
 
         const shell = new AshShell(term, kernel);
 
@@ -25,6 +29,17 @@ export default {
         shell.memory.set_variable("ENV", detect_node() ? "node" : "web");
 
         const fs = kernel.get_fs();
+
+        if (args.includes("--login")) {
+            // enable screen reader mode if stored in local storage
+            if (localStorage.getItem("reader") === "true") {
+                await shell.execute("reader -s on");
+            }
+
+            // run .ollie_profile if it exists
+            const absolute_profile = fs.absolute("~/.ollie_profile");
+            await shell.run_script(absolute_profile);
+        }
 
         // run .ollierc if it exists
         const absolute_rc = fs.absolute("~/.ollierc");
