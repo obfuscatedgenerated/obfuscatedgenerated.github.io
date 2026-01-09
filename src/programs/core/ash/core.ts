@@ -11,7 +11,6 @@ export class AshShell implements AbstractShell {
     _term: WrappedTerminal;
     _memory = new AshMemory();
 
-    _preline = "";
     _prompt_suffix = "$ ";
 
     constructor(term: WrappedTerminal) {
@@ -202,6 +201,28 @@ export class AshShell implements AbstractShell {
         }
     }
 
+    get_prompt_suffix(): string {
+        return this._prompt_suffix;
+    }
+
+    set_prompt_suffix(suffix: string): void {
+        this._prompt_suffix = suffix;
+    }
+
+    get_prompt_string(): string {
+        const fs = this._term._fs;
+
+        let path = fs.get_cwd();
+
+        if (path.startsWith(fs.get_home())) {
+            // replace home with ~ at start of path only
+            path = path.replace(new RegExp(`^${fs.get_home()}`), "~");
+        }
+
+        // build result e.g. ~$
+        return `${PREFABS.dir_name}${path}${STYLE.reset_all}${this._prompt_suffix}`;
+    }
+
     async insert_preline(newline = true) {
         const term = this._term;
 
@@ -215,27 +236,10 @@ export class AshShell implements AbstractShell {
 
         // resolve a promise when writing is complete
         await new Promise<void>((resolve) => {
-            term.write(this._preline, () => {
+            term.write(this.get_prompt_string(), () => {
                 resolve();
             });
         });
-    }
-
-    // raw access to the preline vs setting just the prompt and having the suffix added
-    set_preline(preline: string): void {
-        this._preline = preline;
-    }
-
-    set_prompt(prompt: string): void {
-        this.set_preline(prompt + this._prompt_suffix);
-    }
-
-    get_prompt_suffix(): string {
-        return this._prompt_suffix;
-    }
-
-    set_prompt_suffix(suffix: string): void {
-        this._prompt_suffix = suffix;
     }
 
     reset_current_vars(reset_history_index = false): void {
