@@ -13,6 +13,7 @@ import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
 import {IPCManager, ProcessContext, ProcessManager} from "./processes";
 import type {LineParseResultCommand} from "./programs/core/ash/parser";
+import type {AbstractShell} from "./abstract_shell";
 
 
 export const NEWLINE = "\r\n";
@@ -238,7 +239,7 @@ export class WrappedTerminal extends Terminal {
         await this.insert_preline();
     }
 
-    spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand): SpawnResult => {
+    spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
         // search for the command in the registry
         const program = this._prog_registry.getProgram(command);
         if (program === undefined) {
@@ -262,10 +263,11 @@ export class WrappedTerminal extends Terminal {
         const data = {
             term: this,
             args,
+            shell,
             unsubbed_args: parsed_line.unsubbed_args,
             raw_parts: parsed_line.raw_parts,
             process
-        }
+        };
 
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;

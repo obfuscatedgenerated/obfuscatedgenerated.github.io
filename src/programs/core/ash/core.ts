@@ -1,18 +1,32 @@
-import type {WrappedTerminal} from "../../../term_ctl";
+import type {AbstractShell} from "../../../abstract_shell";
+import type {SpawnResult, WrappedTerminal} from "../../../term_ctl";
+import {ANSI} from "../../../term_ctl";
 
 import {AshMemory} from "./memory";
 import { parse_line } from "./parser";
 
-export class AshShell {
+const {PREFABS, FG, STYLE} = ANSI;
+
+export class AshShell implements AbstractShell {
     _term: WrappedTerminal;
     _memory = new AshMemory();
+
     constructor(term: WrappedTerminal) {
         this._term = term;
     }
 
+    get memory(): AshMemory {
+        return this._memory;
+    }
+
+    // TODO: actually move stuff to the right place rather than private accessing term internals
+
     // returns success flag (or error if critical)
     execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
-        if (this._term.panicked) {
+        const term = this._term;
+        const memory = this._memory;
+
+        if (term.panicked) {
             return false;
         }
 
@@ -37,7 +51,7 @@ export class AshShell {
 
         // handle variable assignment
         if (parsed_line.type === "var") {
-            this._memory.set_variable(parsed_line.var_name, parsed_line.var_value);
+            memory.set_variable(parsed_line.var_name, parsed_line.var_value);
             return true;
         }
 
@@ -45,8 +59,8 @@ export class AshShell {
         const { command } = parsed_line;
 
         // check if the command exists
-        if (!this._prog_registry.getProgram(command)) {
-            this.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+        if (!term._prog_registry.getProgram(command)) {
+            term.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             return false;
         }
 
@@ -59,13 +73,13 @@ export class AshShell {
         // spawn the process
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this.spawn(command, parsed_line.args, parsed_line);
+            spawn_result = term.spawn(command, parsed_line.args, parsed_line, this);
         } catch (e) {
             if (edit_doc_title) {
                 document.title = old_title;
             }
 
-            this.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             console.error(e);
             return false;
         }
@@ -78,7 +92,7 @@ export class AshShell {
                 console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
             }
 
-            this._current_history_index = 0;
+            memory._current_history_index = 0;
 
             if (edit_doc_title) {
                 document.title = old_title;
@@ -102,12 +116,12 @@ export class AshShell {
                     const color = code === 0 ? FG.green : FG.red;
 
                     // TODO: erase existing prompt and line
-                    this.writeln("");
-                    this.writeln(`${FG.gray}[${process.pid}] + ${color}${status}${FG.gray} \t ${command}${STYLE.reset_all}`);
+                    term.writeln("");
+                    term.writeln(`${FG.gray}[${process.pid}] + ${color}${status}${FG.gray} \t ${command}${STYLE.reset_all}`);
 
                     // reinsert the prompt and current line
                     // TODO: respect running programs, maybe need a notification queue
-                    this.insert_preline(false);
+                    term.insert_preline(false);
                 });
 
                 // don't kill the process
@@ -125,7 +139,7 @@ export class AshShell {
             }
 
             if (process.is_background) {
-                this.writeln(`\n${FG.gray}[${process.pid}] + Done \t ${command}${STYLE.reset_all}`);
+                term.writeln(`\n${FG.gray}[${process.pid}] + Done \t ${command}${STYLE.reset_all}`);
             }
         }
 
@@ -133,13 +147,13 @@ export class AshShell {
         try {
             if (process.is_detached) {
                 if (!process.detaches_silently) {
-                    this.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
+                    term.writeln(`${FG.gray}[${process.pid}] process detached${STYLE.reset_all}`);
                 }
 
                 completion.then((exit_code) => {
                     on_execute_completion(exit_code);
                 }).catch((e) => {
-                    this.writeln(`${PREFABS.error}An unhandled error occurred in detached process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                    term.writeln(`${PREFABS.error}An unhandled error occurred in detached process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
                     console.error(e);
                     on_execute_completion(-1);
                 });
@@ -148,21 +162,21 @@ export class AshShell {
                 on_execute_completion(exit_code);
 
                 // set the exit code variable
-                this.set_variable("?", exit_code.toString());
+                memory.set_variable("?", exit_code.toString());
             } else {
-                this.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
+                this._term.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
 
                 completion.then((exit_code) => {
                     on_execute_completion(exit_code);
                 }).catch((e) => {
-                    this.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                    this._term.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
                     console.error(e);
 
                     on_execute_completion(-1);
                 });
             }
         } catch (e) {
-            this.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}An unhandled error occurred while running the command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             console.error(e);
 
             on_execute_completion(-1);

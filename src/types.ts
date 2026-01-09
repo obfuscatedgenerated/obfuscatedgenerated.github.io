@@ -1,9 +1,12 @@
 import type { WrappedTerminal } from "./term_ctl";
 import type {ProcessContext} from "./processes";
+import type {AbstractShell} from "./abstract_shell";
 
 export interface ProgramMainData {
     term: WrappedTerminal,
+    shell?: AbstractShell;
     process: ProcessContext,
+
     args: string[],
     unsubbed_args: string[],
     raw_parts: string[], // raw command parts, including program name and unparsed args
