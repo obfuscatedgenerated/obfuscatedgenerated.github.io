@@ -27,18 +27,17 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
         // get sound registry
-        const sfx_reg = term.get_sound_registry();
+        const sfx_reg = kernel.get_sound_registry();
 
         switch (args[0]) {
             case "-h":
-                term.execute("help reader");
-                return 0;
+                return await kernel.spawn("help", ["clear"], shell).completion;
             case "-q":
                 // query screen reader mode
                 term.writeln(`Screen reader mode is currently ${term.options.screenReaderMode ? "on" : "off"}.`);

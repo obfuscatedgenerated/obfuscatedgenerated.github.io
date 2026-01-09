@@ -17,13 +17,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
         // get fs
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // determine if -rf OR -f was passed
         let rimraf = false;

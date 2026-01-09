@@ -1,5 +1,5 @@
-import type { Program } from "../types";
-import { ANSI, NEWLINE, WrappedTerminal } from "../term_ctl";
+import type {Program, ProgramMainData} from "../types";
+import { ANSI, NEWLINE, type WrappedTerminal } from "../term_ctl";
 
 
 const wait_block = (term: WrappedTerminal) => {
@@ -8,16 +8,18 @@ const wait_block = (term: WrappedTerminal) => {
     return term.wait_for_keypress();
 };
 
-const run_cmd = async (term: WrappedTerminal, cmd: string) => {
-    term.writeln(`${ANSI.STYLE.bold}$ ${cmd}${ANSI.STYLE.reset_all}${NEWLINE}`);
-    await term.execute(cmd);
-    term.write(NEWLINE);
+const run_cmd = async (data: ProgramMainData, cmd: string, args: string[] = []) => {
+    data.term.writeln(`${ANSI.STYLE.bold}$ ${cmd}${ANSI.STYLE.reset_all}${NEWLINE}`);
+    await data.kernel.spawn(cmd, args, data.shell).completion;
+    data.term.write(NEWLINE);
 };
 
 
-const welcome = async (term: WrappedTerminal) => {
+const welcome = async (data: ProgramMainData) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -35,9 +37,11 @@ const welcome = async (term: WrappedTerminal) => {
     await wait_block(term);
 };
 
-const mefetch = async (term: WrappedTerminal) => {
+const mefetch = async (data: ProgramMainData) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -45,7 +49,7 @@ const mefetch = async (term: WrappedTerminal) => {
     term.writeln(`=======${STYLE.reset_all}`);
     term.write(NEWLINE);
 
-    await run_cmd(term, "mefetch");
+    await run_cmd(data, "mefetch");
 
     term.writeln(`The ${PREFABS.program_name}mefetch${STYLE.reset_all} command is used to display information about a GitHub user.`);
     term.writeln("By default, it uses my username, obfuscatedgenerated. You can also specify a different username as an argument.");
@@ -58,9 +62,11 @@ const mefetch = async (term: WrappedTerminal) => {
     await wait_block(term);
 };
 
-const rss = async (term: WrappedTerminal) => {
+const rss = async (data: ProgramMainData) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -68,7 +74,7 @@ const rss = async (term: WrappedTerminal) => {
     term.writeln(`===${STYLE.reset_all}`);
     term.write(NEWLINE);
 
-    await run_cmd(term, "rss -m 1");
+    await run_cmd(data, "rss", ["-m", "1"]);
 
     term.writeln(`The ${PREFABS.program_name}rss${STYLE.reset_all} command is used to read RSS feeds.`);
     term.writeln("By default, it uses my blog's RSS feed. You can also specify a different RSS feed as an argument.");
@@ -84,9 +90,11 @@ const rss = async (term: WrappedTerminal) => {
     await wait_block(term);
 };
 
-const fs = async (term: WrappedTerminal) => {
+const fs = async (data: ProgramMainData) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -101,13 +109,13 @@ const fs = async (term: WrappedTerminal) => {
     term.writeln(`Let's use the ${PREFABS.program_name}ls${STYLE.reset_all} command to view the contents of the home directory.`);
     term.write(NEWLINE);
 
-    await run_cmd(term, "ls");
+    await run_cmd(data, "ls");
 
     term.writeln(`There's a file in the directory called ${PREFABS.file_path}credits.txt${STYLE.reset_all}. Let's use the ${PREFABS.program_name}cat${STYLE.reset_all} command to view its contents.`);
     term.write(NEWLINE);
 
     await wait_block(term);
-    await run_cmd(term, "cat credits.txt");
+    await run_cmd(data, "cat", ["credits.txt"]);
 
     term.writeln(`The ${PREFABS.program_name}cat${STYLE.reset_all} command is used to view the contents of one or more files.`);
     term.writeln("If multiple files are specified, their contents will be concatenated together.");
@@ -119,9 +127,11 @@ const fs = async (term: WrappedTerminal) => {
     await wait_block(term);
 };
 
-const help = async (term: WrappedTerminal) => {
+const help = async (data: ProgramMainData) => {
     // extract from ANSI to make code less verbose
     const { STYLE, PREFABS, FG } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -129,7 +139,7 @@ const help = async (term: WrappedTerminal) => {
     term.writeln(`====${STYLE.reset_all}`);
     term.write(NEWLINE);
 
-    await run_cmd(term, "help");
+    await run_cmd(data, "help");
 
     term.write(NEWLINE);
     term.write(NEWLINE);
@@ -142,15 +152,17 @@ const help = async (term: WrappedTerminal) => {
     term.write(NEWLINE);
 
     await wait_block(term);
-    await run_cmd(term, "help rss");
+    await run_cmd(data, "help", ["rss"]);
 
     await wait_block(term);
 };
 
 
-const end = async (term: WrappedTerminal) => {
+const end = async (data: ProgramMainData,) => {
     // extract from ANSI to make code less verbose
     const { STYLE, FG, PREFABS } = ANSI;
+
+    const { term } = data;
 
     term.reset();
 
@@ -176,7 +188,7 @@ const end = async (term: WrappedTerminal) => {
 
     await wait_block(term);
 
-    term.execute("shutdown -r -t 0");
+    await run_cmd(data, "shutdown", ["-r", "-t", "0"]);
 };
 
 
@@ -187,17 +199,14 @@ export default {
     arg_descriptions: {},
     completion: async () => [],
     main: async (data) => {
-        // extract from data to make code less verbose
-        const { term } = data;
+        await welcome(data);
 
-        await welcome(term);
+        await mefetch(data);
+        await rss(data);
+        await fs(data);
+        await help(data);
 
-        await mefetch(term);
-        await rss(term);
-        await fs(term);
-        await help(term);
-
-        await end(term);
+        await end(data);
 
         return 0;
     }

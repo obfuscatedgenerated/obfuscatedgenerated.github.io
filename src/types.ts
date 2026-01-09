@@ -32,6 +32,9 @@ export interface Program {
 
 export interface CompletionData {
     term: WrappedTerminal,
+    kernel: Kernel,
+    shell?: AbstractShell,
+
     args: string[],
     unsubbed_args: string[],
     raw_parts: string[],

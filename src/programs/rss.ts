@@ -95,14 +95,13 @@ export default {
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE, FG } = ANSI;
 
         if (args.includes("-h")) {
-            term.execute("help rss");
-            return 0;
+            return await kernel.spawn("help", ["rss"], shell).completion;
         }
 
         let max_items: number | undefined = undefined;

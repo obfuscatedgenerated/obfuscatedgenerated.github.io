@@ -13,7 +13,7 @@ export default {
     },
     completion: async (data) => {
         if (data.arg_index === 0) {
-            const pm = data.term.get_process_manager();
+            const pm = data.kernel.get_process_manager();
             const pids = pm.list_pids().map((pid) => pid.toString());
             return helper_completion_options(pids)(data);
         }
@@ -22,7 +22,7 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { kernel, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
@@ -35,7 +35,7 @@ export default {
         // TODO: support more kill signals as arguments
 
         // get process manager
-        const pm = term.get_process_manager();
+        const pm = kernel.get_process_manager();
         const pid = parseInt(data.args[0]);
 
         if (isNaN(pid)) {

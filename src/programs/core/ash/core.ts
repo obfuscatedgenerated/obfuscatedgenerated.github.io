@@ -81,7 +81,7 @@ export class AshShell implements AbstractShell {
         // spawn the process
         let spawn_result: SpawnResult;
         try {
-            spawn_result = kernel.spawn(command, parsed_line.args, parsed_line, this);
+            spawn_result = kernel.spawn(command, parsed_line.args, this, parsed_line);
         } catch (e) {
             if (edit_doc_title) {
                 document.title = old_title;

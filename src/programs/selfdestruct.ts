@@ -9,13 +9,13 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { kernel, shell, term } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, BG, STYLE } = ANSI;
 
         // get fs
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         const pad = (str: string, invis_codes = "") => {
             if (str.length >= term.cols) {
@@ -53,6 +53,7 @@ export default {
 
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);
 
-        await term.execute("shutdown -r -t 3000");
+        // TODO: talk to ignition instead of using shutdown command
+        return await kernel.spawn("shutdown", ["r", "-t", "3000"], shell).completion;
     }
 } as Program;

@@ -5,7 +5,7 @@ import { ProgramMainData } from "../../types"
 const { STYLE, FG, PREFABS } = ANSI;
 export const close_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const { args, term, kernel } = data;
 
     // remove subcommand name
     args.shift();
@@ -24,7 +24,7 @@ export const close_subcommand = async (data: ProgramMainData) => {
         return 1;
     }
 
-    const wm = term.get_window_manager();
+    const wm = kernel.get_window_manager();
     const wind = wm!.get_window_by_id(window_id);
 
     if (!wind) {

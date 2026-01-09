@@ -55,7 +55,7 @@ export const make_read_line_key_handlers = (shell: AshShell, kernel: Kernel): { 
 
     // tab - tab completion
     "\t": async (_e, term, buffer) => {
-        shell._discard_cached_matches = await tab_complete(kernel, term, buffer, shell._discard_cached_matches);
+        shell._discard_cached_matches = await tab_complete(buffer, term, kernel, shell, shell._discard_cached_matches);
     },
 
     // backspace - discard cached matches

@@ -8,6 +8,8 @@ import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {Kernel} from "../../kernel";
+import {AbstractShell} from "../../abstract_shell";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -444,8 +446,8 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (term: WrappedTerminal, trigger_name: string, data: unknown, pkg_name: string, pkg_version: string) => {
-        const fs = term.get_fs();
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
+        const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
         if (!trigger) {
@@ -460,7 +462,7 @@ export const triggers = {
         const data_str = JSON.stringify(data);
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
-        const spawn_result = term.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str]);
+        const spawn_result = kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
 
         try {
             const exit_code = await spawn_result.completion;
@@ -478,8 +480,8 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (term: WrappedTerminal, trigger_name: string, data: unknown, pkg_name: string, pkg_version: string) => {
-        const fs = term.get_fs();
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
+        const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
         if (!trigger) {
@@ -494,7 +496,7 @@ export const triggers = {
         const data_str = JSON.stringify(data);
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
-        const spawn_result = term.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str]);
+        const spawn_result = kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
 
         try {
             const exit_code = await spawn_result.completion;
@@ -563,7 +565,7 @@ export default {
             case 1:
                 if (["info", "read", "remove"].includes(data.args[0])) {
                     // complete with installed package names
-                    const fs = data.term.get_fs();
+                    const fs = data.kernel.get_fs();
 
                     // load graph
                     let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
@@ -585,8 +587,8 @@ export default {
         // TODO: safety prompt on first use
 
         // extract from data to make code less verbose
-        const {args, term} = data;
-        const fs = term.get_fs();
+        const {args, term, kernel, shell} = data;
+        const fs = kernel.get_fs();
 
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}Missing subcommand.`)
@@ -595,8 +597,7 @@ export default {
         }
 
         if (args.includes("-h")) {
-            term.execute("help pkg");
-            return 0;
+            return await kernel.spawn("help", ["pkg"], shell).completion;
         }
 
         // create /var/lib/pkg if it doesn't exist so subcommands don't have to check

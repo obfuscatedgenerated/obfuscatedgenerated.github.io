@@ -10,13 +10,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
         
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         
         // if no arguments, go to home directory

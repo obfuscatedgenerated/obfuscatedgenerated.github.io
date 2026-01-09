@@ -15,14 +15,14 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         if (args.length !== 3) {
             term.writeln("Usage: trigger_create_trigger pkg_name pkg_version trigger_file");
             return 1;
         }
 
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         const pkg_name = args[0];
         const trigger_file = JSON.parse(args[2]);

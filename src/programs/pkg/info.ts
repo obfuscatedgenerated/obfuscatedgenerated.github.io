@@ -41,7 +41,7 @@ const print_info = (term: WrappedTerminal, pkg_name: string, pkg_version: string
 
 export const info_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const { args, term, kernel } = data;
 
     // remove subcommand name
     args.shift();
@@ -95,7 +95,7 @@ export const info_subcommand = async (data: ProgramMainData) => {
     const installed_pkg = graph_query.get_pkg_version(pkg_name);
     const requested_version_installed = installed_pkg === pkg_version;
 
-    const fs = term.get_fs();
+    const fs = kernel.get_fs();
 
     if (!always_fetch && requested_version_installed) {
         const pkg_json_path = graph_query.get_file_path_in_pkg_bin(fs, pkg_name, "pkg.json");

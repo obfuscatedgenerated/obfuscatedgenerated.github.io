@@ -9,7 +9,7 @@ const {STYLE, FG, PREFABS} = ANSI;
 
 export const service_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const {args, term, process} = data;
+    const {args, term, process, kernel} = data;
 
     // remove subcommand name
     args.shift();
@@ -30,7 +30,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
     const service_id = args[1];
 
     // open ipc with ignition
-    const ipc = term.get_ipc();
+    const ipc = kernel.get_ipc();
     const channel_id = ipc.create_channel(process.pid, "init");
 
     if (!channel_id) {

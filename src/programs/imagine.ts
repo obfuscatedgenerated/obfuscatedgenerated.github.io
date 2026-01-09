@@ -60,13 +60,13 @@ export default {
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
         // get fs
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // get the path to the image
         const path = args[0];

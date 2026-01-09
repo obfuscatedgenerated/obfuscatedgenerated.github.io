@@ -37,7 +37,7 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const {args, term} = data;
+        const {args, term, kernel, shell} = data;
 
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}Missing subcommand.`)
@@ -46,8 +46,7 @@ export default {
         }
 
         if (args.includes("-h")) {
-            term.execute("help spark");
-            return 0;
+            return await kernel.spawn("help", ["spark"], shell).completion;
         }
 
         switch (args[0]) {

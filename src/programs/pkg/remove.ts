@@ -1,7 +1,7 @@
 import {determine_program_name_from_js} from "../../prog_registry";
 import { ANSI, NEWLINE } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
-import {graph_query, PkgAtVersion, triggers} from "./index";
+import {graph_query, triggers} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -10,7 +10,7 @@ const { STYLE, PREFABS, FG } = ANSI;
 
 export const remove_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const { args, term, kernel, shell } = data;
 
     // remove subcommand name
     args.shift();
@@ -42,8 +42,8 @@ export const remove_subcommand = async (data: ProgramMainData) => {
     let error_count = 0;
     // returns 0 for success, 1 for failure, 2 for fatal error
 
-    const fs = term.get_fs();
-    const prog_reg = term.get_program_registry();
+    const fs = kernel.get_fs();
+    const prog_reg = kernel.get_program_registry();
 
     // iter over remaining args
     const total_pkgs = unique_args.length;
@@ -164,7 +164,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
                 }
 
                 term.writeln(`${FG.cyan}Processing uninstall trigger: ${trigger_name}...${STYLE.reset_all}`);
-                await triggers.process_uninstall_trigger(term, trigger_name, trigger_data, pkg, meta_version);
+                await triggers.process_uninstall_trigger(trigger_name, trigger_data, pkg, meta_version, term, kernel, shell)
             }
 
             term.writeln(`${FG.cyan}Uninstall trigger processing complete.${STYLE.reset_all}`);

@@ -110,13 +110,13 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, args } = data;
+        const { kernel, term, shell, args } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, FG } = ANSI;
 
         // get version string
-        const version_str = term.get_variable("VERSION");
+        const version_str = shell ? shell.memory.get_variable("VERSION") || "unknown" : "unknown";
 
         // restrict to first 3 quarters of screen
         const max_columns = Math.floor(term.cols * 0.75);
@@ -150,7 +150,7 @@ export default {
 
         // check synced data if username exists in data repo
         let known_data = null;
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
         if (await fs.exists("/var/lib/data/person/index.json")) {
             const data_index_str = await fs.read_file("/var/lib/data/person/index.json") as string;
             const data_index = JSON.parse(data_index_str) as string[];

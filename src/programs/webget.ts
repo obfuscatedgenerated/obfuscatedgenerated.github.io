@@ -29,17 +29,16 @@ export default {
         // TODO: automatically guess binary mode based on file extension or recieved header
 
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE, FG } = ANSI;
 
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         if (args[0] === "-h") {
-            term.execute("help webget");
-            return 0;
+            return await kernel.spawn("help", ["webget"], shell).completion;
         }
 
         // check if the user provided a URL

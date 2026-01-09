@@ -15,7 +15,7 @@ export default {
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
@@ -26,8 +26,7 @@ export default {
         for (const arg of args) {
             switch (arg) {
                 case "-h":
-                    term.execute("help shutdown");
-                    return 0;
+                    return await kernel.spawn("help", ["shutdown"], shell).completion;
                 case "-r":
                     restart = true;
                     break;

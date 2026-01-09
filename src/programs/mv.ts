@@ -14,13 +14,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE, FG } = ANSI;
 
         // get fs
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // check for -n
         let no_overwrite = false;

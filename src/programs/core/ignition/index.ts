@@ -66,7 +66,7 @@ export default {
         }
 
         // create service manager
-        const svc_mgr = new ServiceManager(term);
+        const svc_mgr = new ServiceManager(kernel);
 
         // load service files but don't start them yet
         await svc_mgr.load_service_files();

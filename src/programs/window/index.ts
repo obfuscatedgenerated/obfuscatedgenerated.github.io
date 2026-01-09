@@ -48,8 +48,7 @@ export default {
                     return helper_completion_options(["-v", "-i"])(data);
                 } else if (["show", "hide", "close", "center"].includes(data.raw_parts[1])) {
                     // complete window ids
-                    const term = data.term;
-                    const wm = term.get_window_manager();
+                    const wm = data.kernel.get_window_manager();
                     if (!wm) {
                         return [];
                     }
@@ -64,7 +63,7 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const {args, term} = data;
+        const {args, term, kernel, shell} = data;
 
         if (args.length === 0) {
             term.writeln(`${PREFABS.error}Missing subcommand.`)
@@ -73,11 +72,10 @@ export default {
         }
 
         if (args.includes("-h")) {
-            term.execute("help window");
-            return 0;
+            return await kernel.spawn("help", ["window"], shell).completion;
         }
 
-        if (!term.has_window_manager()) {
+        if (!kernel.has_window_manager()) {
             term.writeln(`${PREFABS.error}No window manager found.${STYLE.reset_all}`);
             return 1;
         }

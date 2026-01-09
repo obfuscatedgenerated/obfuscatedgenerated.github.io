@@ -1,4 +1,4 @@
-import {graph_query, json_convert_dep_sets_to_arrs, PkgAtVersion, repo_query, triggers} from ".";
+import {graph_query, json_convert_dep_sets_to_arrs, repo_query, triggers} from ".";
 import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
@@ -13,7 +13,7 @@ const {STYLE, PREFABS, FG} = ANSI;
 
 export const add_subcommand = async (data: ProgramMainData, depended_by?: string) => {
     // extract from data to make code less verbose
-    const {args, term} = data;
+    const {args, term, kernel, shell} = data;
 
     // remove subcommand name
     args.shift();
@@ -30,8 +30,8 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
     let error_count = 0;
     // returns 0 for success, 1 for failure, 2 for fatal error
 
-    const fs = term.get_fs();
-    const prog_reg = term.get_program_registry();
+    const fs = kernel.get_fs();
+    const prog_reg = kernel.get_program_registry();
 
     // iter over remaining args
     const total_pkgs = unique_args.length;
@@ -110,7 +110,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 // uninstall old version
                 term.writeln(`${FG.yellow}Uninstalling old ${pkg_name}@${pkg_version}...${STYLE.reset_all}`);
 
-                const remove_data = {term, process: data.process, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name], raw_parts: [...data.raw_parts, "remove", pkg_name]};
+                const remove_data = {kernel, term, process: data.process, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name], raw_parts: [...data.raw_parts, "remove", pkg_name]};
                 const remove_exit_code = await remove_subcommand(remove_data);
                 if (remove_exit_code !== 0) {
                     term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
@@ -134,7 +134,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             virtual_args.unshift("add");
 
             // we need to also pass the name of the dependent package to the virtual call to let the graph know
-            const virtual_data = {term, process: data.process, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args]};
+            const virtual_data = {kernel, term, process: data.process, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args]};
             const virtual_exit_code = await add_subcommand(virtual_data, pkg_name);
 
             if (virtual_exit_code !== 0) {
@@ -260,7 +260,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 }
 
                 term.writeln(`${FG.cyan}Processing install trigger: ${trigger_name}...${STYLE.reset_all}`);
-                await triggers.process_install_trigger(term, trigger_name, trigger_data, pkg_name, pkg_version);
+                await triggers.process_install_trigger(trigger_name, trigger_data, pkg_name, pkg_version, term, kernel, shell);
             }
 
             term.writeln(`${FG.cyan}Install trigger processing complete.${STYLE.reset_all}`);

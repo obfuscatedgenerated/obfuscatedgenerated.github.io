@@ -1,15 +1,14 @@
-import {ANSI, NEWLINE} from "../../term_ctl";
+import {ANSI} from "../../term_ctl";
 import {ProgramMainData} from "../../types"
 
 import type {IgnitionIPCReply} from "../core/ignition";
-import type {ServiceStatus} from "../core/ignition/services";
 
 // extract from ANSI to make code less verbose
 const {STYLE, FG, PREFABS} = ANSI;
 
 export const reload_services_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const {args, term, process} = data;
+    const {args, term, process, kernel} = data;
 
     // remove subcommand name
     args.shift();
@@ -17,7 +16,7 @@ export const reload_services_subcommand = async (data: ProgramMainData) => {
     // TODO: make function to do this back and forth with ignition rather than duplicating code for each subcommand
 
     // open ipc with ignition
-    const ipc = term.get_ipc();
+    const ipc = kernel.get_ipc();
     const channel_id = ipc.create_channel(process.pid, "init");
 
     if (!channel_id) {

@@ -58,7 +58,7 @@ export class Kernel {
         return this._process_manager.ipc_manager;
     }
 
-    spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
+    spawn = (command: string, args: string[] = [], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult => {
         // search for the command in the registry
         const program = this._prog_registry.getProgram(command);
         if (program === undefined) {
@@ -88,6 +88,8 @@ export class Kernel {
             raw_parts: parsed_line.raw_parts,
             process
         };
+
+        // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
 
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;

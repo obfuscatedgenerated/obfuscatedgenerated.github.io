@@ -33,13 +33,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { shell, kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE, FG } = ANSI;
 
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // check if the user provided a filepath
         if (args.length === 0) {
@@ -48,8 +48,7 @@ export default {
         }
 
         if (args[0] === "-h") {
-            term.execute("help hex");
-            return 0;
+            await kernel.spawn("help", ["hex"], shell).completion;
         }
 
         // get filepath

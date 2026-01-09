@@ -62,13 +62,13 @@ export default {
     arg_descriptions: {},
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS, FG } = ANSI;
 
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // parse argument
         if (args.length !== 1) {

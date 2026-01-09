@@ -9,9 +9,9 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, process } = data;
+        const { kernel, term, process } = data;
 
-        const ipc = term.get_ipc();
+        const ipc = kernel.get_ipc();
         const channel = ipc.create_channel(process.pid, "ipc_bg_test");
         
         if (!channel) {

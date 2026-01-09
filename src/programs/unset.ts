@@ -10,17 +10,28 @@ export default {
         }
     },
     completion: async (data) => {
-        const var_names = [...data.term.list_variables().keys()];
+        if (!data.shell) {
+            return [];
+        }
+
+        const var_names = [...data.shell.memory.list_variables().keys()];
         // TODO: check type to see why helper_completion_options wont work here
         return var_names.filter(name => name.startsWith(data.current_partial));
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { shell, args, term } = data;
+
+        if (!shell) {
+            term.writeln("No shell available");
+            return 1;
+        }
+
+        // TODO: move to shell builtin, not actual program
 
         // for each variable name, unset it, with no regards to whether it exists or not
         for (const name of args) {
-            term.unset_variable(name);
+            shell.memory.unset_variable(name);
         }
         
         return 0;

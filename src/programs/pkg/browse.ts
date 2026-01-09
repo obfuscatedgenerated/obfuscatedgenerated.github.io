@@ -2,13 +2,15 @@ import {ANSI, NEWLINE} from "../../term_ctl";
 import type { WrappedTerminal } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
+import type {Kernel} from "../../kernel";
+import type {AbstractShell} from "../../abstract_shell";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG, CURSOR } = ANSI;
 
 const ROWS = 10;
 
-const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
+const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
     const pkg_data = await repo_query.get_pkg_json(pkg_name);
     const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
 
@@ -72,7 +74,7 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
             term.write(" yes");
             term.write(NEWLINE);
 
-            await term.execute(`pkg add ${pkg_name}`);
+            await kernel.spawn("pkg", ["install", pkg_name], shell).completion;
 
             term.write(NEWLINE);
             term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
@@ -91,7 +93,7 @@ const view_pkg_info = async (term: WrappedTerminal, pkg_name: string) => {
 
 export const browse_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const { args, term, kernel, shell } = data;
 
     // remove subcommand name
     args.shift();
@@ -168,7 +170,7 @@ export const browse_subcommand = async (data: ProgramMainData) => {
                 break;
             case "Enter": {
                 const pkg_name = provided[selected_index];
-                await view_pkg_info(term, pkg_name);
+                await view_pkg_info(pkg_name, term, kernel, shell);
                 break;
             }
         }

@@ -11,14 +11,21 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { shell, term } = data;
+
+        if (!shell) {
+            term.writeln("No shell available");
+            return 1;
+        }
+
+        // TODO: move to shell builtin, not actual program
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = term.ansi;
 
         if (data.args.length === 0) {
             // display all aliases
-            const aliases = term.list_aliases();
+            const aliases = shell.memory.list_aliases();
             for (const [name, value] of aliases.entries()) {
                 term.writeln(`alias ${name}='${value}'`);
             }
@@ -39,10 +46,10 @@ export default {
                     final_value = final_value.slice(1, -1);
                 }
 
-                term.set_alias(name, final_value);
+                shell.memory.set_alias(name, final_value);
             } else {
                 // display alias
-                const value = term.get_alias(arg);
+                const value = shell.memory.get_alias(arg);
                 if (value) {
                     term.writeln(`alias ${arg}='${value}'`);
                 } else {

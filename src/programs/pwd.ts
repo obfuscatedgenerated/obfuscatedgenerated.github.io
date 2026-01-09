@@ -9,13 +9,13 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { kernel, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
         
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // print working directory
         term.writeln(PREFABS.dir_name + fs.get_cwd() + STYLE.reset_all);

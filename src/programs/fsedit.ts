@@ -12,13 +12,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term, process } = data;
+        const { kernel, args, term, process } = data;
 
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
         // get fs
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // get fs name
         const fs_name = fs.get_unique_fs_type_name();
@@ -42,7 +42,7 @@ export default {
         // url encode the directory
         const encoded_dir = encodeURIComponent(dir);
 
-        if (!term.has_window_manager()) {
+        if (!kernel.has_window_manager()) {
             // fallback to opening in a popup window
             window.open(`./fsedit?type=${fs_name}&dir=${encoded_dir}`, "_blank", "popup=true");
             term.writeln("Opened fsedit in a new popup window.");
@@ -75,13 +75,13 @@ export default {
             if (await fs.exists("/.fs.lock")) {
                 // check that no other fsedit processes are running
                 let other_fsedit_running = false;
-                const processes = term.get_process_manager().list_pids();
+                const processes = kernel.get_process_manager().list_pids();
                 for (const pid of processes) {
                     if (pid === process.pid) {
                         continue;
                     }
 
-                    const proc = term.get_process_manager().get_process(pid);
+                    const proc = kernel.get_process_manager().get_process(pid);
                     if (proc && proc.source_command.command === "fsedit") {
                         other_fsedit_running = true;
                         break;

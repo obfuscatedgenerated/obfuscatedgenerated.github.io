@@ -35,17 +35,17 @@ export default {
     },
     completion: async (data) => {
         // TODO smarter completion to handle number of args and flags
-        const programs = data.term.get_program_registry().listProgramNames();
+        const programs = data.kernel.get_program_registry().listProgramNames();
         return programs.filter((program) => program.startsWith(data.current_partial));
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { shell, kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
-        const registry = term.get_program_registry();
+        const registry = kernel.get_program_registry();
 
         let single_column = false;
         let includes_mounted = false;
@@ -122,8 +122,18 @@ export default {
                 if (min_padding_length < 0) {
                     term.writeln("Terminal too small to display programs in 2 columns. Re-executing in single-column mode.");
                     term.write(NEWLINE);
-                    term.execute(`help -s ${includes_mounted ? "-m" : ""} ${includes_builtin ? "-a" : ""}`);
-                    return 0;
+                    
+                    const new_args = ["-s"];
+
+                    if (includes_mounted) {
+                        new_args.push("-m");
+                    }
+
+                    if (includes_builtin) {
+                        new_args.push("-a");
+                    }
+                    
+                    return await kernel.spawn("help", new_args, shell).completion;
                 }
 
 

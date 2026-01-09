@@ -16,10 +16,10 @@ export default {
     completion: helper_completion_options(["-h", "-s", "-so"]),
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
-        const { FG, STYLE } = ANSI;
+        const { FG, STYLE, PREFABS } = ANSI;
 
         switch (args[0]) {
             case undefined:
@@ -27,15 +27,26 @@ export default {
                 break;
             case "-s":
                 term.reset();
-                term.clear_history();
+
+                if (shell) {
+                    shell.memory.clear_history();
+                } else {
+                    term.writeln(`${PREFABS.error}Cannot clear scrollback: no shell available.${STYLE.reset_all}`);
+                    return 1;
+                }
+
                 break;
             case "-so":
-                term.clear_history();
+                if (!shell) {
+                    term.writeln(`${PREFABS.error}Cannot clear scrollback: no shell available.${STYLE.reset_all}`);
+                    return 1;
+                }
+
+                shell.memory.clear_history();
                 term.writeln(`${STYLE.bold + FG.gray}Scrollback cleared.${STYLE.reset_all}`);
                 break;
             case "-h":
-                term.execute("help clear");
-                return 0;
+                return await kernel.spawn("help", ["clear"], shell).completion;
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);
                 return 1;

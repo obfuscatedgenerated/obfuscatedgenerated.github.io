@@ -16,13 +16,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { args, term } = data;
+        const { kernel, shell, args, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
         // get filesystem
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // parse arguments
         let show_hidden = false;
@@ -34,8 +34,7 @@ export default {
                     show_hidden = true;
                     break;
                 case "-h":
-                    term.execute("help ls");
-                    return 0;
+                    return await kernel.spawn("help", ["ls"], shell).completion;
                 default:
                     path = fs.absolute(arg);
             }

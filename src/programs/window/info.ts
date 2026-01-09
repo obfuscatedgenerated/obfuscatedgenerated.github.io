@@ -5,14 +5,14 @@ import { ProgramMainData } from "../../types"
 const { STYLE, FG } = ANSI;
 export const info_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term } = data;
+    const { args, term, kernel } = data;
 
     // remove subcommand name
     args.shift();
 
     term.write(NEWLINE);
 
-    const wm = term.get_window_manager();
+    const wm = kernel.get_window_manager();
     const all_windows = wm!.get_all_windows();
     const visible_windows = all_windows.filter(w => w.visible).length;
 

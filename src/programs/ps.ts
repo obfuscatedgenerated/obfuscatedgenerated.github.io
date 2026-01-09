@@ -16,7 +16,7 @@ export default {
         if (data.arg_index === 0) {
             return helper_completion_options(["-p"])(data);
         } else if (data.arg_index === 1 && data.args[0] === "-p") {
-            const pm = data.term.get_process_manager();
+            const pm = data.kernel.get_process_manager();
             const pids = pm.list_pids().map((pid) => pid.toString());
             return helper_completion_options(pids)(data);
         }
@@ -25,13 +25,13 @@ export default {
     },
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { kernel, term } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
 
         // get process manager
-        const pm = term.get_process_manager();
+        const pm = kernel.get_process_manager();
 
         if (data.args[0] === "-p") {
             const pid = parseInt(data.args[1]);
