@@ -18,6 +18,10 @@ export declare class Kernel {
     _fs: AbstractFileSystem;
     _wm: AbstractWindowManager | null;
     _panicked: boolean;
+    _env_info: {
+        version: string;
+        env: string;
+    };
     get panicked(): boolean;
     get_program_registry(): ProgramRegistry;
     get_sound_registry(): SoundRegistry;
@@ -26,6 +30,11 @@ export declare class Kernel {
     has_window_manager(): boolean;
     get_process_manager(): ProcessManager;
     get_ipc(): IPCManager;
+    get_env_info(): {
+        version: string;
+        env: string;
+    };
+    set_env_info(version: string, env: string): void;
     spawn: (command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand) => SpawnResult;
     panic(message: string, debug_info?: string): void;
     boot(): Promise<boolean>;
