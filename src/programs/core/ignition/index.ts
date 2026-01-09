@@ -197,14 +197,9 @@ export default {
             current_tty_process = boot_target_proc.process;
 
             const exit_code = await boot_target_proc.completion;
-
-            if (exit_code === 0) {
-                running = false;
-            }
-
             console.log(`boot target ${boot_target} exited with code ${exit_code}`);
 
-            // TODO: error recovery logic
+            // TODO: error recovery logic if boot target fails multiple times in a row
         }
 
         return final_code;

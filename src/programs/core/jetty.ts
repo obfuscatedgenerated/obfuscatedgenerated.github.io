@@ -1,5 +1,6 @@
 import type {Program} from "../../types";
 import type {ProcessContext} from "../../processes";
+import {ANSI} from "../../term_ctl";
 
 export default {
     name: "jetty",
@@ -57,11 +58,22 @@ export default {
 
             const exit_code = await shell_proc.completion;
 
-            if (exit_code === 0) {
-                running = false;
+            console.log(`default shell ${default_shell} exited with code ${exit_code}`);
+
+            // early break in case jetty is being killed
+            if (!running) {
+                break;
             }
 
-            console.log(`default shell ${default_shell} exited with code ${exit_code}`);
+            term.reset();
+
+            term.writeln(exit_code === 0 ? "Logged out." : `Shell exited with code ${exit_code}!`);
+            term.writeln(`Press any key to log back in.${ANSI.CURSOR.invisible}`);
+
+            await term.wait_for_keypress();
+            term.write(ANSI.CURSOR.visible);
+
+            term.reset();
         }
 
         return final_code;

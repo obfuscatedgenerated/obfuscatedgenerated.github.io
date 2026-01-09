@@ -65,6 +65,12 @@ export default {
                 continue;
             }
 
+            // TODO: have an actual builtin processor instead of just reading input here
+            if (input === "exit") {
+                running = false;
+                break;
+            }
+
             shell.memory.add_history_entry(input);
             await shell.execute(input);
         }
