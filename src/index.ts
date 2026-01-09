@@ -172,31 +172,6 @@ async function main() {
     term.set_variable("VERSION", document.body.dataset.version);
     term.set_variable("ENV", "web");
 
-    // run ignition to set up the terminal, then call loaded() once detached
-    try {
-        const ignition = term.spawn("ignition", []);
-
-        if (ignition.process.pid !== 1) {
-            term.panic("ignition did not start as PID 1!");
-            return;
-        }
-
-        ignition.completion.then((exit_code) => {
-            if (exit_code !== 0) {
-                term.panic("ignition error!", `Exit code: ${exit_code}`);
-                return;
-            }
-
-            loaded(term);
-        }).catch((e) => {
-            boot_screen.remove();
-            term.panic("ignition error!", e.toString());
-        });
-    } catch (e) {
-        term.panic("Failed to start ignition!", e.toString());
-        return;
-    }
-
     // load addons
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -238,6 +213,49 @@ async function main() {
         e.preventDefault();
         term.copy_or_paste();
     });
+
+    // read /boot/init to determine init system
+    let init_program: string;
+
+    try {
+        const init_data = await fs.read_file("/boot/init") as string;
+        init_program = init_data.trim();
+    } catch {
+        boot_screen.style.display = "none";
+        term.panic("Failed to read /boot/init to determine init system!");
+        return;
+    }
+
+    if (!init_program) {
+        boot_screen.style.display = "none";
+        term.panic("No init program specified in /boot/init!");
+        return;
+    }
+
+    // run init program to set up the terminal, then call loaded() once detached
+    try {
+        const init = term.spawn(init_program, []);
+
+        if (init.process.pid !== 1) {
+            term.panic(`init program ${init_program} did not start as PID 1!`);
+            return;
+        }
+
+        init.completion.then((exit_code) => {
+            if (exit_code !== 0) {
+                term.panic(`init program ${init_program} error!`, `Exit code: ${exit_code}`);
+                return;
+            }
+
+            loaded(term);
+        }).catch((e) => {
+            boot_screen.style.display = "none";
+            term.panic(`init program ${init_program} error!`, e.toString());
+        });
+    } catch (e) {
+        boot_screen.style.display = "none";
+        term.panic(`Failed to start init program ${init_program}!`, e.toString());
+    }
 }
 
 if (localStorage.getItem("nointro") === "true") {

@@ -1,6 +1,21 @@
 import { AbstractFileSystem } from "./filesystem";
 import { ANSI, NEWLINE } from "./term_ctl";
 
+const setup_boot = async (fs: AbstractFileSystem) => {
+    // create boot directory if it doesn't exist
+    const absolute_boot = fs.absolute("/boot");
+    if (!(await fs.dir_exists(absolute_boot))) {
+        await fs.make_dir(absolute_boot);
+    }
+
+    // create init file if it doesn't exist
+    const init_content = "ignition";
+    const absolute_init = fs.absolute("/boot/init");
+    if (!(await fs.exists(absolute_init))) {
+        await fs.write_file(absolute_init, init_content);
+    }
+}
+
 const setup_motd = async (fs: AbstractFileSystem) => {
     // create etc directory if it doesn't exist
     const absolute_etc = fs.absolute("/etc");
@@ -383,6 +398,7 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
 };
 
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
+    await setup_boot(fs);
     await setup_motd(fs);
     await setup_rc_profile(fs);
     await setup_credits(fs);

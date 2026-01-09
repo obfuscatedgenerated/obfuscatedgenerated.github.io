@@ -6,31 +6,60 @@
     <title>OllieOS FS Recovery</title>
 
     <script>
-        const erase = () => {
+        // if not opfs, disable reset boot button
+        if (!("storage" in navigator && "getDirectory" in navigator.storage)) {
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById("reset").disabled = true;
+            });
+        }
+
+        const erase = async () => {
             if (confirm("Are you sure you want to erase the filesystem? This action cannot be undone.")) {
                 localStorage.removeItem("fs_readonly_paths");
                 localStorage.removeItem("fs");
 
                 // check if OPFS is in use and clear it
                 if ("storage" in navigator && "getDirectory" in navigator.storage) {
-                    navigator.storage.getDirectory().then(async (root) => {
-                        // delete root
-                        const entries = root.entries();
-                        for await (const [name, handle] of entries) {
+                    const root = await navigator.storage.getDirectory();
+
+                    for await (const [name, handle] of root.entries()) {
+                        if (handle.kind === "file") {
+                            await root.removeEntry(name);
+                        } else if (handle.kind === "directory") {
                             await root.removeEntry(name, { recursive: true });
                         }
-                    }).catch((err) => {
-                        console.error("Error clearing OPFS:", err);
-                    });
+                    }
                 }
 
                 alert("Filesystem erased. Heading back to OllieOS.");
                 window.location.href = "/";
             }
         };
+
+        const reset_bootloader = async () => {
+            if (!("storage" in navigator && "getDirectory" in navigator.storage)) {
+                alert("OPFS is not supported in this browser. Cannot reset bootloader.");
+                return;
+            }
+
+            if (confirm("Are you sure you want to reset the bootloader file /boot/init? This will clear your choice of init system but retains your files.")) {
+                // delete /boot/init from opfs
+                const root = await navigator.storage.getDirectory();
+                try {
+                    const boot_dir = await root.getDirectoryHandle("boot");
+                    await boot_dir.removeEntry("init");
+
+                    alert("Bootloader reset. Heading back to OllieOS.");
+                    window.location.href = "/";
+                } catch (e) {
+                    alert("Bootloader file /boot/init does not exist. Nothing to reset.");
+                }
+            }
+        };
     </script>
 </head>
 <body>
     <button onclick="erase()">Erase filesystem</button>
+    <button id="reset_boot" onclick="reset_bootloader()">Reset bootloader</button>
 </body>
 </html>

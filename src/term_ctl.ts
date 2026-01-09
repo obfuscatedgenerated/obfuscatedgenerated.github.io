@@ -976,12 +976,18 @@ export class WrappedTerminal extends Terminal {
 
         this._panicked = true;
 
+        // print formatted panic to js console
+        console.error(`%cPANIC: ${message}\n${debug_info || ""}`, "background: red; color: white; font-weight: bold;");
+
         this.reset();
 
         // stop reading key events
         this._disposable_onkey.dispose();
-        this.textarea.disabled = true;
         this.write(ANSI.CURSOR.invisible);
+
+        if (this.textarea) {
+            this.textarea.disabled = true;
+        }
 
         this.writeln(`${ANSI.BG.red + ANSI.FG.white}Panic: ${message}`);
         this.writeln(`at time: ${new Date().toISOString()}`);
