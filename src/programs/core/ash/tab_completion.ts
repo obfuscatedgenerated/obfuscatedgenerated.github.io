@@ -1,3 +1,4 @@
+import type {Kernel} from "../../../kernel";
 import type {ReadLineBuffer, WrappedTerminal} from "../../../term_ctl";
 import type {CompletionData} from "../../../types";
 
@@ -7,9 +8,9 @@ import {parse_line} from "./parser";
 let cached_matches: string[] = [];
 let current_cached_match_index = 0;
 
-const complete_command = (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
+const complete_command = (kernel: Kernel, term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
     // get the program registry
-    const registry = term.get_program_registry();
+    const registry = kernel.get_program_registry();
     const programs = registry.listProgramNames(true, true);
 
     // check for existing matches
@@ -37,7 +38,7 @@ const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
     return obj && typeof obj[Symbol.asyncIterator] === "function";
 }
 
-const get_completeable_arguments = async (term: WrappedTerminal, buffer: ReadLineBuffer) => {
+const get_completeable_arguments = async (kernel: Kernel, term: WrappedTerminal, buffer: ReadLineBuffer) => {
     // parse the line
 
     const parsed_line = parse_line(buffer.current_line);
@@ -50,7 +51,7 @@ const get_completeable_arguments = async (term: WrappedTerminal, buffer: ReadLin
     const {command, args, unsubbed_args, raw_parts} = parsed_line;
 
     // get the command from the registry
-    const registry = term.get_program_registry();
+    const registry = kernel.get_program_registry();
     const program = registry.getProgram(command);
     if (!program) {
         console.warn(`Tab completion for unknown command "${command}"`);
@@ -95,9 +96,9 @@ const get_completeable_arguments = async (term: WrappedTerminal, buffer: ReadLin
     }
 }
 
-const complete_argument = async (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
+const complete_argument = async (kernel: Kernel, term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
     // get the completeable arguments
-    const completeable_arguments = await get_completeable_arguments(term, buffer);
+    const completeable_arguments = await get_completeable_arguments(kernel, term, buffer);
     if (!completeable_arguments) {
         return {match: "", discard_cached_matches};
     }
@@ -157,7 +158,7 @@ const fill_completed_argument = (term: WrappedTerminal, buffer: ReadLineBuffer, 
 }
 
 // TODO: how does this work? would be good to make it linked to the terminal instance. what is discard_cached_matches even for?
-export const tab_complete = async (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches = false): Promise<boolean> => {
+export const tab_complete = async (kernel: Kernel, term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches = false): Promise<boolean> => {
     // if the current line is empty, do nothing
     if (buffer.current_line.length === 0) {
         return;
@@ -165,7 +166,7 @@ export const tab_complete = async (term: WrappedTerminal, buffer: ReadLineBuffer
 
     // if the current line has no spaces, tab complete the command
     if (!buffer.current_line.includes(" ")) {
-        const {match, discard_cached_matches: updated_discard} = complete_command(term, buffer, discard_cached_matches);
+        const {match, discard_cached_matches: updated_discard} = complete_command(kernel, term, buffer, discard_cached_matches);
         discard_cached_matches = updated_discard;
 
         // if there is a match, tab complete
@@ -174,7 +175,7 @@ export const tab_complete = async (term: WrappedTerminal, buffer: ReadLineBuffer
         }
     } else {
         // otherwise, tab complete the argument
-        const {match, discard_cached_matches: updated_discard} = await complete_argument(term, buffer, discard_cached_matches);
+        const {match, discard_cached_matches: updated_discard} = await complete_argument(kernel, term, buffer, discard_cached_matches);
         discard_cached_matches = updated_discard;
 
         // if there is a match, tab complete
@@ -187,6 +188,7 @@ export const tab_complete = async (term: WrappedTerminal, buffer: ReadLineBuffer
 }
 
 // TODO: the discard cache arg is janky. come up with a better solution. should also be using generators directly instead of arrays for completions
+// TODO: would be much better as a class that maintains its own state and remembers term, kernel etc.
 
 export const helper_completion_options = (options: string[]) => {
     return async function* (data: CompletionData): AsyncGenerator<string> {

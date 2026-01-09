@@ -1,4 +1,5 @@
-import type {SpawnResult, WrappedTerminal} from "../../../term_ctl";
+import type {WrappedTerminal} from "../../../term_ctl";
+import {SpawnResult} from "../../../kernel";
 
 const SERVICES_DIR = "/etc/services/";
 

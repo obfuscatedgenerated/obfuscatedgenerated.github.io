@@ -1,13 +1,15 @@
 import type {AbstractShell} from "../../../abstract_shell";
-import {NEWLINE, SpawnResult, WrappedTerminal} from "../../../term_ctl";
-import {ANSI} from "../../../term_ctl";
+import type {Kernel, SpawnResult} from "../../../kernel";
+
+import {ANSI, NEWLINE, type WrappedTerminal} from "../../../term_ctl";
 
 import {AshMemory} from "./memory";
-import { parse_line } from "./parser";
+import {parse_line} from "./parser";
 
 const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
+    _kernel: Kernel;
     _term: WrappedTerminal;
     _memory = new AshMemory();
 
@@ -16,22 +18,22 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: WrappedTerminal) {
+    constructor(term: WrappedTerminal, kernel: Kernel) {
         this._term = term;
+        this._kernel = kernel;
     }
 
     get memory(): AshMemory {
         return this._memory;
     }
 
-    // TODO: actually move stuff to the right place rather than private accessing term internals
-
     // returns success flag (or error if critical)
     execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
+        const kernel = this._kernel;
         const term = this._term;
         const memory = this._memory;
 
-        if (term.panicked) {
+        if (kernel.panicked) {
             return false;
         }
 
@@ -64,7 +66,8 @@ export class AshShell implements AbstractShell {
         const { command } = parsed_line;
 
         // check if the command exists
-        if (!term._prog_registry.getProgram(command)) {
+        const prog_reg = kernel.get_program_registry();
+        if (!prog_reg.getProgram(command)) {
             term.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             return false;
         }
@@ -78,7 +81,7 @@ export class AshShell implements AbstractShell {
         // spawn the process
         let spawn_result: SpawnResult;
         try {
-            spawn_result = term.spawn(command, parsed_line.args, parsed_line, this);
+            spawn_result = kernel.spawn(command, parsed_line.args, parsed_line, this);
         } catch (e) {
             if (edit_doc_title) {
                 document.title = old_title;
@@ -192,7 +195,7 @@ export class AshShell implements AbstractShell {
     }
 
     async run_script(path: string) {
-        const fs = this._term.get_fs();
+        const fs = this._kernel.get_fs();
 
         if (await fs.exists(path)) {
             // iter through the lines of the file and execute them
@@ -213,7 +216,7 @@ export class AshShell implements AbstractShell {
     }
 
     get_prompt_string(): string {
-        const fs = this._term.get_fs();
+        const fs = this._kernel.get_fs();
 
         let path = fs.get_cwd();
 
@@ -227,9 +230,10 @@ export class AshShell implements AbstractShell {
     }
 
     async insert_prompt(newline = true) {
+        const kernel = this._kernel;
         const term = this._term;
 
-        if (term.panicked) {
+        if (kernel.panicked) {
             return;
         }
 

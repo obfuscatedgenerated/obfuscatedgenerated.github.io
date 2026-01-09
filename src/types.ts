@@ -1,8 +1,10 @@
-import type { WrappedTerminal } from "./term_ctl";
+import type {Kernel} from "./kernel";
+import type {WrappedTerminal} from "./term_ctl";
 import type {ProcessContext} from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
 export interface ProgramMainData {
+    kernel: Kernel,
     term: WrappedTerminal,
     shell?: AbstractShell;
     process: ProcessContext,
@@ -25,6 +27,8 @@ export interface Program {
     main: ProgramMain,
     completion?: CompletionGenerator,
 }
+
+// TODO: move some of these to their correct modules
 
 export interface CompletionData {
     term: WrappedTerminal,

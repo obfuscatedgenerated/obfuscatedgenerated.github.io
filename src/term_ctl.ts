@@ -1,17 +1,5 @@
 import {IDisposable, ITerminalOptions, Terminal} from "@xterm/xterm";
-
-import {ProgramRegistry} from "./prog_registry";
-import type {AbstractFileSystem} from "./filesystem";
-
 import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "./types";
-import {SoundRegistry} from "./sfx_registry";
-import {AbstractWindowManager} from "./windowing";
-import {IPCManager, ProcessContext, ProcessManager} from "./processes";
-import type {AbstractShell} from "./abstract_shell";
-
-// TODO: decouple, either make generic interface or dont use at all
-import type {LineParseResultCommand} from "./programs/core/ash/parser";
-
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */
@@ -93,12 +81,6 @@ export const ANSI = {
 
 
 // TODO: docstrings everywhere
-// TODO: this needs splitting up into multiple files, perhaps separate the terminal and the kernel into classes and compose them together
-
-export interface SpawnResult {
-    process: ProcessContext;
-    completion: Promise<number>;
-}
 
 export interface ReadLineBuffer {
     current_line: string;
@@ -112,22 +94,12 @@ export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
 
-    _process_manager: ProcessManager;
-    _prog_registry: ProgramRegistry;
-    _sfx_registry: SoundRegistry;
-    _fs: AbstractFileSystem;
-    _wm: AbstractWindowManager | null = null;
-
     _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     _on_printable_handlers: KeyEventHandler[] = [];
     _key_event_queue: KeyEvent[] = [];
     _is_handling_key_events = false;
 
-    _panicked = false;
-
-    get panicked(): boolean {
-        return this._panicked;
-    }
+    _kernel_has_panicked = false;
 
     // TODO: this exporting is a bit lazy, but it works for now
 
@@ -149,34 +121,6 @@ export class WrappedTerminal extends Terminal {
 
     get ansi_unescaped_regex() {
         return ANSI_UNESCAPED_REGEX;
-    }
-
-    get_program_registry(): ProgramRegistry {
-        return this._prog_registry;
-    }
-
-    get_sound_registry(): SoundRegistry {
-        return this._sfx_registry;
-    }
-
-    get_fs(): AbstractFileSystem {
-        return this._fs;
-    }
-
-    get_window_manager(): AbstractWindowManager | null {
-        return this._wm;
-    }
-
-    has_window_manager(): boolean {
-        return this._wm !== null;
-    }
-
-    get_process_manager(): ProcessManager {
-        return this._process_manager;
-    }
-
-    get_ipc(): IPCManager {
-        return this._process_manager.ipc_manager;
     }
 
     // line discipline now completely handled by read_line, no global event loop
@@ -309,50 +253,6 @@ export class WrappedTerminal extends Terminal {
                 }
             );
         });
-    }
-
-    spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
-        // search for the command in the registry
-        const program = this._prog_registry.getProgram(command);
-        if (program === undefined) {
-            throw new Error(`Command not found: ${command}`);
-        }
-
-        // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
-        const parsed_line: LineParseResultCommand = original_line_parse ?? {
-            type: "command",
-            command,
-            args,
-            unsubbed_args: args,
-            raw_parts: [command, ...args],
-            run_in_bg: false
-        };
-
-        // create new process context
-        const process = this._process_manager.create_process(parsed_line);
-
-        // if the command is found, run it
-        const data = {
-            term: this,
-            args,
-            shell,
-            unsubbed_args: parsed_line.unsubbed_args,
-            raw_parts: parsed_line.raw_parts,
-            process
-        };
-
-        // create a promise that resolves when the program completes
-        let result_promise: Promise<number>;
-        if ("main" in program) {
-            result_promise = Promise.resolve(program.main(data));
-        } else {
-            throw new Error("Invalid program type");
-        }
-
-        return {
-            process,
-            completion: result_promise
-        };
     }
 
     _search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
@@ -586,7 +486,6 @@ export class WrappedTerminal extends Terminal {
         return wrapped_lines.join(NEWLINE);
     }
 
-
     copy() {
         // copy the selected text to the clipboard
         navigator.clipboard.writeText(this.getSelection()).then(() => {
@@ -596,6 +495,10 @@ export class WrappedTerminal extends Terminal {
     }
 
     paste() {
+        if (this._kernel_has_panicked) {
+            return;
+        }
+
         // TODO: sometimes has issues with large text (queue consumption not restarted properly after execution)
         // read the clipboard
         navigator.clipboard.readText().then((text) => {
@@ -638,15 +541,12 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    panic(message: string, debug_info?: string) {
-        if (this._panicked) {
+    handle_kernel_panic = (message: string, process_info: string, debug_info?: string) => {
+        if (this._kernel_has_panicked) {
             return;
         }
 
-        this._panicked = true;
-
-        // print formatted panic to js console
-        console.error(`%cPANIC: ${message}\n${debug_info || ""}`, "background: red; color: white; font-weight: bold;");
+        this._kernel_has_panicked = true;
 
         this.reset();
 
@@ -671,31 +571,16 @@ export class WrappedTerminal extends Terminal {
 
         this.write(NEWLINE);
         this.writeln("Processes running at time of panic:");
-
-        const proc = this.get_process_manager();
-        const pids = proc.list_pids();
-        for (const pid of pids) {
-            const p = proc.get_process(pid);
-
-            if (p) {
-                this.writeln(`- PID ${p.pid}: ${p.source_command.command} (started at ${p.created_at.toISOString()})`);
-            }
-        }
-
-        proc.dispose_all();
+        this.writeln(process_info || "None.");
 
         this.writeln(ANSI.STYLE.reset_all);
     }
 
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, wm?: AbstractWindowManager) {
+    constructor(xterm_opts?: ITerminalOptions) {
         super(xterm_opts);
-
-        this._fs = fs;
-        this._prog_registry = prog_registry || new ProgramRegistry();
-        this._sfx_registry = sound_registry || new SoundRegistry();
-        this._wm = wm || null;
-        this._process_manager = new ProcessManager(this._wm);
-
         this._disposable_onkey = this.onKey(this._enqueue_key_event);
     }
 }
+
+// as of 09/01/2026, the god class of WrappedTerminal is no more!
+// this used to be the kernel, shell, tty, and bootstrap all in one

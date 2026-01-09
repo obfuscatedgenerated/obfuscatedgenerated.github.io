@@ -1,9 +1,10 @@
 import type {ReadLineKeyHandler} from "../../../term_ctl";
 
 import type {AshShell} from "./core";
+import type {Kernel} from "../../../kernel";
 import {tab_complete} from "./tab_completion";
 
-export const make_read_line_key_handlers = (shell: AshShell): { [key: string]: ReadLineKeyHandler } => ({
+export const make_read_line_key_handlers = (shell: AshShell, kernel: Kernel): { [key: string]: ReadLineKeyHandler } => ({
     // arrow up - previous history
     "\x1b[A": (_e, term, buffer) => {
         const command = shell.memory.get_previous_history_entry();
@@ -54,7 +55,7 @@ export const make_read_line_key_handlers = (shell: AshShell): { [key: string]: R
 
     // tab - tab completion
     "\t": async (_e, term, buffer) => {
-        shell._discard_cached_matches = await tab_complete(term, buffer, shell._discard_cached_matches);
+        shell._discard_cached_matches = await tab_complete(kernel, term, buffer, shell._discard_cached_matches);
     },
 
     // backspace - discard cached matches

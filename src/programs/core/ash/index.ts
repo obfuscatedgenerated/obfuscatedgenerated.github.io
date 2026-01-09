@@ -17,14 +17,14 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     main: async (data) => {
-        const {term, process} = data;
+        const {kernel, term, process} = data;
 
-        const shell = new AshShell(term);
+        const shell = new AshShell(term, kernel);
 
         shell.memory.set_variable("VERSION", document.body.dataset.version);
         shell.memory.set_variable("ENV", detect_node() ? "node" : "web");
 
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
         // run .ollierc if it exists
         const absolute_rc = fs.absolute("~/.ollierc");
@@ -37,7 +37,7 @@ export default {
             running = false;
         });
 
-        const read_line_key_handlers = make_read_line_key_handlers(shell);
+        const read_line_key_handlers = make_read_line_key_handlers(shell, kernel);
         const read_line_printable_handler = make_read_line_printable_handler(shell);
 
         while (running) {
