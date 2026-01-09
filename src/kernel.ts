@@ -172,13 +172,15 @@ export class Kernel {
                 return false;
             }
 
-            init.completion.then((exit_code) => {
+            try {
+                const exit_code = await init.completion;
+
                 this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
                 return false;
-            }).catch((e) => {
+            } catch (e) {
                 this.panic(`init program ${init_program} error!`, e.toString());
                 return false;
-            });
+            }
         } catch (e) {
             this.panic(`Failed to start init program ${init_program}!`, e.toString());
             return false;
