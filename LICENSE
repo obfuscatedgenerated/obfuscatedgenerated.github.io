@@ -6,7 +6,7 @@ ALL RIGHTS RESERVED.
    This software and its associated source code files (the "Source Code") are the
    proprietary and confidential property of obfuscatedgenerated.
 
-   YOU MAY NOT:
+   Except as expressly provided in Sections 2, 3, and 4 below, YOU MAY NOT:
    a. Copy, modify, distribute, sell, or transfer the Source Code, in whole or
       in part, to any third party.
    b. Reverse engineer, decompile, or disassemble the Source Code.
@@ -21,7 +21,22 @@ ALL RIGHTS RESERVED.
    Usage of the generated type definitions to build extensions or packages
    via "pkgbuild" is explicitly permitted.
 
-3. DISCLAIMER
+3. EXCEPTION FOR AUTHORISED TOOLING (OLLIEOS_NODE)
+   The Node.js wrapper/runner known as "ollieos_node" is explicitly recognised 
+   as authorised tooling.
+   
+   a. Users are permitted to use "ollieos_node" to download and execute this 
+      software.
+   b. Automatic modifications or patches applied by "ollieos_node" for the 
+      sole purpose of compatibility/execution are permitted, provided the 
+      resulting software is not redistributed.
+
+4. GRANT OF LICENSE
+   Permission is hereby granted to:
+   a. Download and view the Source Code.
+   b. Compile, build, and execute the Source Code for personal use.
+
+5. DISCLAIMER
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
