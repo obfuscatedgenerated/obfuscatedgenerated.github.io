@@ -4,7 +4,6 @@ import {ANSI} from "../../../term_ctl";
 
 import {AshMemory} from "./memory";
 import { parse_line } from "./parser";
-import {make_shell_key_handlers} from "./key_handlers";
 
 const {PREFABS, FG, STYLE} = ANSI;
 
@@ -193,7 +192,7 @@ export class AshShell implements AbstractShell {
     }
 
     async run_script(path: string) {
-        const fs = this._term._fs;
+        const fs = this._term.get_fs();
 
         if (await fs.exists(path)) {
             // iter through the lines of the file and execute them
@@ -214,7 +213,7 @@ export class AshShell implements AbstractShell {
     }
 
     get_prompt_string(): string {
-        const fs = this._term._fs;
+        const fs = this._term.get_fs();
 
         let path = fs.get_cwd();
 
@@ -230,7 +229,7 @@ export class AshShell implements AbstractShell {
     async insert_prompt(newline = true) {
         const term = this._term;
 
-        if (term._panicked) {
+        if (term.panicked) {
             return;
         }
 
@@ -244,62 +243,5 @@ export class AshShell implements AbstractShell {
                 resolve();
             });
         });
-    }
-
-    reset_current_vars(reset_history_index = false): void {
-        this._term.reset_line();
-
-        if (reset_history_index) {
-            this._memory._current_history_index = 0;
-        }
-    }
-
-    async next_line() {
-        this.reset_current_vars();
-        await this.insert_prompt();
-    }
-
-    register_shell_key_handlers() {
-        const term = this._term;
-
-        // TODO: pregen and store so it can be unregistered later if needed
-        const handlers = make_shell_key_handlers(this);
-
-        term.register_key_event_handler(
-            handlers.previous_history,
-            {
-                domEventCode: "ArrowUp",
-                block: true,
-            }
-        );
-
-        term.register_key_event_handler(
-            handlers.next_history,
-            {
-                domEventCode: "ArrowDown",
-                block: true,
-            }
-        );
-
-        term.register_key_event_handler(
-            handlers.tab_completion,
-            {
-                keyString: "\t",
-                block: true,
-            }
-        );
-
-        term.register_on_printable_key_event_handler(
-            handlers.mark_modified,
-        );
-
-        term.register_key_event_handler(
-            handlers.character_deleted,
-            {
-                keyString: "\r",
-                high_priority: true,
-                block: false
-            }
-        );
     }
 }

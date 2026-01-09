@@ -28,5 +28,5 @@ export abstract class AbstractShell {
     abstract get memory(): AbstractShellMemory;
 
     // edit_doc_title should default to true in implementations
-    abstract execute (line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
+    abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
