@@ -2,14 +2,7 @@ import type {Program} from "../../../types";
 
 import {AshShell} from "./core";
 import {make_read_line_key_handlers, make_read_line_printable_handler} from "./key_handlers";
-
-const detect_node = () => {
-    try {
-        return (typeof process !== "undefined") && (process.release.name === "node");
-    } catch {
-        return false;
-    }
-}
+import {apply_special_vars} from "../../../abstract_shell";
 
 export default {
     name: "ash",
@@ -24,9 +17,7 @@ export default {
         const {kernel, term, process, args} = data;
 
         const shell = new AshShell(term, kernel);
-
-        shell.memory.set_variable("VERSION", document.body.dataset.version);
-        shell.memory.set_variable("ENV", detect_node() ? "node" : "web");
+        apply_special_vars(shell);
 
         const fs = kernel.get_fs();
 

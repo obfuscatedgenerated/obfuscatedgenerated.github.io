@@ -32,3 +32,19 @@ export abstract class AbstractShell {
     // edit_doc_title should default to true in implementations
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
+
+let version = "unknown";
+let env = "unknown";
+
+export const set_special_vars = (new_version: string, new_env: string) => {
+    version = new_version;
+    env = new_env;
+};
+
+export const apply_special_vars = (shell: AbstractShell) => {
+    shell.memory.set_variable("VERSION", version);
+    shell.memory.set_variable("ENV", env);
+}
+
+// bit of a hack to get version and env into shells without assumptions (about shell choice or about if its running in the browser), so long as the shell calls it at startup
+// it works at least
