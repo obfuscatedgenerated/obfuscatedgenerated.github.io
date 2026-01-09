@@ -21,6 +21,8 @@ export abstract class AbstractShellMemory {
 
     abstract set_alias(name: string, value: string): void;
 
+    // TODO: move aliases to builtin shell program
+
     abstract unset_alias(name: string): boolean;
 }
 

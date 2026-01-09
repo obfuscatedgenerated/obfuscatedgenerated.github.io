@@ -37,9 +37,7 @@ export default {
                 continue;
             }
 
-            // add to history
             shell.memory.add_history_entry(input);
-
             await shell.execute(input);
         }
 
