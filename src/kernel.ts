@@ -163,6 +163,7 @@ export class Kernel {
 
         // read /boot/init to determine init system
         let init_program: string;
+        let init_args: string[] = [];
 
         try {
             const init_data = await fs.read_file("/boot/init") as string;
@@ -177,9 +178,17 @@ export class Kernel {
             return false;
         }
 
+        // separate args if any
+        const init_parts = init_program.split(" ");
+        init_program = init_parts[0];
+
+        if (init_parts.length > 1) {
+            init_args = init_parts.slice(1);
+        }
+
         // run init program
         try {
-            const init = this.spawn(init_program, []);
+            const init = this.spawn(init_program, init_args);
 
             if (init.process.pid !== 1) {
                 this.panic(`init program ${init_program} did not start as PID 1!`);

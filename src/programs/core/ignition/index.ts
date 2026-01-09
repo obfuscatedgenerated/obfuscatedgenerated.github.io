@@ -69,6 +69,7 @@ export default {
 
         // determine boot target from /etc/boot_target
         let boot_target = "jetty";
+        let boot_args: string[] = [];
 
         try {
             const boot_target_data = await fs.read_file("/etc/boot_target") as string;
@@ -85,6 +86,14 @@ export default {
 
             // wait 3 seconds
             await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        // separate args if any
+        const boot_target_parts = boot_target.split(" ");
+        boot_target = boot_target_parts[0];
+
+        if (boot_target_parts.length > 1) {
+            boot_args = boot_target_parts.slice(1);
         }
 
         // create service manager
@@ -193,7 +202,7 @@ export default {
 
         // execute boot target in a respawn loop
         while (running) {
-            const boot_target_proc = kernel.spawn(boot_target, []);
+            const boot_target_proc = kernel.spawn(boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
             const exit_code = await boot_target_proc.completion;

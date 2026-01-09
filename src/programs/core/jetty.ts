@@ -17,6 +17,7 @@ export default {
 
         // determine default shell from /etc/default_shell
         let default_shell = "ash";
+        let default_shell_args: string[] = [];
 
         try {
             const default_shell_data = await fs.read_file("/etc/default_shell") as string;
@@ -33,6 +34,14 @@ export default {
 
             // wait 3 seconds
             await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        // separate shell args if any
+        const default_shell_parts = default_shell.split(" ");
+        default_shell = default_shell_parts[0];
+
+        if (default_shell_parts.length > 1) {
+            default_shell_args = default_shell_parts.slice(1);
         }
 
         let running = true;
@@ -53,7 +62,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn(default_shell, ["--login"]);
+            const shell_proc = kernel.spawn(default_shell, default_shell_args);
             current_shell_process = shell_proc.process;
 
             const exit_code = await shell_proc.completion;

@@ -16,7 +16,7 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     }
 
     // create etc directory if it doesn't exist
-    const absolute_etc = fs.absolute("/etc");;
+    const absolute_etc = fs.absolute("/etc");
     if (!(await fs.dir_exists(absolute_etc))) {
         await fs.make_dir(absolute_etc);
     }
@@ -29,7 +29,7 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     }
 
     // create default_shell file if it doesn't exist
-    const default_shell_content = "ash";
+    const default_shell_content = "ash --login";
     const absolute_default_shell = fs.absolute("/etc/default_shell");
     if (!(await fs.exists(absolute_default_shell))) {
         await fs.write_file(absolute_default_shell, default_shell_content);
