@@ -1,4 +1,6 @@
-export class AshMemory {
+import type {AbstractShellMemory} from "../../../abstract_shell";
+
+export class AshMemory implements AbstractShellMemory {
     // TODO: backup history in a file
     _history: string[] = [];
     _current_history_index = 0;
