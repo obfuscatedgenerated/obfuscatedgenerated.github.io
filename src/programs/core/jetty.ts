@@ -12,6 +12,28 @@ export default {
 
         term.reset();
 
+        const fs = kernel.get_fs();
+
+        // determine default shell from /etc/default_shell
+        let default_shell = "ash";
+
+        try {
+            const default_shell_data = await fs.read_file("/etc/default_shell") as string;
+            default_shell = default_shell_data.trim();
+        } catch (e) {
+            term.writeln("Warning: /etc/default_shell not found, defaulting to 'ash' shell!");
+
+            // wait 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        if (!default_shell) {
+            term.writeln("Warning: /etc/default_shell is empty, defaulting to 'ash' shell!");
+
+            // wait 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
         let running = true;
         let final_code = 0;
         let current_shell_process: ProcessContext;
@@ -30,7 +52,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn("ash", ["--login"]);
+            const shell_proc = kernel.spawn(default_shell, ["--login"]);
             current_shell_process = shell_proc.process;
 
             const exit_code = await shell_proc.completion;
@@ -39,7 +61,7 @@ export default {
                 running = false;
             }
 
-            console.log(`ash exited with code ${exit_code}`);
+            console.log(`default shell ${default_shell} exited with code ${exit_code}`);
         }
 
         return final_code;

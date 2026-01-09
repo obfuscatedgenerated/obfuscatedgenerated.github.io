@@ -65,6 +65,28 @@ export default {
             return 1;
         }
 
+        const fs = kernel.get_fs();
+
+        // determine boot target from /etc/boot_target
+        let boot_target = "jetty";
+
+        try {
+            const boot_target_data = await fs.read_file("/etc/boot_target") as string;
+            boot_target = boot_target_data.trim();
+        } catch (e) {
+            term.writeln("Warning: /etc/boot_target not found, defaulting to 'jetty' target!");
+
+            // wait 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        if (!boot_target) {
+            term.writeln("Warning: /etc/boot_target is empty, defaulting to 'jetty' target!");
+
+            // wait 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
         // create service manager
         const svc_mgr = new ServiceManager(kernel);
 
@@ -154,7 +176,7 @@ export default {
         let final_code = 0;
         let current_tty_process: ProcessContext;
 
-        // on exit, force jetty to exit too
+        // on exit, force boot target to exit too
         // TODO: add process ownership to automatically kill child processes
         const proc_mgr = kernel.get_process_manager();
         process.add_exit_listener(async (exit_code) => {
@@ -169,18 +191,20 @@ export default {
         // start initial services
         svc_mgr.start_initial_services();
 
-        // execute jetty in a respawn loop
+        // execute boot target in a respawn loop
         while (running) {
-            const jetty_proc = kernel.spawn("jetty", []);
-            current_tty_process = jetty_proc.process;
+            const boot_target_proc = kernel.spawn(boot_target, []);
+            current_tty_process = boot_target_proc.process;
 
-            const exit_code = await jetty_proc.completion;
+            const exit_code = await boot_target_proc.completion;
 
             if (exit_code === 0) {
                 running = false;
             }
 
-            console.log(`jetty exited with code ${exit_code}`);
+            console.log(`boot target ${boot_target} exited with code ${exit_code}`);
+
+            // TODO: error recovery logic
         }
 
         return final_code;

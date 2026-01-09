@@ -14,6 +14,26 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     if (!(await fs.exists(absolute_init))) {
         await fs.write_file(absolute_init, init_content);
     }
+
+    // create etc directory if it doesn't exist
+    const absolute_etc = fs.absolute("/etc");;
+    if (!(await fs.dir_exists(absolute_etc))) {
+        await fs.make_dir(absolute_etc);
+    }
+
+    // create boot_target file if it doesn't exist
+    const boot_target_content = "jetty";
+    const absolute_boot_target = fs.absolute("/etc/boot_target");
+    if (!(await fs.exists(absolute_boot_target))) {
+        await fs.write_file(absolute_boot_target, boot_target_content);
+    }
+
+    // create default_shell file if it doesn't exist
+    const default_shell_content = "ash";
+    const absolute_default_shell = fs.absolute("/etc/default_shell");
+    if (!(await fs.exists(absolute_default_shell))) {
+        await fs.write_file(absolute_default_shell, default_shell_content);
+    }
 }
 
 const setup_motd = async (fs: AbstractFileSystem) => {
