@@ -18,6 +18,7 @@ import { initial_fs_setup } from "./initial_fs_setup";
 
 import Swal from "sweetalert2";
 import {DOMWindowManager} from "./window_impl/dom";
+import {Kernel} from "./kernel";
 
 
 const boot_screen = document.getElementById("boot_screen");
@@ -165,10 +166,10 @@ async function main() {
     const wm = new DOMWindowManager();
 
     // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal(fs, prog_reg, sfx_reg,{
+    const term = new WrappedTerminal({
         screenReaderMode: false,
         cursorBlink: true,
-    }, wm);
+    });
 
     // load addons
     const fit = new FitAddon();
@@ -212,12 +213,15 @@ async function main() {
         term.copy_or_paste();
     });
 
+    // create the kernel
+    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm);
+
     // mount all programs in any subdirectory of /usr/bin
     // TODO: get rid of the concept of a programregistry being the sole way to run programs. mounting is a bad concept. it should be a cache, not the sole execution method. may need to redesign how programs are stored to have it be more part of the filesystem
     // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
     const usr_bin = fs.absolute("/usr/bin");
     if (await fs.exists(usr_bin)) {
-        await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), term);
+        await recurse_mount_and_register_with_output(fs, usr_bin, kernel.get_program_registry(), term);
     }
 
     // read /boot/init to determine init system
@@ -228,38 +232,39 @@ async function main() {
         init_program = init_data.trim();
     } catch {
         boot_screen.style.display = "none";
-        term.panic("Failed to read /boot/init to determine init system!");
+        kernel.panic("Failed to read /boot/init to determine init system!");
         return;
     }
 
     if (!init_program) {
         boot_screen.style.display = "none";
-        term.panic("No init program specified in /boot/init!");
+        kernel.panic("No init program specified in /boot/init!");
         return;
     }
 
     loaded(term);
 
     // run init program
+    // TODO: move this to the kernel class itself
     try {
-        const init = term.spawn(init_program, []);
+        const init = kernel.spawn(init_program, []);
 
         if (init.process.pid !== 1) {
             boot_screen.style.display = "none";
-            term.panic(`init program ${init_program} did not start as PID 1!`);
+            kernel.panic(`init program ${init_program} did not start as PID 1!`);
             return;
         }
 
         init.completion.then((exit_code) => {
             boot_screen.style.display = "none";
-            term.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
+            kernel.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
         }).catch((e) => {
             boot_screen.style.display = "none";
-            term.panic(`init program ${init_program} error!`, e.toString());
+            kernel.panic(`init program ${init_program} error!`, e.toString());
         });
     } catch (e) {
         boot_screen.style.display = "none";
-        term.panic(`Failed to start init program ${init_program}!`, e.toString());
+        kernel.panic(`Failed to start init program ${init_program}!`, e.toString());
     }
 }
 

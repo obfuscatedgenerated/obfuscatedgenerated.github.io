@@ -1,5 +1,4 @@
-import type {WrappedTerminal} from "../../../term_ctl";
-import {SpawnResult} from "../../../kernel";
+import type {Kernel, SpawnResult} from "../../../kernel";
 
 const SERVICES_DIR = "/etc/services/";
 
@@ -53,19 +52,19 @@ interface ServiceStatusRunning extends ServiceStatusBase {
 export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
 
 export class ServiceManager {
-    private readonly _term: WrappedTerminal;
+    private readonly _kernel: Kernel;
 
     private readonly _service_files: Map<string, ServiceFileWithId> = new Map();
     private readonly _running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
     private readonly _should_be_running_services: Set<string> = new Set();
     private readonly _failed_services: Set<string> = new Set();
 
-    constructor(term: WrappedTerminal) {
-        this._term = term;
+    constructor(kernel: Kernel) {
+        this._kernel = kernel;
     }
 
     async load_service_files() {
-        const fs = this._term.get_fs();
+        const fs = this._kernel.get_fs();
 
         if (!await fs.exists(SERVICES_DIR)) {
             console.warn(`Services directory ${SERVICES_DIR} does not exist. Skipping service loading.`);
@@ -167,7 +166,7 @@ export class ServiceManager {
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this._term.spawn(service.exec, service.args || []);
+            spawn_result = this._kernel.spawn(service.exec, service.args || []);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
             return;

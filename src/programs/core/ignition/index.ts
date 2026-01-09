@@ -57,7 +57,7 @@ export default {
     arg_descriptions: {},
     hide_from_help: true,
     main: async (data) => {
-        const { term, process } = data;
+        const { kernel, term, process } = data;
 
         // check if ignition is already running (only allowed to be PID 1)
         if (process.pid !== 1) {
@@ -72,7 +72,7 @@ export default {
         await svc_mgr.load_service_files();
 
         // open and handle ipc communication
-        const ipc = term.get_ipc();
+        const ipc = kernel.get_ipc();
 
         ipc.service_register("init", process.pid, async (channel_id) => {
             ipc.channel_listen(channel_id, process.pid, async (msg) => {
@@ -156,7 +156,7 @@ export default {
 
         // on exit, force jetty to exit too
         // TODO: add process ownership to automatically kill child processes
-        const proc_mgr = term.get_process_manager();
+        const proc_mgr = kernel.get_process_manager();
         process.add_exit_listener(async (exit_code) => {
             if (current_tty_process && proc_mgr.get_process(current_tty_process.pid)) {
                 current_tty_process.kill(exit_code);
@@ -171,7 +171,7 @@ export default {
 
         // execute jetty in a respawn loop
         while (running) {
-            const jetty_proc = term.spawn("jetty", []);
+            const jetty_proc = kernel.spawn("jetty", []);
             current_tty_process = jetty_proc.process;
 
             const exit_code = await jetty_proc.completion;

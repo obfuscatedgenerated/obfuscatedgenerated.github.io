@@ -8,22 +8,21 @@ export default {
     arg_descriptions: {},
     hide_from_help: true,
     main: async (data) => {
-        const {term, process} = data;
+        const {kernel, term, process} = data;
 
         term.reset();
 
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
 
-        // TODO: move this stuff term_ctl lifecycle stuff here, and some to a shell program
+        // TODO: get these to work again, may need a mini shell implementation
+        // // enable screen reader mode if stored in local storage
+        // if (localStorage.getItem("reader") === "true") {
+        //     await term.execute("reader -s on");
+        // }
 
-        // enable screen reader mode if stored in local storage
-        if (localStorage.getItem("reader") === "true") {
-            await term.execute("reader -s on");
-        }
-
-        // run .ollie_profile if it exists
-        const absolute_profile = fs.absolute("~/.ollie_profile");
-        await term.run_script(absolute_profile);
+        // // run .ollie_profile if it exists
+        // const absolute_profile = fs.absolute("~/.ollie_profile");
+        // await term.run_script(absolute_profile);
 
         let running = true;
         let final_code = 0;
@@ -31,7 +30,7 @@ export default {
 
         // on exit, force shell to exit too
         // TODO: add process ownership to automatically kill child processes
-        const proc_mgr = term.get_process_manager();
+        const proc_mgr = kernel.get_process_manager();
         process.add_exit_listener(async (exit_code) => {
             if (current_shell_process && proc_mgr.get_process(current_shell_process.pid)) {
                 current_shell_process.kill(exit_code);
@@ -43,7 +42,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = term.spawn("ash", []);
+            const shell_proc = kernel.spawn("ash", []);
             current_shell_process = shell_proc.process;
 
             const exit_code = await shell_proc.completion;
