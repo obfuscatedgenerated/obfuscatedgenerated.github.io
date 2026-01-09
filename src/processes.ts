@@ -1,5 +1,5 @@
-import type {LineParseResultCommand} from "./term_ctl";
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
+import {LineParseResultCommand} from "./programs/core/ash/parser";
 
 export interface IPCMessage {
     from: number;

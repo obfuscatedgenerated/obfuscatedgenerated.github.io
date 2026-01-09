@@ -1,4 +1,4 @@
-import type {Program} from "../../types";
+import type {Program} from "../../../types";
 
 export default {
     name: "ash",
