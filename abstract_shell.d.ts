@@ -16,3 +16,5 @@ export declare abstract class AbstractShell {
     abstract get memory(): AbstractShellMemory;
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
+export declare const set_special_vars: (new_version: string, new_env: string) => void;
+export declare const apply_special_vars: (shell: AbstractShell) => void;
