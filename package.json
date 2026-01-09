@@ -1,6 +1,6 @@
 {
   "name": "ollieos",
-  "version": "1.4.4",
+  "version": "2.0.0",
   "description": "",
   "main": "index.js",
   "types": "index.d.ts",
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io.git"
   },
   "author": "obfuscatedgenerated",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "bugs": {
     "url": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues"
   },

@@ -1,10 +1,5 @@
 import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
-import { ProgramRegistry } from "./prog_registry";
-import type { AbstractFileSystem } from "./filesystem";
 import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
-import { SoundRegistry } from "./sfx_registry";
-import { AbstractWindowManager } from "./windowing";
-import { IPCManager, ProcessContext, ProcessManager } from "./processes";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -66,37 +61,15 @@ export declare const ANSI: {
         secret: string;
     };
 };
-export interface LineParseResultCommand {
-    type: "command";
-    command: string;
-    args: string[];
-    unsubbed_args: string[];
-    raw_parts: string[];
-    run_in_bg: boolean;
+export interface ReadLineBuffer {
+    current_line: string;
+    current_index: number;
+    set_current_line: (new_line: string) => void;
+    set_current_index: (new_index: number) => void;
 }
-export interface LineParseResultVarAssignment {
-    type: "var";
-    var_name: string;
-    var_value: string;
-}
-export type LineParseResult = LineParseResultCommand | LineParseResultVarAssignment | null;
-export interface SpawnResult {
-    process: ProcessContext;
-    completion: Promise<number>;
-}
+export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 export declare class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
-    _history: string[];
-    _current_line: string;
-    _current_index: number;
-    _current_history_index: number;
-    _preline: string;
-    _prompt_suffix: string;
-    _process_manager: ProcessManager;
-    _prog_registry: ProgramRegistry;
-    _sfx_registry: SoundRegistry;
-    _fs: AbstractFileSystem;
-    _wm: AbstractWindowManager | null;
     _key_handlers: Map<RegisteredKeyEventIdentifier, {
         handler: KeyEventHandler;
         block: boolean;
@@ -104,9 +77,7 @@ export declare class WrappedTerminal extends Terminal {
     _on_printable_handlers: KeyEventHandler[];
     _key_event_queue: KeyEvent[];
     _is_handling_key_events: boolean;
-    _vars: Map<string, string>;
-    _aliases: Map<string, string>;
-    _panicked: boolean;
+    _kernel_has_panicked: boolean;
     get ansi(): {
         FG: {
             reset: string;
@@ -168,34 +139,9 @@ export declare class WrappedTerminal extends Terminal {
     get non_printable_regex(): RegExp;
     get ansi_escape_regex(): RegExp;
     get ansi_unescaped_regex(): RegExp;
-    get_program_registry(): ProgramRegistry;
-    get_sound_registry(): SoundRegistry;
-    get_fs(): AbstractFileSystem;
-    get_window_manager(): AbstractWindowManager | null;
-    has_window_manager(): boolean;
-    get_process_manager(): ProcessManager;
-    get_ipc(): IPCManager;
-    list_variables(): Map<string, string>;
-    get_variable(name: string): string | undefined;
-    set_variable(name: string, value: string): void;
-    unset_variable(name: string): boolean;
-    list_aliases(): Map<string, string>;
-    get_alias(name: string): string | undefined;
-    set_alias(name: string, value: string): void;
-    unset_alias(name: string): boolean;
-    clear_history(): void;
-    reset_current_vars(reset_history_index?: boolean): void;
-    get_current_line(): string;
-    get_current_index(): number;
-    insert_preline(newline?: boolean): Promise<void>;
-    set_preline(preline: string): void;
-    set_prompt(prompt: string): void;
-    get_prompt_suffix(): string;
-    set_prompt_suffix(suffix: string): void;
-    next_line(): Promise<void>;
-    parse_line: (line: string) => LineParseResult;
-    spawn: (command: string, args?: string[], original_line_parse?: LineParseResultCommand) => SpawnResult;
-    execute: (line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void) => Promise<boolean>;
+    read_line: (custom_key_handlers?: {
+        [key_string: string]: ReadLineKeyHandler;
+    }, custom_printable_handler?: ReadLineKeyHandler) => Promise<string>;
     _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
         handler: KeyEventHandler;
         block: boolean;
@@ -229,7 +175,6 @@ export declare class WrappedTerminal extends Terminal {
     copy(): void;
     paste(): void;
     copy_or_paste(): void;
-    run_script(path: any): Promise<void>;
-    panic(message: string, debug_info?: string): void;
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers?: boolean, wm?: AbstractWindowManager);
+    handle_kernel_panic: (message: string, process_info: string, debug_info?: string) => void;
+    constructor(xterm_opts?: ITerminalOptions);
 }
