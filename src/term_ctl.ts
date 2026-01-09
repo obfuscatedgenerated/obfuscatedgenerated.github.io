@@ -100,12 +100,14 @@ export interface SpawnResult {
     completion: Promise<number>;
 }
 
-export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: {
+export interface ReadLineBuffer {
     current_line: string;
     current_index: number;
     set_current_line: (new_line: string) => void;
     set_current_index: (new_index: number) => void;
-}) => void | Promise<void> | boolean | Promise<boolean>;
+}
+
+export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
@@ -179,8 +181,18 @@ export class WrappedTerminal extends Terminal {
 
     // line discipline now completely handled by read_line, no global event loop
     read_line = async (custom_key_handlers: { [key_string: string]: ReadLineKeyHandler } = {}, custom_printable_handler?: ReadLineKeyHandler): Promise<string> => {
-        let current_line = "";
-        let current_index = 0;
+        const buffer: ReadLineBuffer = {
+            current_line: "",
+            current_index: 0,
+
+            set_current_line: (new_line: string) => {
+                buffer.current_line = new_line;
+            },
+
+            set_current_index: (new_index: number) => {
+                buffer.current_index = new_index;
+            }
+        };
 
         let handler_dispose: (() => void) | null = null;
 
@@ -188,31 +200,31 @@ export class WrappedTerminal extends Terminal {
             const handlers: { [key_string: string]: KeyEventHandler } = {
                 // arrow left - move cursor left
                 "\x1b[D": (_e, term) => {
-                    if (current_index > 0) {
+                    if (buffer.current_index > 0) {
                         term.write("\b");
-                        current_index--;
+                        buffer.current_index--;
                     }
                 },
 
                 // arrow right - move cursor right
                 "\x1b[C": (_e, term) => {
-                    if (current_index < current_line.length) {
-                        term.write(current_line[current_index]);
-                        current_index++;
+                    if (buffer.current_index < buffer.current_line.length) {
+                        term.write(buffer.current_line[buffer.current_index]);
+                        buffer.current_index++;
                     }
                 },
 
                 // backspace - delete character
                 "\x7F": (_e, term) => {
-                    if (current_line.length > 0 && current_index > 0) {
+                    if (buffer.current_line.length > 0 && buffer.current_index > 0) {
                         // get everything before the cursor
-                        const before = current_line.slice(0, current_index - 1);
+                        const before = buffer.current_line.slice(0, buffer.current_index - 1);
 
                         // get everything after the cursor
-                        const after = current_line.slice(current_index);
+                        const after = buffer.current_line.slice(buffer.current_index);
 
                         // update current line
-                        current_line = before + after;
+                        buffer.current_line = before + after;
 
                         // move cursor back one
                         term.write("\b");
@@ -222,7 +234,7 @@ export class WrappedTerminal extends Terminal {
 
                         // move cursor back to original position
                         term.write("\b".repeat(after.length + 1));
-                        current_index--;
+                        buffer.current_index--;
                     }
                 },
 
@@ -233,7 +245,7 @@ export class WrappedTerminal extends Terminal {
                     }
 
                     term.write(NEWLINE);
-                    resolve(current_line);
+                    resolve(buffer.current_line);
                 }
             }
 
@@ -242,16 +254,7 @@ export class WrappedTerminal extends Terminal {
                 async (e) => {
                     // check for custom handlers first
                     if (e.key in custom_key_handlers) {
-                        const block = await custom_key_handlers[e.key](e, this, {
-                            current_line,
-                            current_index,
-                            set_current_line: (new_line: string) => {
-                                current_line = new_line;
-                            },
-                            set_current_index: (new_index: number) => {
-                                current_index = new_index;
-                            }
-                        });
+                        const block = await custom_key_handlers[e.key](e, this, buffer);
 
                         if (block) {
                             return;
@@ -267,16 +270,7 @@ export class WrappedTerminal extends Terminal {
                     // check for printable characters
                     if (e.key.match(NON_PRINTABLE_REGEX) === null) {
                         if (custom_printable_handler) {
-                            const block = await custom_printable_handler(e, this, {
-                                current_line,
-                                current_index,
-                                set_current_line: (new_line: string) => {
-                                    current_line = new_line;
-                                },
-                                set_current_index: (new_index: number) => {
-                                    current_index = new_index;
-                                }
-                            });
+                            const block = await custom_printable_handler(e, this, buffer);
 
                             if (block) {
                                 return;
@@ -284,17 +278,17 @@ export class WrappedTerminal extends Terminal {
                         }
 
                         // if at the end of the line, just append the character
-                        if (current_index === current_line.length) {
-                            current_line += e.key;
+                        if (buffer.current_index === buffer.current_line.length) {
+                            buffer.current_line += e.key;
                             this.write(e.key);
-                            current_index++;
+                            buffer.current_index++;
                             return;
                         }
 
                         // insert the character at the cursor, shift the rest of the line to the right
-                        const before_cursor = current_line.slice(0, current_index);
-                        const after_cursor = current_line.slice(current_index);
-                        current_line = before_cursor + e.key + after_cursor;
+                        const before_cursor = buffer.current_line.slice(0, buffer.current_index);
+                        const after_cursor = buffer.current_line.slice(buffer.current_index);
+                        buffer.current_line = before_cursor + e.key + after_cursor;
 
                         // write the new right of the line over the old one
                         this.write(e.key + after_cursor);
@@ -303,7 +297,7 @@ export class WrappedTerminal extends Terminal {
                         this.write(`\x1b[${after_cursor.length}D`);
 
                         // increment the cursor position
-                        current_index++;
+                        buffer.current_index++;
                     } else {
                         console.warn("Ignored key event:", e);
                         // TODO: handle more special keys and sequences (probably in shells)

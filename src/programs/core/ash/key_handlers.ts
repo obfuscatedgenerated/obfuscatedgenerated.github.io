@@ -53,8 +53,8 @@ export const make_read_line_key_handlers = (shell: AshShell): { [key: string]: R
     },
 
     // tab - tab completion
-    "\t": async (_e, term) => {
-        shell._discard_cached_matches = await tab_complete(term, shell._discard_cached_matches);
+    "\t": async (_e, term, buffer) => {
+        shell._discard_cached_matches = await tab_complete(term, buffer, shell._discard_cached_matches);
     },
 
     // backspace - discard cached matches

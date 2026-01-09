@@ -1,4 +1,4 @@
-import type {WrappedTerminal} from "../../../term_ctl";
+import type {ReadLineBuffer, WrappedTerminal} from "../../../term_ctl";
 import type {CompletionData} from "../../../types";
 
 import {parse_line} from "./parser";
@@ -7,7 +7,7 @@ import {parse_line} from "./parser";
 let cached_matches: string[] = [];
 let current_cached_match_index = 0;
 
-const complete_command = (term: WrappedTerminal, discard_cached_matches: boolean) => {
+const complete_command = (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
     // get the program registry
     const registry = term.get_program_registry();
     const programs = registry.listProgramNames(true, true);
@@ -20,7 +20,7 @@ const complete_command = (term: WrappedTerminal, discard_cached_matches: boolean
         match = cached_matches[current_cached_match_index] || "";
     } else {
         // if the current line has changed, refresh the matches
-        cached_matches = programs.filter((program) => program.startsWith(term._current_line));
+        cached_matches = programs.filter((program) => program.startsWith(buffer.current_line));
         current_cached_match_index = 0;
 
         // get the first match
@@ -37,10 +37,10 @@ const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
     return obj && typeof obj[Symbol.asyncIterator] === "function";
 }
 
-const get_completeable_arguments = async (term: WrappedTerminal) => {
+const get_completeable_arguments = async (term: WrappedTerminal, buffer: ReadLineBuffer) => {
     // parse the line
 
-    const parsed_line = parse_line(term._current_line);
+    const parsed_line = parse_line(buffer.current_line);
     if (parsed_line.type !== "command") {
         console.warn("Tab completion for non-command lines is not yet implemented");
         return null;
@@ -95,9 +95,9 @@ const get_completeable_arguments = async (term: WrappedTerminal) => {
     }
 }
 
-const complete_argument = async (term: WrappedTerminal, discard_cached_matches: boolean) => {
+const complete_argument = async (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches: boolean) => {
     // get the completeable arguments
-    const completeable_arguments = await get_completeable_arguments(term);
+    const completeable_arguments = await get_completeable_arguments(term, buffer);
     if (!completeable_arguments) {
         return {match: "", discard_cached_matches};
     }
@@ -110,7 +110,7 @@ const complete_argument = async (term: WrappedTerminal, discard_cached_matches: 
         match = cached_matches[current_cached_match_index] || "";
     } else {
         // if the current line has changed, refresh the matches
-        cached_matches = completeable_arguments.filter((arg) => arg.startsWith(term._current_line.split(" ").pop() || ""));
+        cached_matches = completeable_arguments.filter((arg) => arg.startsWith(buffer.current_line.split(" ").pop() || ""));
         current_cached_match_index = 0;
 
         // get the first match
@@ -123,9 +123,9 @@ const complete_argument = async (term: WrappedTerminal, discard_cached_matches: 
     return {match, discard_cached_matches};
 }
 
-const fill_completed_command = (term: WrappedTerminal, match: string) => {
+const fill_completed_command = (term: WrappedTerminal, buffer: ReadLineBuffer, match: string) => {
     // erase the current line
-    term.write("\b \b".repeat(term._current_index));
+    term.write("\b \b".repeat(buffer.current_index));
 
     // write the match
     term.write(match);
@@ -133,13 +133,13 @@ const fill_completed_command = (term: WrappedTerminal, match: string) => {
     // NOTE: above is done rather than filling what is remaining because if tab is hit again, the next match will be written
 
     // update current line and index
-    term._current_line = match;
-    term._current_index = match.length;
+    buffer.set_current_line(match);
+    buffer.set_current_index(match.length);
 }
 
-const fill_completed_argument = (term: WrappedTerminal, match: string) => {
+const fill_completed_argument = (term: WrappedTerminal, buffer: ReadLineBuffer, match: string) => {
     // get the current line parts
-    const parts = term._current_line.split(" ");
+    const parts = buffer.current_line.split(" ");
     const current_arg_partial = parts.pop() || "";
 
     // erase the current argument partial
@@ -152,34 +152,34 @@ const fill_completed_argument = (term: WrappedTerminal, match: string) => {
 
     // update current line and index
     parts.push(match);
-    term._current_line = parts.join(" ");
-    term._current_index = term._current_line.length;
+    buffer.set_current_line(parts.join(" "));
+    buffer.set_current_index(buffer.current_line.length);
 }
 
 // TODO: how does this work? would be good to make it linked to the terminal instance. what is discard_cached_matches even for?
-export const tab_complete = async (term: WrappedTerminal, discard_cached_matches = false): Promise<boolean> => {
+export const tab_complete = async (term: WrappedTerminal, buffer: ReadLineBuffer, discard_cached_matches = false): Promise<boolean> => {
     // if the current line is empty, do nothing
-    if (term._current_line.length === 0) {
+    if (buffer.current_line.length === 0) {
         return;
     }
 
     // if the current line has no spaces, tab complete the command
-    if (!term._current_line.includes(" ")) {
-        const {match, discard_cached_matches: updated_discard} = complete_command(term, discard_cached_matches);
+    if (!buffer.current_line.includes(" ")) {
+        const {match, discard_cached_matches: updated_discard} = complete_command(term, buffer, discard_cached_matches);
         discard_cached_matches = updated_discard;
 
         // if there is a match, tab complete
         if (match) {
-            fill_completed_command(term, match);
+            fill_completed_command(term, buffer, match);
         }
     } else {
         // otherwise, tab complete the argument
-        const {match, discard_cached_matches: updated_discard} = await complete_argument(term, discard_cached_matches);
+        const {match, discard_cached_matches: updated_discard} = await complete_argument(term, buffer, discard_cached_matches);
         discard_cached_matches = updated_discard;
 
         // if there is a match, tab complete
         if (match) {
-            fill_completed_argument(term, match);
+            fill_completed_argument(term, buffer, match);
         }
     }
 
