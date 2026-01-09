@@ -39,14 +39,14 @@ const setup_motd = async (fs: AbstractFileSystem) => {
 
 const setup_rc_profile = async (fs: AbstractFileSystem) => {
     // create .ollie_profile file if it doesn't exist
-    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the OS starts (before mounting /usr/bin).${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
+    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the TTY starts.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
     const absolute_profile = fs.absolute("~/.ollie_profile");
     if (!(await fs.exists(absolute_profile))) {
         await fs.write_file(absolute_profile, profile_content);
     }
 
     // create .ollierc file if it doesn't exist
-    const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created (after mounting /usr/bin).${NEWLINE}${NEWLINE}`;
+    const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
     const absolute_rc = fs.absolute("~/.ollierc");
     if (!(await fs.exists(absolute_rc))) {
         await fs.write_file(absolute_rc, rc_content);
