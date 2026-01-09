@@ -100,113 +100,8 @@ export interface SpawnResult {
     completion: Promise<number>;
 }
 
-const line_discipline_handlers: {[name: string]: KeyEventHandler} = {
-    // arrow left
-    move_cursor_left(_e, term) {
-        if (term._current_index > 0) {
-            term.write("\b");
-            term._current_index--;
-        }
-    },
-
-    // arrow right
-    move_cursor_right(_e, term) {
-        if (term._current_index < term._current_line.length) {
-            term.write(term._current_line[term._current_index]);
-            term._current_index++;
-        }
-    },
-
-    // enter
-    async execute_next_line(_e, term)  {
-        discard_cached_matches = true;
-
-        // pause handling key events
-        const was_handling_key_events = term._is_handling_key_events;
-        term._is_handling_key_events = false;
-
-        if (term._current_line.length === 0) {
-            // if the line is empty, just move to the next line
-            await term.next_line();
-            return;
-        }
-
-        term.write(NEWLINE);
-        term._history.push(term._current_line);
-        await term.execute(term._current_line);
-        await term.next_line();
-
-        // resume handling key events
-        if (was_handling_key_events) {
-            term._is_handling_key_events = true;
-            term._handle_key_event_queue();
-        }
-    },
-
-    // backspace
-    delete_character(_e, term) {
-        if (term._current_line.length > 0 && term._current_index > 0) {
-            // get everything before the cursor
-            const before = term._current_line.slice(0, term._current_index - 1);
-
-            // get everything after the cursor
-            const after = term._current_line.slice(term._current_index);
-
-            // update current line
-            term._current_line = before + after;
-
-            // move cursor back one
-            term.write("\b");
-
-            // overwrite with after content and a space (remove last character)
-            term.write(after + " ");
-
-            // move cursor back to original position
-            term.write("\b".repeat(after.length + 1));
-            term._current_index--;
-        }
-    }
-}
-
-const register_line_discipline_handlers = (term: WrappedTerminal) => {
-    term.register_key_event_handler(
-        line_discipline_handlers.execute_next_line,
-        {
-            keyString: "\r",
-            block: true,
-        }
-    );
-
-    term.register_key_event_handler(
-        line_discipline_handlers.delete_character,
-        {
-            domEventCode: "Backspace",
-            block: true,
-        }
-    );
-
-    term.register_key_event_handler(
-        line_discipline_handlers.move_cursor_left,
-        {
-            domEventCode: "ArrowLeft",
-            block: true,
-        }
-    );
-
-    term.register_key_event_handler(
-        line_discipline_handlers.move_cursor_right,
-        {
-            domEventCode: "ArrowRight",
-            block: true,
-        }
-    );
-}
-
 export class WrappedTerminal extends Terminal {
     _disposable_onkey: IDisposable;
-
-    _current_line = "";
-    _current_index = 0;
 
     _process_manager: ProcessManager;
     _prog_registry: ProgramRegistry;
@@ -247,7 +142,6 @@ export class WrappedTerminal extends Terminal {
         return ANSI_UNESCAPED_REGEX;
     }
 
-
     get_program_registry(): ProgramRegistry {
         return this._prog_registry;
     }
@@ -276,18 +170,110 @@ export class WrappedTerminal extends Terminal {
         return this._process_manager.ipc_manager;
     }
 
+    // line discipline now completely handled by read_line, no global event loop
+    read_line = async () => {
+        let current_line = "";
+        let current_index = 0;
 
-    reset_line(): void {
-        this._current_line = "";
-        this._current_index = 0;
-    }
+        return new Promise<string>((resolve) => {
+            const line_discipline_handlers: { [name: string]: KeyEventHandler } = {
+                // arrow left
+                move_cursor_left(_e, term) {
+                    if (current_index > 0) {
+                        term.write("\b");
+                        current_index--;
+                    }
+                },
 
-    get_current_line(): string {
-        return this._current_line;
-    }
+                // arrow right
+                move_cursor_right(_e, term) {
+                    if (current_index < current_line.length) {
+                        term.write(current_line[current_index]);
+                        current_index++;
+                    }
+                },
 
-    get_current_index(): number {
-        return this._current_index;
+                // enter
+                async execute_next_line(_e, term) {
+                    // pause handling key events
+                    const was_handling_key_events = term._is_handling_key_events;
+                    term._is_handling_key_events = false;
+
+                    if (current_line.length === 0) {
+                        // if the line is empty, just move to the next line
+                        await term.next_line();
+                        return;
+                    }
+
+                    term.write(NEWLINE);
+                    term._history.push(current_line);
+                    await term.execute(current_line);
+                    await term.next_line();
+
+                    // resume handling key events
+                    if (was_handling_key_events) {
+                        term._is_handling_key_events = true;
+                        term._handle_key_event_queue();
+                    }
+                },
+
+                // backspace
+                delete_character(_e, term) {
+                    if (current_line.length > 0 && current_index > 0) {
+                        // get everything before the cursor
+                        const before = current_line.slice(0, current_index - 1);
+
+                        // get everything after the cursor
+                        const after = current_line.slice(current_index);
+
+                        // update current line
+                        current_line = before + after;
+
+                        // move cursor back one
+                        term.write("\b");
+
+                        // overwrite with after content and a space (remove last character)
+                        term.write(after + " ");
+
+                        // move cursor back to original position
+                        term.write("\b".repeat(after.length + 1));
+                        current_index--;
+                    }
+                }
+            }
+
+            this.register_key_event_handler(
+                line_discipline_handlers.execute_next_line,
+                {
+                    keyString: "\r",
+                    block: true,
+                }
+            );
+
+            this.register_key_event_handler(
+                line_discipline_handlers.delete_character,
+                {
+                    domEventCode: "Backspace",
+                    block: true,
+                }
+            );
+
+            this.register_key_event_handler(
+                line_discipline_handlers.move_cursor_left,
+                {
+                    domEventCode: "ArrowLeft",
+                    block: true,
+                }
+            );
+
+            this.register_key_event_handler(
+                line_discipline_handlers.move_cursor_right,
+                {
+                    domEventCode: "ArrowRight",
+                    block: true,
+                }
+            );
+        });
     }
 
     spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
@@ -434,39 +420,6 @@ export class WrappedTerminal extends Terminal {
                 // if the handler is blocking, don't go to next handler or display logic
                 return;
             }
-        }
-
-        // if the key is a printable character, write it to the terminal
-        if (e.key.match(NON_PRINTABLE_REGEX) === null) {
-            // call any registered printable key handlers
-            for (const handler of this._on_printable_handlers) {
-                await handler(e, this);
-            }
-
-            // if at the end of the line, just append the character
-            if (this._current_index === this._current_line.length) {
-                this._current_line += e.key;
-                this.write(e.key);
-                this._current_index++;
-                return;
-            }
-
-            // insert the character at the cursor, shift the rest of the line to the right
-            const before_cursor = this._current_line.slice(0, this._current_index);
-            const after_cursor = this._current_line.slice(this._current_index);
-            this._current_line = before_cursor + e.key + after_cursor;
-
-            // write the new right of the line over the old one
-            this.write(e.key + after_cursor);
-
-            // move back to the cursor position
-            this.write(`\x1b[${after_cursor.length}D`);
-
-            // increment the cursor position
-            this._current_index++;
-        } else {
-            console.warn("Ignored key event:", e);
-            // TODO: handle more special keys and sequences
         }
     }
 
