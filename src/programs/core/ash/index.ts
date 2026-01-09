@@ -40,6 +40,8 @@ export default {
         const read_line_key_handlers = make_read_line_key_handlers(shell, kernel);
         const read_line_printable_handler = make_read_line_printable_handler(shell);
 
+        term.focus();
+
         while (running) {
             await shell.insert_prompt(true);
 

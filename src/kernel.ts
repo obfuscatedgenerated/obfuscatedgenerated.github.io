@@ -1,6 +1,7 @@
-import {ProgramRegistry} from "./prog_registry";
+import {ProgramRegistry, recurse_mount_and_register_with_output} from "./prog_registry";
 import type {AbstractFileSystem} from "./filesystem";
 
+// TODO: organise this stuff to a kernel directory?
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
 import {IPCManager, ProcessContext, ProcessManager} from "./processes";
@@ -133,6 +134,57 @@ export class Kernel {
 
         proc_mgr.dispose_all();
         this._term.handle_kernel_panic(message, process_info, debug_info);
+    }
+
+    async boot(): Promise<boolean> {
+        const fs = this.get_fs();
+
+        // mount all programs in any subdirectory of /usr/bin
+        // TODO: get rid of the concept of a programregistry being the sole way to run programs. mounting is a bad concept. it should be a cache, not the sole execution method. may need to redesign how programs are stored to have it be more part of the filesystem
+        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+        const usr_bin = fs.absolute("/usr/bin");
+        if (await fs.exists(usr_bin)) {
+            await recurse_mount_and_register_with_output(fs, usr_bin, this.get_program_registry(), this._term);
+        }
+
+        // read /boot/init to determine init system
+        let init_program: string;
+
+        try {
+            const init_data = await fs.read_file("/boot/init") as string;
+            init_program = init_data.trim();
+        } catch {
+            this.panic("Failed to read /boot/init to determine init system!");
+            return false;
+        }
+
+        if (!init_program) {
+            this.panic("No init program specified in /boot/init!");
+            return false;
+        }
+
+        // run init program
+        try {
+            const init = this.spawn(init_program, []);
+
+            if (init.process.pid !== 1) {
+                this.panic(`init program ${init_program} did not start as PID 1!`);
+                return false;
+            }
+
+            init.completion.then((exit_code) => {
+                this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
+                return false;
+            }).catch((e) => {
+                this.panic(`init program ${init_program} error!`, e.toString());
+                return false;
+            });
+        } catch (e) {
+            this.panic(`Failed to start init program ${init_program}!`, e.toString());
+            return false;
+        }
+
+        return true;
     }
 
     constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager) {
