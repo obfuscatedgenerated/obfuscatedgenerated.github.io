@@ -2,7 +2,6 @@
   "name": "ollieos",
   "version": "2.0.0",
   "description": "",
-  "private": true,
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -16,7 +15,8 @@
     "lint": "eslint .",
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
-    "publish": "npm run clean && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
+    "generate-licenses": "node ./bin/generate_licenses.js",
+    "publish": "npm run clean && npm run generate-licenses && npm run bundle && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
     "build:types": "tsc ./src/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020"
   },
   "repository": {
@@ -51,7 +51,7 @@
     "extra-watch-webpack-plugin": "^1.0.3",
     "gh-pages": "^5.0.0",
     "handlebars": "^4.7.7",
-    "license-webpack-plugin": "^4.0.2",
+    "license-checker-rseidelsohn": "^4.4.2",
     "rimraf": "^3.0.2",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.3.1",
