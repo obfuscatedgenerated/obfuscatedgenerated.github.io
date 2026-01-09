@@ -58,42 +58,43 @@ const loader_interval = setInterval(() => {
 }, 100);
 
 async function check_first_time(term: WrappedTerminal) {
-    // if this is the user's first time, show a popup asking if they want to run the tour
-    if (localStorage.getItem("visited") === null) {
-        const tour = await Swal.fire({
-            title: "Welcome to OllieOS!",
-            html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by using the <code>tour</code> command.</p>",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-            cancelButtonText: "No",
-        });
-
-        const reader = await Swal.fire({
-            title: "Screen Reader",
-            html: "<p>Would you like to enable the screen reader?</p><p>Due to a technical limitation, on-screen links will not be clickable in screen reader mode.</p><p>You can toggle the screen reader at any time with the <code>reader</code> command.</p>",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-            cancelButtonText: "No",
-        });
-
-        term.focus();
-
-        if (reader.isConfirmed) {
-            await term.execute("reader");
-        }
-
-        if (tour.isConfirmed) {
-            await term.execute("tour");
-        }
-
-        localStorage.setItem("visited", "");
-    } else {
-        term.focus();
-    }
-
-    term.insert_preline();
+    // TODO: update implementation
+    //// if this is the user's first time, show a popup asking if they want to run the tour
+    //if (localStorage.getItem("visited") === null) {
+    //    const tour = await Swal.fire({
+    //        title: "Welcome to OllieOS!",
+    //        html: "<p>It looks like it's your first time here!</p><p>Would you like to run the tour?</p><p>If you select no, you can run the tour later by using the <code>tour</code> command.</p>",
+    //        icon: "question",
+    //        showCancelButton: true,
+    //        confirmButtonText: "Yes",
+    //        cancelButtonText: "No",
+    //    });
+//
+    //    const reader = await Swal.fire({
+    //        title: "Screen Reader",
+    //        html: "<p>Would you like to enable the screen reader?</p><p>Due to a technical limitation, on-screen links will not be clickable in screen reader mode.</p><p>You can toggle the screen reader at any time with the <code>reader</code> command.</p>",
+    //        icon: "question",
+    //        showCancelButton: true,
+    //        confirmButtonText: "Yes",
+    //        cancelButtonText: "No",
+    //    });
+//
+    //    term.focus();
+//
+    //    if (reader.isConfirmed) {
+    //        await term.execute("reader");
+    //    }
+//
+    //    if (tour.isConfirmed) {
+    //        await term.execute("tour");
+    //    }
+//
+    //    localStorage.setItem("visited", "");
+    //} else {
+    //    term.focus();
+    //}
+//
+    //term.insert_preline();
 }
 
 function loaded(term: WrappedTerminal) {
@@ -168,9 +169,6 @@ async function main() {
         screenReaderMode: false,
         cursorBlink: true,
     }, wm);
-
-    term.set_variable("VERSION", document.body.dataset.version);
-    term.set_variable("ENV", "web");
 
     // load addons
     const fit = new FitAddon();
