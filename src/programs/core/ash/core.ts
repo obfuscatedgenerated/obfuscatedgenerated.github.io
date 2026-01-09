@@ -123,7 +123,7 @@ export class AshShell implements AbstractShell {
 
                     // reinsert the prompt and current line
                     // TODO: respect running programs, maybe need a notification queue
-                    this.insert_preline(false);
+                    this.insert_prompt(false);
                 });
 
                 // don't kill the process
@@ -223,7 +223,7 @@ export class AshShell implements AbstractShell {
         return `${PREFABS.dir_name}${path}${STYLE.reset_all}${this._prompt_suffix}`;
     }
 
-    async insert_preline(newline = true) {
+    async insert_prompt(newline = true) {
         const term = this._term;
 
         if (term._panicked) {
@@ -252,6 +252,6 @@ export class AshShell implements AbstractShell {
 
     async next_line() {
         this.reset_current_vars();
-        await this.insert_preline();
+        await this.insert_prompt();
     }
 }
