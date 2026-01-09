@@ -1,6 +1,7 @@
 import type { Program } from "../../../types";
 
 import {ServiceManager} from "./services";
+import type {ProcessContext} from "../../../processes";
 
 interface IgnitionIPCMessageBase {
     type: string;
@@ -149,29 +150,39 @@ export default {
             });
         });
 
+        let running = true;
+        let final_code = 0;
+        let current_tty_process: ProcessContext;
+
+        // on exit, force jetty to exit too
+        // TODO: add process ownership to automatically kill child processes
+        const proc_mgr = term.get_process_manager();
         process.add_exit_listener(async (exit_code) => {
-            term.panic("ignition process exited unexpectedly!", `Exit code: ${exit_code}`);
+            if (current_tty_process && proc_mgr.get_process(current_tty_process.pid)) {
+                current_tty_process.kill(exit_code);
+            }
+
+            final_code = exit_code;
+            running = false;
         });
 
         // start initial services
         svc_mgr.start_initial_services();
 
-        // execute jetty, respawning it if it exits
-        // TODO: move to spawn, not execute for cleaner control
-        const run_jetty = async () => {
-            await term.execute("jetty", true, async (exit_code) => {
-                console.warn(`jetty exited with code ${exit_code}, respawning...`);
+        // execute jetty in a respawn loop
+        while (running) {
+            const jetty_proc = term.spawn("jetty", []);
+            current_tty_process = jetty_proc.process;
 
-                // respawn jetty
-                run_jetty();
-            });
+            const exit_code = await jetty_proc.completion;
+
+            if (exit_code === 0) {
+                running = false;
+            }
+
+            console.log(`jetty exited with code ${exit_code}`);
         }
 
-        // await ONLY the first run of jetty
-        await run_jetty();
-
-        // TODO: when the shell is a distinct program, dont detach but instead block somehow instead
-        process.detach(true);
-        return 0;
+        return final_code;
     }
 } as Program;

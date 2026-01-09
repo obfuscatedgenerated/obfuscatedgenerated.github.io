@@ -240,22 +240,21 @@ async function main() {
         return;
     }
 
-    // run init program to set up the terminal, then call loaded() once detached
+    loaded(term);
+
+    // run init program
     try {
         const init = term.spawn(init_program, []);
 
         if (init.process.pid !== 1) {
+            boot_screen.style.display = "none";
             term.panic(`init program ${init_program} did not start as PID 1!`);
             return;
         }
 
         init.completion.then((exit_code) => {
-            if (exit_code !== 0) {
-                term.panic(`init program ${init_program} error!`, `Exit code: ${exit_code}`);
-                return;
-            }
-
-            loaded(term);
+            boot_screen.style.display = "none";
+            term.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
         }).catch((e) => {
             boot_screen.style.display = "none";
             term.panic(`init program ${init_program} error!`, e.toString());

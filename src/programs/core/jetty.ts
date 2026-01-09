@@ -1,4 +1,5 @@
 import type {Program} from "../../types";
+import type {ProcessContext} from "../../processes";
 
 export default {
     name: "jetty",
@@ -24,13 +25,36 @@ export default {
         const absolute_profile = fs.absolute("~/.ollie_profile");
         await term.run_script(absolute_profile);
 
-        // TODO: bring back the distinction between these two, because now mounting is handled before jetty runs, they are the same
+        let running = true;
+        let final_code = 0;
+        let current_shell_process: ProcessContext;
 
-        // run .ollierc if it exists (TODO: make shells and the OS different things! right now the difference is .ollierc runs after mounting so theres that)
-        const absolute_rc = fs.absolute("~/.ollierc");
-        await term.run_script(absolute_rc);
+        // on exit, force shell to exit too
+        // TODO: add process ownership to automatically kill child processes
+        const proc_mgr = term.get_process_manager();
+        process.add_exit_listener(async (exit_code) => {
+            if (current_shell_process && proc_mgr.get_process(current_shell_process.pid)) {
+                current_shell_process.kill(exit_code);
+            }
 
-        process.detach(true);
-        return 0;
+            final_code = exit_code;
+            running = false;
+        });
+
+        // execute shell in a respawn loop
+        while (running) {
+            const shell_proc = term.spawn("ash", []);
+            current_shell_process = shell_proc.process;
+
+            const exit_code = await shell_proc.completion;
+
+            if (exit_code === 0) {
+                running = false;
+            }
+
+            console.log(`ash exited with code ${exit_code}`);
+        }
+
+        return final_code;
     }
 } as Program;

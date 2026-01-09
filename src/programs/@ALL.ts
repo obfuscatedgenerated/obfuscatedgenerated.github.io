@@ -1,5 +1,6 @@
 export { default as ignition } from "./core/ignition";
 export { default as jetty } from "./core/jetty";
+export { default as ash } from "./core/ash";
 
 export { default as help } from "./help";
 export { default as shutdown } from "./shutdown";

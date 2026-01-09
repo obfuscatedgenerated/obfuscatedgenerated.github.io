@@ -41,7 +41,7 @@ function hb_build() {
     let unpkg_imp_map = {"imports": unpkg_deps};
     unpkg_imp_map = JSON.stringify(unpkg_imp_map);
 
-    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, unpkg_imp_map });
+    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, unpkg_imp_map, build_year: new Date().getFullYear() });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
 

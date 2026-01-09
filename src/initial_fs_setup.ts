@@ -59,7 +59,7 @@ const setup_credits = async (fs: AbstractFileSystem) => {
 Credits
 =======
 
-This website was made by obfuscatedgenerated using the following technologies:
+This website was created by obfuscatedgenerated using the following technologies:
 
 - TypeScript
 - xterm.js
@@ -82,7 +82,7 @@ Additionally, fsedit uses:
 
 - Font Awesome
 
-The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io and is licensed under the MIT license.
+The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io.
 `.replace(/\n/g, NEWLINE);
 
     // only overwrite the file if it doesn't exist or the content is different
