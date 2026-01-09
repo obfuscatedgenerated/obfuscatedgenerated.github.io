@@ -4,16 +4,13 @@ import {ProgramRegistry} from "./prog_registry";
 import type {AbstractFileSystem} from "./filesystem";
 
 import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "./types";
-import {
-    change_prompt as change_prompt,
-    register_builtin_fs_handlers,
-    register_shell_key_handlers
-} from "./programs/core/ash/key_handlers";
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
 import {IPCManager, ProcessContext, ProcessManager} from "./processes";
-import type {LineParseResultCommand} from "./programs/core/ash/parser";
 import type {AbstractShell} from "./abstract_shell";
+
+// TODO: decouple, either make generic interface or dont use at all
+import type {LineParseResultCommand} from "./programs/core/ash/parser";
 
 
 export const NEWLINE = "\r\n";
@@ -694,7 +691,7 @@ export class WrappedTerminal extends Terminal {
         this.writeln(ANSI.STYLE.reset_all);
     }
 
-    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, register_builtin_handlers = true, wm?: AbstractWindowManager) {
+    constructor(fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, xterm_opts?: ITerminalOptions, wm?: AbstractWindowManager) {
         super(xterm_opts);
 
         this._fs = fs;
@@ -703,14 +700,6 @@ export class WrappedTerminal extends Terminal {
         this._wm = wm || null;
         this._process_manager = new ProcessManager(this._wm);
 
-        if (register_builtin_handlers) {
-            register_shell_key_handlers(this);
-            register_builtin_fs_handlers(this);
-        }
-
         this._disposable_onkey = this.onKey(this._enqueue_key_event);
-
-        // set prompt to initial cwd
-        change_prompt(fs.get_cwd(), fs, this);
     }
 }

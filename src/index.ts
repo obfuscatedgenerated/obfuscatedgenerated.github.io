@@ -167,7 +167,7 @@ async function main() {
     const term = new WrappedTerminal(fs, prog_reg, sfx_reg,{
         screenReaderMode: false,
         cursorBlink: true,
-    }, true, wm);
+    }, wm);
 
     term.set_variable("VERSION", document.body.dataset.version);
     term.set_variable("ENV", "web");
