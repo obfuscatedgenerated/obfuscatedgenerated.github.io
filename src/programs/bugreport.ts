@@ -1,6 +1,6 @@
 import type { Program } from "../types";
 import { ANSI } from "../term_ctl";
-import {helper_completion_options} from "../tab_completion";
+import {helper_completion_options} from "./core/ash/tab_completion";
 
 const type_suffixes = {
     bug: "?assignees=&labels=awaiting+effort+estimate%2C+awaiting+triage%2C+bug%2C+unreviewed&template=bug-report-%F0%9F%90%9B.md&title=%5B%F0%9F%90%9B%5D+-+Descriptive%2C+short+title",

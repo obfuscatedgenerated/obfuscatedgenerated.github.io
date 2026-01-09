@@ -1,5 +1,7 @@
-import {WrappedTerminal} from "./term_ctl";
-import {CompletionData} from "./types";
+import type {WrappedTerminal} from "../../../term_ctl";
+import type {CompletionData} from "../../../types";
+
+import {parse_line} from "./parser";
 
 // TODO this is really poor OOP
 let cached_matches: string[] = [];
@@ -38,7 +40,7 @@ const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
 const get_completeable_arguments = async (term: WrappedTerminal) => {
     // parse the line
 
-    const parsed_line = term.parse_line(term._current_line);
+    const parsed_line = parse_line(term._current_line);
     if (parsed_line.type !== "command") {
         console.warn("Tab completion for non-command lines is not yet implemented");
         return null;

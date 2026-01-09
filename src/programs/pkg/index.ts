@@ -7,7 +7,7 @@ import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
-import {helper_completion_options} from "../../tab_completion";
+import {helper_completion_options} from "../core/ash/tab_completion";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";

@@ -1,8 +1,8 @@
-import type { KeyEventHandler } from "./types";
-import { NEWLINE, ANSI } from "./term_ctl";
-import type { WrappedTerminal } from "./term_ctl";
+import type { KeyEventHandler } from "../../../types";
+import { NEWLINE, ANSI } from "../../../term_ctl";
+import type { WrappedTerminal } from "../../../term_ctl";
 
-import { AbstractFileSystem, FSEventType } from "./filesystem";
+import { AbstractFileSystem, FSEventType } from "../../../filesystem";
 import {tab_complete} from "./tab_completion";
 
 //const { STYLE, PREFABS } = ANSI; // doesn't work for some reason
@@ -136,7 +136,6 @@ export const mark_modified: KeyEventHandler = (_e, _term) => {
 }
 
 // tab
-
 export const tab_completion: KeyEventHandler = async (_e, term) => {
     discard_cached_matches = await tab_complete(term, discard_cached_matches);
 }

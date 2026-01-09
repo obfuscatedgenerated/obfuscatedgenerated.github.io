@@ -1,6 +1,6 @@
 import {ANSI} from "../../term_ctl";
 import type {Program} from "../../types";
-import {helper_completion_options} from "../../tab_completion";
+import {helper_completion_options} from "../core/ash/tab_completion";
 
 import {service_subcommand} from "./service";
 import {reload_services_subcommand} from "./reload_services";

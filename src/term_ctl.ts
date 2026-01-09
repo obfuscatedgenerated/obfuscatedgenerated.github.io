@@ -8,7 +8,7 @@ import {
     change_prompt as change_prompt,
     register_builtin_fs_handlers,
     register_builtin_key_handlers
-} from "./event_handlers";
+} from "./programs/core/ash/event_handlers";
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
 import {IPCManager, ProcessContext, ProcessManager} from "./processes";
@@ -190,6 +190,8 @@ export class WrappedTerminal extends Terminal {
     get_current_index(): number {
         return this._current_index;
     }
+
+
 
     spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
         // search for the command in the registry
@@ -461,7 +463,6 @@ export class WrappedTerminal extends Terminal {
             );
         });
     }
-
 
     word_wrap(text: string, width: number): string {
         const lines = text.split(NEWLINE);

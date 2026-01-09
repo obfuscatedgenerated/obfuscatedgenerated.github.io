@@ -1,6 +1,6 @@
 import {ANSI, NEWLINE} from "../term_ctl";
 import type { Program } from "../types";
-import {helper_completion_options} from "../tab_completion";
+import {helper_completion_options} from "./core/ash/tab_completion";
 
 export default {
     name: "ps",

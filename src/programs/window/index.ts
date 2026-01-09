@@ -7,7 +7,7 @@ import {show_subcommand} from "./show";
 import {hide_subcommand} from "./hide";
 import {close_subcommand} from "./close";
 import {center_subcommand} from "./center";
-import {helper_completion_options} from "../../tab_completion";
+import {helper_completion_options} from "../core/ash/tab_completion";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
