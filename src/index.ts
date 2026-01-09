@@ -6,7 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
 import "./load_global_externals";
-import { ProgramRegistry } from "./prog_registry";
+import {ProgramRegistry, recurse_mount_and_register_with_output} from "./prog_registry";
 import * as programs from "./programs/@ALL";
 
 import { SoundRegistry } from "./sfx_registry";
@@ -213,6 +213,14 @@ async function main() {
         e.preventDefault();
         term.copy_or_paste();
     });
+
+    // mount all programs in any subdirectory of /usr/bin
+    // TODO: get rid of the concept of a programregistry being the sole way to run programs. mounting is a bad concept. it should be a cache, not the sole execution method. may need to redesign how programs are stored to have it be more part of the filesystem
+    // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
+    const usr_bin = fs.absolute("/usr/bin");
+    if (await fs.exists(usr_bin)) {
+        await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), term);
+    }
 
     // read /boot/init to determine init system
     let init_program: string;

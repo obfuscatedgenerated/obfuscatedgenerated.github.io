@@ -1,6 +1,5 @@
 import type { Program } from "../../../types";
 
-import {recurse_mount_and_register_with_output} from "../../../prog_registry";
 import {ServiceManager} from "./services";
 
 interface IgnitionIPCMessageBase {
@@ -153,14 +152,6 @@ export default {
         process.add_exit_listener(async (exit_code) => {
             term.panic("ignition process exited unexpectedly!", `Exit code: ${exit_code}`);
         });
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const fs = term.get_fs();
-        const usr_bin = fs.absolute("/usr/bin");
-        if (await fs.exists(usr_bin)) {
-            await recurse_mount_and_register_with_output(fs, usr_bin, term.get_program_registry(), term);
-        }
 
         // start initial services
         svc_mgr.start_initial_services();
