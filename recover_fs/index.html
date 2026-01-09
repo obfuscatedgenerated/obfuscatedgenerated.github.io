@@ -42,17 +42,21 @@
                 return;
             }
 
-            if (confirm("Are you sure you want to reset the bootloader file /boot/init? This will clear your choice of init system but retains your files.")) {
-                // delete /boot/init from opfs
+            if (confirm("Are you sure you want to reset the bootloader? This will clear your choice of init system, boot target, and default shell but retains your files.")) {
+                // delete /boot/init, /etc/boot_target and /etc/default_shell
                 const root = await navigator.storage.getDirectory();
                 try {
                     const boot_dir = await root.getDirectoryHandle("boot");
                     await boot_dir.removeEntry("init");
 
+                    const etc_dir = await root.getDirectoryHandle("etc");
+                    await etc_dir.removeEntry("boot_target");
+                    await etc_dir.removeEntry("default_shell");
+
                     alert("Bootloader reset. Heading back to OllieOS.");
                     window.location.href = "/";
                 } catch (e) {
-                    alert("Bootloader file /boot/init does not exist. Nothing to reset.");
+                    alert("Bootloader directory /boot does not exist. Nothing to reset.");
                 }
             }
         };
