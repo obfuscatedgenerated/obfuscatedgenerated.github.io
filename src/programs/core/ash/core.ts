@@ -1,5 +1,5 @@
 import type {AbstractShell} from "../../../abstract_shell";
-import type {SpawnResult, WrappedTerminal} from "../../../term_ctl";
+import {NEWLINE, SpawnResult, WrappedTerminal} from "../../../term_ctl";
 import {ANSI} from "../../../term_ctl";
 
 import {AshMemory} from "./memory";
@@ -10,6 +10,9 @@ const {PREFABS, FG, STYLE} = ANSI;
 export class AshShell implements AbstractShell {
     _term: WrappedTerminal;
     _memory = new AshMemory();
+
+    _preline = "";
+    _prompt_suffix = "$ ";
 
     constructor(term: WrappedTerminal) {
         this._term = term;
@@ -121,7 +124,7 @@ export class AshShell implements AbstractShell {
 
                     // reinsert the prompt and current line
                     // TODO: respect running programs, maybe need a notification queue
-                    term.insert_preline(false);
+                    this.insert_preline(false);
                 });
 
                 // don't kill the process
@@ -184,5 +187,67 @@ export class AshShell implements AbstractShell {
         }
 
         return true;
+    }
+
+    async run_script(path: string) {
+        const fs = this._term._fs;
+
+        if (await fs.exists(path)) {
+            // iter through the lines of the file and execute them
+            const content = await fs.read_file(path) as string;
+            for (const line of content.split(NEWLINE)) {
+                // TODO: catch errors
+                await this.execute(line);
+            }
+        }
+    }
+
+    async insert_preline(newline = true) {
+        const term = this._term;
+
+        if (term._panicked) {
+            return;
+        }
+
+        if (newline) {
+            term.write(NEWLINE);
+        }
+
+        // resolve a promise when writing is complete
+        await new Promise<void>((resolve) => {
+            term.write(this._preline, () => {
+                resolve();
+            });
+        });
+    }
+
+    // raw access to the preline vs setting just the prompt and having the suffix added
+    set_preline(preline: string): void {
+        this._preline = preline;
+    }
+
+    set_prompt(prompt: string): void {
+        this.set_preline(prompt + this._prompt_suffix);
+    }
+
+    get_prompt_suffix(): string {
+        return this._prompt_suffix;
+    }
+
+    set_prompt_suffix(suffix: string): void {
+        this._prompt_suffix = suffix;
+    }
+
+    reset_current_vars(reset_history_index = false): void {
+        this._term.reset_line();
+
+        if (reset_history_index) {
+            this._memory._current_history_index = 0;
+        }
+    }
+
+    async next_line() {
+        this.reset_current_vars();
+        await this.insert_preline();
     }
 }

@@ -109,9 +109,6 @@ export class WrappedTerminal extends Terminal {
     _current_line = "";
     _current_index = 0;
 
-    _preline = "";
-    _prompt_suffix = "$ ";
-
     _process_manager: ProcessManager;
     _prog_registry: ProgramRegistry;
     _sfx_registry: SoundRegistry;
@@ -181,13 +178,9 @@ export class WrappedTerminal extends Terminal {
     }
 
 
-    reset_current_vars(reset_history_index = false): void {
+    reset_line(): void {
         this._current_line = "";
         this._current_index = 0;
-
-        if (reset_history_index) {
-            this._current_history_index = 0;
-        }
     }
 
     get_current_line(): string {
@@ -196,47 +189,6 @@ export class WrappedTerminal extends Terminal {
 
     get_current_index(): number {
         return this._current_index;
-    }
-
-
-    async insert_preline(newline = true) {
-        if (this._panicked) {
-            return;
-        }
-
-        if (newline) {
-            this.write(NEWLINE);
-        }
-
-        // resolve a promise when writing is complete
-        await new Promise<void>((resolve) => {
-            this.write(this._preline, () => {
-                resolve();
-            });
-        });
-    }
-
-    // raw access to the preline vs setting just the prompt and having the suffix added
-    set_preline(preline: string): void {
-        this._preline = preline;
-    }
-
-    set_prompt(prompt: string): void {
-        this.set_preline(prompt + this._prompt_suffix);
-    }
-
-    get_prompt_suffix(): string {
-        return this._prompt_suffix;
-    }
-
-    set_prompt_suffix(suffix: string): void {
-        this._prompt_suffix = suffix;
-    }
-
-
-    async next_line() {
-        this.reset_current_vars();
-        await this.insert_preline();
     }
 
     spawn = (command: string, args: string[] = [], original_line_parse?: LineParseResultCommand, shell?: AbstractShell): SpawnResult => {
@@ -589,19 +541,6 @@ export class WrappedTerminal extends Terminal {
             this.copy();
         } else {
             this.paste();
-        }
-    }
-
-    async run_script(path) {
-        const fs = this._fs;
-
-        if (await fs.exists(path)) {
-            // iter through the lines of the file and execute them
-            const content = await fs.read_file(path) as string;
-            for (const line of content.split(NEWLINE)) {
-                // TODO: catch errors
-                await this.execute(line);
-            }
         }
     }
 
