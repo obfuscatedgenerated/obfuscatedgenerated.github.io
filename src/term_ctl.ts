@@ -7,8 +7,8 @@ import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "./ty
 import {
     change_prompt as change_prompt,
     register_builtin_fs_handlers,
-    register_builtin_key_handlers
-} from "./programs/core/ash/event_handlers";
+    register_shell_key_handlers
+} from "./programs/core/ash/key_handlers";
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager} from "./windowing";
 import {IPCManager, ProcessContext, ProcessManager} from "./processes";
@@ -149,8 +149,6 @@ const line_discipline_handlers: {[name: string]: KeyEventHandler} = {
     // backspace
     delete_character(_e, term) {
         if (term._current_line.length > 0 && term._current_index > 0) {
-            discard_cached_matches = true;
-
             // get everything before the cursor
             const before = term._current_line.slice(0, term._current_index - 1);
 
@@ -706,7 +704,7 @@ export class WrappedTerminal extends Terminal {
         this._process_manager = new ProcessManager(this._wm);
 
         if (register_builtin_handlers) {
-            register_builtin_key_handlers(this);
+            register_shell_key_handlers(this);
             register_builtin_fs_handlers(this);
         }
 

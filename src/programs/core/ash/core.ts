@@ -4,6 +4,7 @@ import {ANSI} from "../../../term_ctl";
 
 import {AshMemory} from "./memory";
 import { parse_line } from "./parser";
+import {make_shell_key_handlers} from "./key_handlers";
 
 const {PREFABS, FG, STYLE} = ANSI;
 
@@ -12,6 +13,9 @@ export class AshShell implements AbstractShell {
     _memory = new AshMemory();
 
     _prompt_suffix = "$ ";
+
+    // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
+    _discard_cached_matches = false;
 
     constructor(term: WrappedTerminal) {
         this._term = term;
@@ -253,5 +257,49 @@ export class AshShell implements AbstractShell {
     async next_line() {
         this.reset_current_vars();
         await this.insert_prompt();
+    }
+
+    register_shell_key_handlers() {
+        const term = this._term;
+
+        // TODO: pregen and store so it can be unregistered later if needed
+        const handlers = make_shell_key_handlers(this);
+
+        term.register_key_event_handler(
+            handlers.previous_history,
+            {
+                domEventCode: "ArrowUp",
+                block: true,
+            }
+        );
+
+        term.register_key_event_handler(
+            handlers.next_history,
+            {
+                domEventCode: "ArrowDown",
+                block: true,
+            }
+        );
+
+        term.register_key_event_handler(
+            handlers.tab_completion,
+            {
+                keyString: "\t",
+                block: true,
+            }
+        );
+
+        term.register_on_printable_key_event_handler(
+            handlers.mark_modified,
+        );
+
+        term.register_key_event_handler(
+            handlers.character_deleted,
+            {
+                keyString: "\r",
+                high_priority: true,
+                block: false
+            }
+        );
     }
 }

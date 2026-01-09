@@ -13,6 +13,34 @@ export class AshMemory implements AbstractShellMemory {
         this._current_history_index = 0;
     }
 
+    get_previous_history_entry(): string | undefined {
+        if (this._history.length === 0 || this._current_history_index >= this._history.length) {
+            return undefined;
+        }
+
+        const entry = this._history[this._history.length - 1 - this._current_history_index];
+        this._current_history_index += 1;
+        return entry;
+    }
+
+    get_next_history_entry(): string | undefined {
+        if (this._history.length === 0 || this._current_history_index <= 0) {
+            return undefined;
+        }
+
+        this._current_history_index -= 1;
+        if (this._current_history_index === 0) {
+            return "";
+        }
+
+        return this._history[this._history.length - 1 - this._current_history_index];
+    }
+
+    add_history_entry(entry: string): void {
+        this._history.push(entry);
+        this._current_history_index = 0;
+    }
+
     list_variables(): Map<string, string> {
         return this._vars;
     }

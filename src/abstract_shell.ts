@@ -1,6 +1,12 @@
 export abstract class AbstractShellMemory {
     abstract clear_history(): void;
 
+    abstract get_previous_history_entry(): string | undefined;
+
+    abstract get_next_history_entry(): string | undefined;
+
+    abstract add_history_entry(entry: string): void;
+
     abstract list_variables(): Map<string, string>;
 
     abstract get_variable(name: string): string | undefined;
