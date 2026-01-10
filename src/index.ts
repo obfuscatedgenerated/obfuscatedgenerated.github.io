@@ -103,7 +103,10 @@ const main = async () => {
     console.log("Downloading OS...");
 
     // lazy load bootloader to create a smaller initial bundle (with the boot screen working right away while the code is downloaded)
-    const { boot_os } = await import("./bootloader");
+    const { boot_os } = await import(
+        /* webpackChunkName: "os" */
+        "./bootloader"
+    );
 
     console.log("Booting OS...");
 

@@ -93,6 +93,7 @@ module.exports = (env, argv) => {
         },
         output: {
             filename: "[name].bundle.js",
+            chunkFilename: "[name].[contenthash].chunk.js",
             path: path.resolve(__dirname, "public/script"),
         },
     }
