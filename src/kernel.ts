@@ -89,7 +89,7 @@ export class Kernel {
             compat = program.compat;
         }
 
-        if (semver_compare(compat, CURRENT_API_COMPAT) > 0) {
+        if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
             throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
 

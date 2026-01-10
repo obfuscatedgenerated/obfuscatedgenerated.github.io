@@ -1,15 +1,16 @@
 import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
-import {ANSI, WrappedTerminal} from "../../term_ctl";
+import {ANSI, type WrappedTerminal} from "../../term_ctl";
 import type {Program} from "../../types";
 import type {AbstractFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
-import {Kernel} from "../../kernel";
-import {AbstractShell} from "../../abstract_shell";
+
+import type {Kernel, SpawnResult} from "../../kernel";
+import type {AbstractShell} from "../../abstract_shell";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -462,9 +463,11 @@ export const triggers = {
         const data_str = JSON.stringify(data);
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
-        const spawn_result = kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
+
+        let spawn_result: SpawnResult;
 
         try {
+            spawn_result =  kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -473,7 +476,10 @@ export const triggers = {
             spawn_result.process.kill(exit_code);
         } catch (e) {
             term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
-            spawn_result.process.kill(-1);
+
+            if (spawn_result) {
+                spawn_result.process.kill(-1);
+            }
         }
 
         return true;
@@ -496,9 +502,11 @@ export const triggers = {
         const data_str = JSON.stringify(data);
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
-        const spawn_result = kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
+
+        let spawn_result: SpawnResult;
 
         try {
+            spawn_result =  kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -507,7 +515,10 @@ export const triggers = {
             spawn_result.process.kill(exit_code)
         } catch (e) {
             term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} failed: ${e}.${ANSI.STYLE.reset_all}`);
-            spawn_result.process.kill(-1);
+
+            if (spawn_result) {
+                spawn_result.process.kill(-1);
+            }
         }
 
         return true;
