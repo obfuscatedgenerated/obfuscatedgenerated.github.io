@@ -12,6 +12,7 @@ import type {LineParseResultCommand} from "./programs/core/ash/parser";
 
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
+import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
 
 const CURRENT_API_COMPAT = "2.0.0";
@@ -87,6 +88,10 @@ export class Kernel {
         let compat = "1.0.0";
         if (typeof program.compat === "string") {
             compat = program.compat;
+        }
+
+        if (!semver_validate(compat)) {
+            throw new Error(`Program ${program.name} has an invalid compat SemVer: ${compat}`);
         }
 
         if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
