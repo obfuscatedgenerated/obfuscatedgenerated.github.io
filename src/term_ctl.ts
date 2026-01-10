@@ -575,7 +575,8 @@ export class WrappedTerminal extends Terminal {
 
         if (typeof window !== "undefined") {
             this.write(NEWLINE);
-            this.writeln(`OS unrecoverable? Visit ${window.location.origin}/recover_fs for options to recover your filesystem.`);
+            this.writeln("OS unrecoverable?")
+            this.writeln(`Visit ${window.location.origin}/recover_fs if stuck.`);
         }
 
         this.writeln(ANSI.STYLE.reset_all);
