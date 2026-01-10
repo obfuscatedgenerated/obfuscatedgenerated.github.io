@@ -74,7 +74,7 @@ const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: Ke
             term.write(" yes");
             term.write(NEWLINE);
 
-            await kernel.spawn("pkg", ["install", pkg_name], shell).completion;
+            await kernel.spawn("pkg", ["add", pkg_name], shell).completion;
 
             term.write(NEWLINE);
             term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
