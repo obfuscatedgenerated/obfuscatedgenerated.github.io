@@ -37,6 +37,6 @@ export declare class Kernel {
     set_env_info(version: string, env: string): void;
     spawn: (command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand) => SpawnResult;
     panic(message: string, debug_info?: string): void;
-    boot(): Promise<boolean>;
+    boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<boolean>;
     constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager);
 }
