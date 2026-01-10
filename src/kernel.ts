@@ -168,7 +168,7 @@ export class Kernel {
         this._term.handle_kernel_panic(message, process_info, debug_info);
     }
 
-    async boot(): Promise<boolean> {
+    async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<boolean> {
         const fs = this.get_fs();
 
         // mount all programs in any subdirectory of /usr/bin
@@ -207,6 +207,12 @@ export class Kernel {
         // run init program
         try {
             const init = this.spawn(init_program, init_args);
+
+            if (on_init_spawned) {
+                on_init_spawned(this).catch((e) => {
+                    console.error(e);
+                });
+            }
 
             if (init.process.pid !== 1) {
                 this.panic(`init program ${init_program} did not start as PID 1!`);

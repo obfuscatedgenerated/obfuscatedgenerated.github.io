@@ -1,24 +1,4 @@
-import { ANSI, WrappedTerminal, NEWLINE } from "./term_ctl";
 import "@xterm/xterm/css/xterm.css";
-
-import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
-import { ImageAddon } from "@xterm/addon-image";
-
-import "./load_global_externals";
-import {ProgramRegistry} from "./prog_registry";
-import * as programs from "./programs/@ALL";
-
-import { SoundRegistry } from "./sfx_registry";
-
-import type {AbstractFileSystem} from "./filesystem";
-import { LocalStorageFS } from "./fs_impl/localstorage";
-import { OPFSFileSystem } from "./fs_impl/opfs";
-import { initial_fs_setup } from "./initial_fs_setup";
-
-import {DOMWindowManager} from "./window_impl/dom";
-import {Kernel} from "./kernel";
-
 
 const boot_screen = document.getElementById("boot_screen");
 
@@ -57,7 +37,8 @@ const loader_interval = setInterval(() => {
     }
 }, 100);
 
-async function check_first_time(term: WrappedTerminal) {
+// TODO: move to shell or jetty
+//async function check_first_time(term: WrappedTerminal) {
     // TODO: update implementation
     // TODO: use windows rather than sweetalert2
     //// if this is the user's first time, show a popup asking if they want to run the tour
@@ -96,16 +77,15 @@ async function check_first_time(term: WrappedTerminal) {
     //}
 //
     //term.insert_preline();
-}
+//}
 
-function loaded(term: WrappedTerminal) {
+async function init_spawned() {
     // fade out the boot screen
     boot_screen.style.opacity = "0";
 
     if (localStorage.getItem("nointro") === "true") {
         // skip any pauses for transitions
         boot_screen.style.display = "none";
-        check_first_time(term);
         return;
     }
 
@@ -115,117 +95,24 @@ function loaded(term: WrappedTerminal) {
         boot_screen.style.height = "0";
         setTimeout(() => {
             boot_screen.style.display = "none";
-            check_first_time(term);
         }, 500);
     }, 1000);
 }
 
-async function main() {
-    // create a program registry by importing all programs
-    const prog_reg = new ProgramRegistry();
-    for (const prog of Object.values(programs)) {
-        prog_reg.registerProgram({
-            program: prog,
-            built_in: true,
-        });
-    }
+const main = async () => {
+    console.log("Downloading OS...");
 
+    // lazy load bootloader to create a smaller initial bundle (with the boot screen working right away while the code is downloaded)
+    const { boot_os } = await import("./bootloader");
 
-    // create a sound registry
-    const sfx_reg = new SoundRegistry();
-    sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
-    sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
+    console.log("Booting OS...");
 
-
-    // create a filesystem
-    // try opfs but use localstorage if not available, or already in use
-    // TODO migrate from localstorage to opfs automatically
-    let fs: AbstractFileSystem;
-    if (!localStorage.getItem("fs") && navigator.storage && "getDirectory" in navigator.storage) {
-        fs = new OPFSFileSystem();
-    } else {
-        fs = new LocalStorageFS();
-    }
-
-    if (!(await fs.is_ready())) {
-        // poll every 10ms until ready
-        await new Promise<void>((resolve) => {
-            const interval = setInterval(async () => {
-                if (await fs.is_ready()) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 10);
-        });
-    }
-
-    // create initial files
-    await initial_fs_setup(fs);
-
-    // create a dom window manager
-    const wm = new DOMWindowManager();
-
-    // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal({
-        screenReaderMode: false,
-        cursorBlink: true,
-    });
-
-    // load addons
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-
-    term.loadAddon(new WebLinksAddon());
-
-    term.loadAddon(new ImageAddon());
-
-
-    // open the terminal
-    const render = <HTMLElement>document.querySelector("#terminal");
-    term.open(render);
-    fit.fit();
-
-
-    // if this is a small screen, show a message
-    if (window.innerWidth < 600) {
-        const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
-        term.writeln(wrapped);
-    }
-
-
-    // disable F1 help
-    window.addEventListener("keydown", function (e) {
-        if (e.code === "F1") {
-            e.preventDefault();
-        }
-    });
-
-
-    // on resize, resize the terminal
-    window.addEventListener("resize", () => {
-        fit.fit();
-    });
-
-
-    // bind right click to copy/paste
-    window.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        term.copy_or_paste();
-    });
-
-    // create the kernel
-    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm);
-    kernel.set_env_info(document.body.dataset.version, "web");
-
-    loaded(term);
-
-    // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
-    const successful_finish = await kernel.boot();
-    if (!successful_finish) {
+    const success = await boot_os(init_spawned);
+    if (!success) {
         boot_screen.style.display = "none";
-        return;
     }
 }
+
 
 if (localStorage.getItem("nointro") === "true") {
     // disable transition on #boot_screen to make it usable faster

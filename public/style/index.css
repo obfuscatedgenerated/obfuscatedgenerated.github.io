@@ -42,6 +42,7 @@ body {
 
 #boot_screen img {
     width: 20%;
+    aspect-ratio: 1;
 }
 
 #boot_screen h2 {
