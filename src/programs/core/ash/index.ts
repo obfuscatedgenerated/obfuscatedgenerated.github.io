@@ -12,6 +12,7 @@ export default {
             "--login": "Start the shell as a login shell. Don't pass this flag manually, it's handled by the system."
         }
     },
+    compat: "2.0.0",
     main: async (data) => {
         const {kernel, term, process, args} = data;
 

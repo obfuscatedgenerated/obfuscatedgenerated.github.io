@@ -8,6 +8,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
+    compat: "2.0.0",
     main: async (data) => {
         const {kernel, term, process} = data;
 

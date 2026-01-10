@@ -11,6 +11,7 @@ export default {
             "-p PID": "Display information about the process with the given PID. If omitted, displays all running processes."
         }
     },
+    compat: "2.0.0",
     completion: async (data) => {
         console.log(data);
         if (data.arg_index === 0) {

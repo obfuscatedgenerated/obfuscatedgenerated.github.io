@@ -54,6 +54,8 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
         console.warn(`Program ${program.name} has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.`);
     }
 
+    // not warning about compat here to make it more obvious to end users when they try to run an incompatible program
+
     if (globalThis.OLLIEOS_NODE && program.node_opt_out) {
         throw new Error(`Program ${program.name} is not compatible with Node.js.`);
     }

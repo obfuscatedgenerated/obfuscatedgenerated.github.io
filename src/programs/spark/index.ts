@@ -26,6 +26,7 @@ export default {
             },
         }
     },
+    compat: "2.0.0",
     completion: async (data) => {
         // TODO: smarter completion that understands flags for subcommands
         switch (data.arg_index) {

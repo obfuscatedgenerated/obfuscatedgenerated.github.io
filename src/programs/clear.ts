@@ -13,6 +13,7 @@ export default {
             "-so": "Only clear the scrollback."
         }
     },
+    compat: "2.0.0",
     completion: helper_completion_options(["-h", "-s", "-so"]),
     main: async (data) => {
         // extract from data to make code less verbose

@@ -8,6 +8,7 @@ export default {
         name: "The name of the alias to define or display. If no arguments are given, all aliases are displayed. Multiple alias arguments can be provided.",
         "name=value": "Defines an alias with the given name and value. End the value with a space to allow chaining."
     },
+    compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

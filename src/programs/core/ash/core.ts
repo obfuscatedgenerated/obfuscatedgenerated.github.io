@@ -87,8 +87,11 @@ export class AshShell implements AbstractShell {
                 document.title = old_title;
             }
 
-            term.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}.`);
+            term.writeln(`${FG.red + STYLE.italic}${(e as Error).message}${STYLE.reset_all}`);
+
             console.error(e);
+
             return false;
         }
 

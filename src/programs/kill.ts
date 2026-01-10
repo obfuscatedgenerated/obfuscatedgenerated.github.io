@@ -11,6 +11,7 @@ export default {
             "PID": "The PID of the process to kill."
         }
     },
+    compat: "2.0.0",
     completion: async (data) => {
         if (data.arg_index === 0) {
             const pm = data.kernel.get_process_manager();

@@ -14,6 +14,7 @@ export default {
         }
     },
     node_opt_out: true,
+    compat: "2.0.0",
     completion: async (data) => {
         if (data.arg_index === 0) {
             return helper_completion_options(["-h", "-q", "-s"])(data);

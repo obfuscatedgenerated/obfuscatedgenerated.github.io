@@ -26,6 +26,7 @@ export interface Program {
     hide_from_help?: boolean, // default false, if true it will be hidden from the program listing in help, but can still be found by typing help <program>. useful for services
     main: ProgramMain,
     completion?: CompletionGenerator,
+    compat?: string // should be set to "2.0.0" for programs that have been ported to the 2.0.0+ API
 }
 
 // TODO: move some of these to their correct modules

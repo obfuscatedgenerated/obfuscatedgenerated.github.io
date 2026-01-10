@@ -10,6 +10,7 @@ export default {
             "filepaths": "The paths of the files to read."
         }
     },
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term } = data;

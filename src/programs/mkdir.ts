@@ -13,6 +13,7 @@ export default {
             "directory": "The directory to create."
         }
     },
+    compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

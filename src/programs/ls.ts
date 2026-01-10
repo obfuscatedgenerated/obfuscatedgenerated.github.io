@@ -14,6 +14,7 @@ export default {
             "-a": "Show hidden files."
         }
     },
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, shell, args, term } = data;

@@ -8,6 +8,7 @@ export default {
     arg_descriptions: {
         name: "The name of the alias to remove. Multiple alias names can be provided."
     },
+    compat: "2.0.0",
     completion: async (data) => {
         if (!data.shell) {
             return [];

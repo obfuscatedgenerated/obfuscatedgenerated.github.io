@@ -9,6 +9,7 @@ export default {
             "names": "The names of each variable to unset."
         }
     },
+    compat: "2.0.0",
     completion: async (data) => {
         if (!data.shell) {
             return [];

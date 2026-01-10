@@ -38,6 +38,7 @@ export default {
             }
         }
     },
+    compat: "2.0.0",
     completion: async (data) => {
         switch (data.arg_index) {
             case 0:

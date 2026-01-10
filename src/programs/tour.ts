@@ -197,6 +197,7 @@ export default {
     description: "Runs the onboarding tour.",
     usage_suffix: "",
     arg_descriptions: {},
+    compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
         await welcome(data);

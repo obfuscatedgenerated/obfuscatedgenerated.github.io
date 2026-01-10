@@ -5,6 +5,7 @@ export default {
     description: "Opens the GitHub repository for OllieOS.",
     usage_suffix: "",
     arg_descriptions: {},
+    compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

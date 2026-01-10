@@ -17,6 +17,7 @@ export default {
         feature: "Opens the bug reporter with the feature request template.",
         other: "Opens the bug reporter with the template chooser (default).",
     },
+    compat: "2.0.0",
     completion: helper_completion_options(["bug", "feature", "other"]),
     main: async (data) => {
         // extract from data to make code less verbose

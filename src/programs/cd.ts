@@ -8,6 +8,7 @@ export default {
     arg_descriptions: {
         path: "Path to directory to change to. If no path is given, change to home directory."
     },
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term } = data;

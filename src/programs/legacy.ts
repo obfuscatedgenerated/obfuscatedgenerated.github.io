@@ -5,6 +5,7 @@ export default {
     description: "Opens the legacy ollieg.codes site if you're having trouble with this version.",
     usage_suffix: "",
     arg_descriptions: {},
+    compat: "2.0.0",
     completion: async () => [],
     main: async (_data) => {
         window.location.assign("https://legacy.ollieg.codes/");

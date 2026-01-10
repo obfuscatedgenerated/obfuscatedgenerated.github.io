@@ -80,6 +80,15 @@ export class Kernel {
             throw new Error(`Command not found: ${command}`);
         }
 
+        let compat = "1.0.0";
+        if (typeof program.compat === "string") {
+            compat = program.compat;
+        }
+
+        if (compat !== "2.0.0") {
+            throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
+        }
+
         // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
         const parsed_line: LineParseResultCommand = original_line_parse ?? {
             type: "command",

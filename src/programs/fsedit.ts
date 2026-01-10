@@ -10,6 +10,7 @@ export default {
             directory: "The directory to open fsedit in. Defaults to the current working directory."
         }
     },
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term, process } = data;

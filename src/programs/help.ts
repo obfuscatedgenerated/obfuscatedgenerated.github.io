@@ -33,6 +33,7 @@ export default {
             "-m": "Mounted programs. Includes only mounted programs.",
         },
     },
+    compat: "2.0.0",
     completion: async (data) => {
         // TODO smarter completion to handle number of args and flags
         const programs = data.kernel.get_program_registry().listProgramNames();

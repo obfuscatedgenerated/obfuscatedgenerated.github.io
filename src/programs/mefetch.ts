@@ -107,6 +107,7 @@ export default {
     arg_descriptions: {
         "username": "The GitHub username to show basic info about. Defaults to my username, with the special info shown."
     },
+    compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

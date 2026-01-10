@@ -57,6 +57,7 @@ export default {
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
+    compat: "2.0.0",
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
