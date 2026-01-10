@@ -18,7 +18,7 @@ const header = (term, includes_mounted: boolean) => {
     term.write(NEWLINE);
 }
 
-
+// TODO: this should also probably be part of the shell rather than a program? i guess it doesn't matter much, it just acts more like man
 export default {
     name: "help",
     description: "List programs or get help for a specific program.",
