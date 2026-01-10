@@ -67,6 +67,8 @@ export default {
             current_shell_process = shell_proc.process;
 
             const exit_code = await shell_proc.completion;
+            // TODO: why is this needed? is spawn not managing process death correctly?
+            shell_proc.process.kill(exit_code);
 
             console.log(`default shell ${default_shell} exited with code ${exit_code}`);
 
