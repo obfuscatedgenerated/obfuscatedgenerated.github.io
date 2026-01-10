@@ -49,8 +49,8 @@ export default {
         buttons.appendChild(fsedit_button);
 
         // if minecraft is installed, add a button for it
-        const fs = kernel.get_fs();
-        if (await fs.exists("/usr/bin/minecraft")) {
+        const prog_reg = kernel.get_program_registry();
+        if (prog_reg.getProgram("minecraft")) {
             const mc_button = document.createElement("button");
             mc_button.style.height = "100%";
             mc_button.style.fontSize = "2vh";
