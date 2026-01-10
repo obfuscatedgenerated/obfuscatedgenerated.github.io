@@ -55,6 +55,6 @@ export default {
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);
 
         // TODO: talk to ignition instead of using shutdown command
-        return await kernel.spawn("shutdown", ["r", "-t", "3000"], shell).completion;
+        return await kernel.spawn("shutdown", ["-r", "-t", "3000"], shell).completion;
     }
 } as Program;

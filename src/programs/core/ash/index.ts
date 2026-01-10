@@ -1,4 +1,5 @@
 import type {Program} from "../../../types";
+import {NEWLINE} from "../../../term_ctl";
 
 import {AshShell} from "./core";
 import {make_read_line_key_handlers, make_read_line_printable_handler} from "./key_handlers";
@@ -24,20 +25,37 @@ export default {
 
         const fs = kernel.get_fs();
 
+        const absolute_profile = fs.absolute("~/.ash_profile");
+        const absolute_rc = fs.absolute("~/.ashrc");
+
+        // create .ash_profile file if it doesn't exist
+        const profile_content = `# ash configuration file${NEWLINE}# This file is run at login.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
+        if (!(await fs.exists(absolute_profile))) {
+            await fs.write_file(absolute_profile, profile_content);
+        }
+
+        // create .ashrc file if it doesn't exist
+        const rc_content = `# ash configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
+        if (!(await fs.exists(absolute_rc))) {
+            await fs.write_file(absolute_rc, rc_content);
+        }
+
         if (args.includes("--login")) {
             // enable screen reader mode if stored in local storage
             if (localStorage.getItem("reader") === "true") {
                 await shell.execute("reader -s on");
             }
 
-            // run .ollie_profile if it exists
-            const absolute_profile = fs.absolute("~/.ollie_profile");
-            await shell.run_script(absolute_profile);
+            // run .ash_profile, checking it exists again just in case (because why not)
+            if (await fs.exists(absolute_profile)) {
+                await shell.run_script(absolute_profile);
+            }
         }
 
-        // run .ollierc if it exists
-        const absolute_rc = fs.absolute("~/.ollierc");
-        await shell.run_script(absolute_rc);
+        // run .ashrc, checking it exists again just in case (could be deleted in profile)
+        if (await fs.exists(absolute_rc)) {
+            await shell.run_script(absolute_rc);
+        }
 
         let running = true;
         let final_code = 0;

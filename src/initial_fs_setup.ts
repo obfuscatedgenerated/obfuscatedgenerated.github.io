@@ -57,19 +57,19 @@ const setup_motd = async (fs: AbstractFileSystem) => {
     }
 };
 
-const setup_rc_profile = async (fs: AbstractFileSystem) => {
-    // create .ollie_profile file if it doesn't exist
-    const profile_content = `# OllieOS configuration file${NEWLINE}# This file is run when the TTY starts.${NEWLINE}${NEWLINE}cat /etc/motd.txt${NEWLINE}echo "OllieOS v$VERSION ($ENV)"${NEWLINE}`;
-    const absolute_profile = fs.absolute("~/.ollie_profile");
-    if (!(await fs.exists(absolute_profile))) {
-        await fs.write_file(absolute_profile, profile_content);
+const migrate_rc_profile = async (fs: AbstractFileSystem) => {
+    // if .ollie_profile exists, and .ash_profile doesn't, rename it to .ash_profile
+    const absolute_ollie_profile = fs.absolute("~/.ollie_profile");
+    const absolute_ash_profile = fs.absolute("~/.ash_profile");
+    if (await fs.exists(absolute_ollie_profile) && !(await fs.exists(absolute_ash_profile))) {
+        await fs.move_file(absolute_ollie_profile, absolute_ash_profile);
     }
 
-    // create .ollierc file if it doesn't exist
-    const rc_content = `# OllieOS configuration file${NEWLINE}# This file is run when a shell is created.${NEWLINE}${NEWLINE}`;
-    const absolute_rc = fs.absolute("~/.ollierc");
-    if (!(await fs.exists(absolute_rc))) {
-        await fs.write_file(absolute_rc, rc_content);
+    // if .ollierc exists, and .ashrc doesn't, rename it to .ashrc
+    const absolute_ollierc = fs.absolute("~/.ollierc");
+    const absolute_ashrc = fs.absolute("~/.ashrc");
+    if (await fs.exists(absolute_ollierc) && !(await fs.exists(absolute_ashrc))) {
+        await fs.move_file(absolute_ollierc, absolute_ashrc);
     }
 };
 
@@ -422,7 +422,7 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
     await setup_boot(fs);
     await setup_motd(fs);
-    await setup_rc_profile(fs);
+    await migrate_rc_profile(fs);
     await setup_credits(fs);
 
 
