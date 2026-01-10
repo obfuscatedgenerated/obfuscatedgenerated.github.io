@@ -136,7 +136,8 @@ export abstract class AbstractFileSystem {
         this._call_callbacks(FSEventType.READING_FILE, path);
 
         // check if file is in cache and still exists, as well as if it's the correct type
-        if (this._cache.has(path) && this.exists(path) && this._cache.get(path).as_uint === as_uint) {
+        const cached = this._cache.get(path);
+        if (cached && await this.exists(path) && cached.as_uint === as_uint) {
             return this._cache.get(path).content;
         }
 
@@ -149,7 +150,7 @@ export abstract class AbstractFileSystem {
     async write_file(path: string, data: string | Uint8Array, force = false): Promise<void> {
         // check if file is readonly
         let readonly = false;
-        if (this.exists(path)) {
+        if (await this.exists(path)) {
             readonly = await this.is_readonly(path);
             
             if (!force && readonly) {
@@ -183,13 +184,13 @@ export abstract class AbstractFileSystem {
 
     async set_readonly(path: string, readonly: boolean): Promise<void> {
         // check if file exists
-        if (!this.exists(path)) {
+        if (!await this.exists(path)) {
             throw new PathNotFoundError(path);
         }
 
         // set readonly in cache and disk
-        if (this._cache.get(path)) {
-            const entry = this._cache.get(path);
+        const entry = this._cache.get(path);
+        if (entry) {
             entry.readonly = readonly;
             this._cache.set(path, entry);
         } else {
@@ -202,13 +203,14 @@ export abstract class AbstractFileSystem {
 
     async is_readonly(path: string): Promise<boolean> {
         // check if file exists
-        if (!this.exists(path)) {
+        if (!await this.exists(path)) {
             throw new PathNotFoundError(path);
         }
 
         // check if file is in cache
-        if (this._cache.has(path)) {
-            return this._cache.get(path).readonly;
+        const cached = this._cache.get(path);
+        if (cached) {
+            return cached.readonly;
         }
 
         // if not, check on disk (cannot cache as would need to read content, causes recursive call)

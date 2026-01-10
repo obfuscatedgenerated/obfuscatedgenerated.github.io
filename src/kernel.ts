@@ -219,10 +219,12 @@ export class Kernel {
                 this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
                 return false;
             } catch (e) {
+                console.error(e);
                 this.panic(`init program ${init_program} error!`, e.toString());
                 return false;
             }
         } catch (e) {
+            console.error(e);
             this.panic(`Failed to start init program ${init_program}!`, e.toString());
             return false;
         }
