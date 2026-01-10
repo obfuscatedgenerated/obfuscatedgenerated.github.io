@@ -24,6 +24,7 @@ export interface Program {
     hide_from_help?: boolean;
     main: ProgramMain;
     completion?: CompletionGenerator;
+    compat?: string;
 }
 export interface CompletionData {
     term: WrappedTerminal;
