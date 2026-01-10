@@ -59,6 +59,7 @@ const loader_interval = setInterval(() => {
 
 async function check_first_time(term: WrappedTerminal) {
     // TODO: update implementation
+    // TODO: use windows rather than sweetalert2
     //// if this is the user's first time, show a popup asking if they want to run the tour
     //if (localStorage.getItem("visited") === null) {
     //    const tour = await Swal.fire({
