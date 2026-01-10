@@ -12,14 +12,14 @@ export interface ProgramMainData {
     raw_parts: string[];
 }
 export type ProgramMain = (data: ProgramMainData) => Promise<number>;
-export type arg_descriptions = {
-    [key: string]: string | arg_descriptions;
+export type ArgDescriptions = {
+    [key: string]: string | ArgDescriptions;
 };
 export interface Program {
     name: string;
     description: string;
     usage_suffix: string;
-    arg_descriptions: arg_descriptions;
+    arg_descriptions: ArgDescriptions;
     node_opt_out?: boolean;
     hide_from_help?: boolean;
     main: ProgramMain;
