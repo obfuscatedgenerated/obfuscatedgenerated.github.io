@@ -573,8 +573,10 @@ export class WrappedTerminal extends Terminal {
         this.writeln("Processes running at time of panic:");
         this.writeln(process_info || "None.");
 
-        this.write(NEWLINE);
-        this.writeln("OS unrecoverable? Visit https://ollieg.codes/recover_fs for options to recover your filesystem.");
+        if (typeof window !== "undefined") {
+            this.write(NEWLINE);
+            this.writeln(`OS unrecoverable? Visit ${window.location.origin}/recover_fs for options to recover your filesystem.`);
+        }
 
         this.writeln(ANSI.STYLE.reset_all);
     }
