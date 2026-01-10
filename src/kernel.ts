@@ -12,6 +12,10 @@ import type {LineParseResultCommand} from "./programs/core/ash/parser";
 
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
+import semver_compare from "semver/functions/compare"
+
+const CURRENT_API_COMPAT = "2.0.0";
+
 export interface SpawnResult {
     process: ProcessContext;
     completion: Promise<number>;
@@ -85,7 +89,7 @@ export class Kernel {
             compat = program.compat;
         }
 
-        if (compat !== "2.0.0") {
+        if (semver_compare(compat, CURRENT_API_COMPAT) > 0) {
             throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
 
