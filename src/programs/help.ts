@@ -1,5 +1,5 @@
 import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
-import type { Program, arg_descriptions } from "../types";
+import type { Program, ArgDescriptions } from "../types";
 
 
 // deferred to prevent double printing of header if program has to re-execute itself
@@ -184,7 +184,7 @@ export default {
             // recurse each level of nesting
             // each level is a section title, until the innermost object, in which they are pairs of argument name and description.
             // add indents depending on the level of nesting
-            const recurse = (descs: arg_descriptions, nest_level: number): string => {
+            const recurse = (descs: ArgDescriptions, nest_level: number): string => {
                 let output = "";
 
                 for (const [key, value] of Object.entries(descs)) {

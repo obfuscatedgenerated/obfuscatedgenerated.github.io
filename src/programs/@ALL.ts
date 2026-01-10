@@ -40,6 +40,9 @@ export { default as spark } from "./spark";
 export { default as ipc_bg_test } from "./ipc_bg_test";
 export { default as ipc_fg_test } from "./ipc_fg_test";
 
+// shhhhh!
+export { default as tb_test } from "./taskbar_test";
+
 export { default as trigger_create_trigger } from "./pkg/triggers/create_trigger";
 export { default as trigger_remove_trigger } from "./pkg/triggers/remove_trigger";
 
