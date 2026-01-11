@@ -261,11 +261,11 @@ export class ProgramRegistry {
 
     // TODO: move usage of above methods to use class methods instead of the standalone functions
 
-    static async build_registrant_from_js(js_code: string, built_in = false): Promise<ProgramRegistrant> {
+    async build_registrant_from_js(js_code: string, built_in = false): Promise<ProgramRegistrant> {
         return build_registrant_from_js(js_code, built_in);
     }
 
-    static async determine_program_name_from_js(js_code: string): Promise<string> {
+    async determine_program_name_from_js(js_code: string): Promise<string> {
         return determine_program_name_from_js(js_code);
     }
 
