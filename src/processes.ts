@@ -215,85 +215,85 @@ enum ProcessAttachment {
 }
 
 export class ProcessContext {
-    private readonly _pid: number;
-    private readonly _manager: ProcessManager;
+    readonly #pid: number;
+    readonly #manager: ProcessManager;
 
-    private readonly _source_command: LineParseResultCommand;
-    private readonly _created_at: Date = new Date();
+    readonly #source_command: LineParseResultCommand;
+    readonly #created_at: Date = new Date();
 
-    private readonly _exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
+    readonly #exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
 
-    private _attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
-    private _detach_silently = false;
+    #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
+    #detach_silently = false;
 
-    private readonly _timeouts: Set<number> = new Set();
-    private readonly _timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
-    private readonly _timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
+    readonly #timeouts: Set<number> = new Set();
+    readonly #timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
+    readonly #timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
 
-    private readonly _intervals: Set<number> = new Set();
+    readonly #intervals: Set<number> = new Set();
 
-    private readonly _windows: Set<AbstractWindow> = new Set();
+    readonly #windows: Set<AbstractWindow> = new Set();
 
     constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager) {
-        this._pid = pid;
-        this._source_command = source_command;
-        this._manager = registry;
+        this.#pid = pid;
+        this.#source_command = source_command;
+        this.#manager = registry;
 
         if (source_command.run_in_bg) {
-            this._attachment = ProcessAttachment.BACKGROUND;
+            this.#attachment = ProcessAttachment.BACKGROUND;
         }
     }
 
     get pid(): number {
-        return this._pid;
+        return this.#pid;
     }
 
     get source_command(): LineParseResultCommand {
-        return this._source_command;
+        return this.#source_command;
     }
 
     get created_at(): Date {
-        return this._created_at;
+        return this.#created_at;
     }
 
     get is_detached(): boolean {
-        return this._attachment === ProcessAttachment.DETACHED;
+        return this.#attachment === ProcessAttachment.DETACHED;
     }
 
     get is_background(): boolean {
-        return this._attachment === ProcessAttachment.BACKGROUND;
+        return this.#attachment === ProcessAttachment.BACKGROUND;
     }
 
     get is_foreground(): boolean {
-        return this._attachment === ProcessAttachment.FOREGROUND;
+        return this.#attachment === ProcessAttachment.FOREGROUND;
     }
 
     get attachment(): ProcessAttachment {
-        return this._attachment;
+        return this.#attachment;
     }
 
     get detaches_silently(): boolean {
-        return this._detach_silently;
+        return this.#detach_silently;
     }
 
     detach(silently = false): void {
-        this._attachment = ProcessAttachment.DETACHED;
-        this._detach_silently = silently;
+        this.#attachment = ProcessAttachment.DETACHED;
+        this.#detach_silently = silently;
     }
 
     dispose_resources(): void {
-        this._intervals.forEach((id) => {
+        this.#intervals.forEach((id) => {
             clearInterval(id);
         });
 
-        this._timeouts.forEach((id) => {
+        this.#timeouts.forEach((id) => {
             clearTimeout(id);
         });
 
-        this._timeout_promises.clear();
-        this._timeout_cancel_callbacks.clear();
+        this.#timeout_promises.clear();
+        this.#timeout_cancel_callbacks.clear();
 
-        this._windows.forEach((win) => {
+        this.#windows.forEach((win) => {
             win.dispose();
         });
     }
@@ -301,116 +301,116 @@ export class ProcessContext {
     kill(exit_code = 0): void {
         this.dispose_resources();
 
-        this._manager.mark_terminated(this._pid);
+        this.#manager.mark_terminated(this.#pid);
 
-        for (const listener of this._exit_listeners) {
+        for (const listener of this.#exit_listeners) {
             listener(exit_code);
         }
     }
 
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void {
-        this._exit_listeners.add(listener);
+        this.#exit_listeners.add(listener);
     }
 
     create_timeout(callback: () => void, delay: number, on_cancel? : () => void): number {
         const id = window.setTimeout(() => {
-            this._timeouts.delete(id);
+            this.#timeouts.delete(id);
 
             // resolve any waiters
-            if (this._timeout_promises.has(id)) {
-                const resolvers = this._timeout_promises.get(id)!;
+            if (this.#timeout_promises.has(id)) {
+                const resolvers = this.#timeout_promises.get(id)!;
                 for (const { resolve } of resolvers) {
                     resolve(true);
                 }
-                this._timeout_promises.delete(id);
+                this.#timeout_promises.delete(id);
             }
 
             callback();
 
             if (on_cancel) {
-                this._timeout_cancel_callbacks.delete(id);
+                this.#timeout_cancel_callbacks.delete(id);
             }
         }, delay);
 
-        this._timeouts.add(id);
+        this.#timeouts.add(id);
 
         if (on_cancel) {
-            this._timeout_cancel_callbacks.set(id, on_cancel);
+            this.#timeout_cancel_callbacks.set(id, on_cancel);
         }
 
         return id;
     }
 
     cancel_timeout(id: number): void {
-        if (this._timeouts.has(id)) {
+        if (this.#timeouts.has(id)) {
             clearTimeout(id);
-            this._timeouts.delete(id);
+            this.#timeouts.delete(id);
 
             // resolve any waiters as cancelled
-            if (this._timeout_promises.has(id)) {
-                const resolvers = this._timeout_promises.get(id)!;
+            if (this.#timeout_promises.has(id)) {
+                const resolvers = this.#timeout_promises.get(id)!;
                 for (const {resolve} of resolvers) {
                     resolve(false);
                 }
-                this._timeout_promises.delete(id);
+                this.#timeout_promises.delete(id);
             }
 
             // call cancel callback if exists
-            if (this._timeout_cancel_callbacks.has(id)) {
-                const cancel_callback = this._timeout_cancel_callbacks.get(id)!;
+            if (this.#timeout_cancel_callbacks.has(id)) {
+                const cancel_callback = this.#timeout_cancel_callbacks.get(id)!;
                 cancel_callback();
-                this._timeout_cancel_callbacks.delete(id);
+                this.#timeout_cancel_callbacks.delete(id);
             }
         }
     }
 
     has_timeout(id: number): boolean {
-        return this._timeouts.has(id);
+        return this.#timeouts.has(id);
     }
 
     create_interval(callback: () => void, interval: number): number {
         const id = window.setInterval(callback, interval);
-        this._intervals.add(id);
+        this.#intervals.add(id);
         return id;
     }
 
     has_interval(id: number): boolean {
-        return this._intervals.has(id);
+        return this.#intervals.has(id);
     }
 
     clear_interval(id: number): void {
-        if (this._intervals.has(id)) {
+        if (this.#intervals.has(id)) {
             clearInterval(id);
-            this._intervals.delete(id);
+            this.#intervals.delete(id);
         }
     }
 
     async wait_for_timeout(id: number): Promise<boolean> {
-        if (!this._timeouts.has(id)) {
+        if (!this.#timeouts.has(id)) {
             throw new Error(`Timeout ID ${id} does not exist.`);
         }
 
         return new Promise<boolean>((resolve) => {
-            if (!this._timeout_promises.has(id)) {
-                this._timeout_promises.set(id, new Set());
+            if (!this.#timeout_promises.has(id)) {
+                this.#timeout_promises.set(id, new Set());
             }
 
-            this._timeout_promises.get(id)!.add({ resolve });
+            this.#timeout_promises.get(id)!.add({ resolve });
         });
     }
 
     create_window(): AbstractWindow | null {
-        const wm = this._manager.window_manager;
+        const wm = this.#manager.window_manager;
         if (!wm) {
             return null;
         }
 
-        const win = new wm.Window(this._pid);
-        this._windows.add(win);
+        const win = new wm.Window(this.#pid);
+        this.#windows.add(win);
 
         // clean up on close
         win.add_event_listener("close", () => {
-            this._windows.delete(win);
+            this.#windows.delete(win);
         });
 
         return win;
@@ -418,50 +418,50 @@ export class ProcessContext {
 }
 
 export class ProcessManager {
-    private readonly _processes: Map<number, ProcessContext> = new Map();
-    private _next_pid = 1;
+    readonly #processes: Map<number, ProcessContext> = new Map();
+    #next_pid = 1;
 
-    private readonly _wm: AbstractWindowManager | null;
-    private readonly _ipc_manager: IPCManager = new IPCManager(this);
+    readonly #wm: AbstractWindowManager | null;
+    readonly #ipc_manager: IPCManager = new IPCManager(this);
 
     constructor(wm: AbstractWindowManager | null = null) {
-        this._wm = wm;
+        this.#wm = wm;
     }
 
     get window_manager(): AbstractWindowManager | null {
-        return this._wm;
+        return this.#wm;
     }
 
     get ipc_manager(): IPCManager {
-        return this._ipc_manager;
+        return this.#ipc_manager;
     }
 
     dispose_all(): void {
-        this._ipc_manager.dispose_all();
+        this.#ipc_manager.dispose_all();
 
-        for (const process of this._processes.values()) {
+        for (const process of this.#processes.values()) {
             process.dispose_resources();
         }
 
-        this._processes.clear();
+        this.#processes.clear();
     }
 
     create_process(source_command: LineParseResultCommand): ProcessContext {
-        const pid = this._next_pid++;
+        const pid = this.#next_pid++;
         const context = new ProcessContext(pid, source_command, this);
-        this._processes.set(pid, context);
+        this.#processes.set(pid, context);
         return context;
     }
 
     get_process(pid: number): ProcessContext | undefined {
-        return this._processes.get(pid);
+        return this.#processes.get(pid);
     }
 
     list_pids(): number[] {
-        return Array.from(this._processes.keys());
+        return Array.from(this.#processes.keys());
     }
 
     mark_terminated(pid: number): void {
-        this._processes.delete(pid);
+        this.#processes.delete(pid);
     }
 }
