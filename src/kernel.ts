@@ -92,6 +92,10 @@ export class Kernel {
     }
 
     spawn = (command: string, args: string[] = [], shell?: AbstractShell, start_privileged?: boolean, original_line_parse?: LineParseResultCommand): SpawnResult => {
+        // TODO: big security hole, passing a custom shell lets you bypass privilege requests
+        // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
+        // TODO: replace both the above with process ownership :) and forcibly set it on the userspace proxy
+
         // search for the command in the registry
         const program = this.#prog_registry.getProgram(command);
         if (program === undefined) {
@@ -156,8 +160,6 @@ export class Kernel {
         data.process = process;
 
         Object.freeze(data);
-
-        // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
 
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;
