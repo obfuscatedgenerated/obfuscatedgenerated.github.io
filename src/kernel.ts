@@ -14,9 +14,6 @@ import {
 } from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
-// TODO: decouple, either make generic interface or dont use at all
-import type {LineParseResultCommand} from "./programs/core/ash/parser";
-
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
 import semver_validate from "semver/functions/valid";
@@ -38,8 +35,16 @@ export interface UserspaceKernel {
     get_process_manager(): UserspaceProcessManager;
     get_ipc(): UserspaceIPCManager;
     get_env_info(): {version: string, env: string};
-    spawn(cmd_or_line_parse: string | LineParseResultCommand, explicit_args?: string[], shell?: AbstractShell): SpawnResult; // TODO: how safe will this be to expose?
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): SpawnResult; // TODO: how safe will this be to expose?
     request_privilege(reason: string): Promise<Kernel | false>;
+}
+
+export interface ParsedCommandLine {
+    command: string;
+    args: string[];
+    unsubbed_args: string[];
+    raw_parts: string[];
+    run_in_bg: boolean;
 }
 
 export class Kernel {
@@ -101,21 +106,20 @@ export class Kernel {
     }
 
     // TODO: cleaner interface, shame theres no function overloading (but could make two more methods)
-    spawn = (cmd_or_parse: string | LineParseResultCommand, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean): SpawnResult => {
+    spawn = (cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean): SpawnResult => {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
 
         // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
         // args are only used if cmd_or_parse is a string
         // by ensuring only 1 source of truth is used at a time, we avoid manipulation from conflicting data
-        let parsed_line: LineParseResultCommand;
+        let parsed_line: ParsedCommandLine;
         if (typeof cmd_or_parse === "string") {
             if (!explicit_args) {
                 explicit_args = [];
             }
 
             parsed_line = {
-                type: "command",
                 command: cmd_or_parse,
                 args: [...explicit_args],
                 unsubbed_args: [...explicit_args],
@@ -418,7 +422,7 @@ export class Kernel {
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
-                value: (command: string | LineParseResultCommand, args?: string[], shell?: AbstractShell) =>
+                value: (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell) =>
                     self.spawn(command, args, shell, false),
                 enumerable: true
             },

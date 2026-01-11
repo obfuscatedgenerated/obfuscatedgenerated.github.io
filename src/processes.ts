@@ -1,6 +1,6 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
-import type {LineParseResultCommand} from "./programs/core/ash/parser";
 import type {AbstractShell} from "./abstract_shell";
+import type {ParsedCommandLine} from "./kernel";
 
 export interface IPCMessage {
     from: number;
@@ -296,7 +296,7 @@ export interface UserspaceOtherProcessContext {
     readonly is_background: boolean;
     readonly is_foreground: boolean;
     readonly attachment: ProcessAttachment;
-    readonly source_command: LineParseResultCommand;
+    readonly source_command: ParsedCommandLine;
 }
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
@@ -313,7 +313,7 @@ export class ProcessContext {
     readonly #pid: number;
     readonly #manager: ProcessManager;
 
-    readonly #source_command: LineParseResultCommand;
+    readonly #source_command: ParsedCommandLine;
     readonly #created_at: Date = new Date();
     readonly #shell: AbstractShell | undefined;
 
@@ -330,7 +330,7 @@ export class ProcessContext {
 
     readonly #windows: Set<AbstractWindow> = new Set();
 
-    constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager, shell?: AbstractShell) {
+    constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
         this.#source_command = source_command;
         this.#manager = registry;
@@ -347,7 +347,7 @@ export class ProcessContext {
     get pid(): number {
         return this.#pid;
     }
-    get source_command(): LineParseResultCommand {
+    get source_command(): ParsedCommandLine {
         return this.#source_command;
     }
 
@@ -601,7 +601,7 @@ export class ProcessManager {
         this.#processes.clear();
     }
 
-    create_process(source_command: LineParseResultCommand, shell?: AbstractShell): ProcessContext {
+    create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext {
         const pid = this.#next_pid++;
         const context = new ProcessContext(pid, source_command, this, shell);
         this.#processes.set(pid, context);

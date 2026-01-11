@@ -1,13 +1,8 @@
 import {AshMemory} from "./memory";
+import type {ParsedCommandLine} from "../../../kernel";
 
-export interface LineParseResultCommand {
+export interface LineParseResultCommand extends ParsedCommandLine {
     type: "command";
-
-    command: string;
-    args: string[];
-    unsubbed_args: string[];
-    raw_parts: string[];
-    run_in_bg: boolean;
 }
 
 export interface LineParseResultVarAssignment {
