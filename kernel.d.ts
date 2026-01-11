@@ -10,6 +10,7 @@ export interface SpawnResult {
     completion: Promise<number>;
 }
 export interface UserspaceKernel {
+    readonly privileged: boolean;
     get_program_registry(): UserspaceProgramRegistry;
     get_sound_registry(): SoundRegistry;
     get_fs(): UserspaceFileSystem;
@@ -33,6 +34,7 @@ export interface ParsedCommandLine {
 }
 export declare class Kernel {
     #private;
+    get privileged(): boolean;
     get panicked(): boolean;
     get_program_registry(): ProgramRegistry;
     get_sound_registry(): SoundRegistry;
