@@ -15,8 +15,8 @@ export declare class ProgramRegistry {
     listPrograms(includes_builtin?: boolean, includes_mounted?: boolean): Program[];
     forceUnregister(name: string): void;
     unregister(name: string): void;
-    static build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
-    static determine_program_name_from_js(js_code: string): Promise<string>;
+    build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
+    determine_program_name_from_js(js_code: string): Promise<string>;
     mount_and_register_with_output(filename: string, content: string, term: WrappedTerminal, output_success?: boolean): Promise<void>;
     recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal): Promise<void>;
 }
