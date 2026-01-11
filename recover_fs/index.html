@@ -42,7 +42,7 @@
                 return;
             }
 
-            if (confirm("Are you sure you want to reset the bootloader? This will clear your choice of init system, boot target, and default shell but retains your files.")) {
+            if (confirm("Are you sure you want to reset the bootloader? This will clear your choice of init system, boot target, default shell, and privilege agent but retains your files.")) {
                 // delete /boot/init, /etc/boot_target and /etc/default_shell
                 const root = await navigator.storage.getDirectory();
                 try {
@@ -52,6 +52,9 @@
                     const etc_dir = await root.getDirectoryHandle("etc");
                     await etc_dir.removeEntry("boot_target");
                     await etc_dir.removeEntry("default_shell");
+
+                    const sys_dir = await root.getDirectoryHandle("sys");
+                    await sys_dir.removeEntry("privilege_agent");
 
                     alert("Bootloader reset. Heading back to OllieOS.");
                     window.location.href = "/";
