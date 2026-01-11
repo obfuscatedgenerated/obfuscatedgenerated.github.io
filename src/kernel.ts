@@ -114,15 +114,28 @@ export class Kernel {
         const process = this.#process_manager.create_process(parsed_line);
 
         // if the command is found, run it
-        const data = {
-            kernel: this,
-            term: this.#term,
-            args,
-            shell,
-            unsubbed_args: parsed_line.unsubbed_args,
-            raw_parts: parsed_line.raw_parts,
-            process
-        };
+        // const data = {
+        //     kernel: this,
+        //     term: this.#term,
+        //     args,
+        //     shell,
+        //     unsubbed_args: parsed_line.unsubbed_args,
+        //     raw_parts: parsed_line.raw_parts,
+        //     process
+        // };
+
+        // protect from pollution
+        const data = Object.create(null);
+
+        data.kernel = this;
+        data.term = this.#term;
+        data.args = args;
+        data.shell = shell;
+        data.unsubbed_args = parsed_line.unsubbed_args;
+        data.raw_parts = parsed_line.raw_parts;
+        data.process = process;
+
+        Object.freeze(data);
 
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
 
