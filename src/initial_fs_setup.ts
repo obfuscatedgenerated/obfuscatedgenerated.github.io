@@ -34,6 +34,19 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     if (!(await fs.exists(absolute_default_shell))) {
         await fs.write_file(absolute_default_shell, default_shell_content);
     }
+
+    // create sys directory if it doesn't exist
+    const absolute_sys = fs.absolute("/sys");
+    if (!(await fs.dir_exists(absolute_sys))) {
+        await fs.make_dir(absolute_sys);
+    }
+
+    // create privilege_agent file if it doesn't exist
+    const privilege_agent_content = "default_privilege_agent";
+    const absolute_privilege_agent = fs.absolute("/sys/privilege_agent");
+    if (!(await fs.exists(absolute_privilege_agent))) {
+        await fs.write_file(absolute_privilege_agent, privilege_agent_content);
+    }
 }
 
 const setup_motd = async (fs: AbstractFileSystem) => {
