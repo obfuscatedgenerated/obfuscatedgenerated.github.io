@@ -24,6 +24,15 @@ export const hide_subcommand = async (data: ProgramMainData) => {
         return 1;
     }
 
+    // check window exists first with userspace kernel
+    const userspace_wm = userspace_kernel.get_window_manager();
+    const userspace_window = userspace_wm!.get_window_by_id(window_id);
+    if (!userspace_window) {
+        term.writeln(`${PREFABS.error}No window found with ID '${window_id}'.`)
+        term.writeln(`Try 'window list' to see all open windows.${STYLE.reset_all}`);
+        return 1;
+    }
+
     // request elevation
     const kernel = await userspace_kernel.request_privilege("Access the window manager to hide a window.");
     if (!kernel) {
@@ -34,6 +43,7 @@ export const hide_subcommand = async (data: ProgramMainData) => {
     const wm = kernel.get_window_manager();
     const wind = wm!.get_window_by_id(window_id);
 
+    // check again for safety
     if (!wind) {
         term.writeln(`${PREFABS.error}No window found with ID '${window_id}'.`)
         term.writeln(`Try 'window list' to see all open windows.${STYLE.reset_all}`);
