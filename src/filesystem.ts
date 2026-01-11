@@ -439,12 +439,17 @@ export abstract class AbstractFileSystem {
         const self = fs;
         const proxy = Object.create(null);
 
-        // write protect /sys and its subdirectories
+        // write protect certain kernel secured paths
         const check_path = (path: string): string => {
             const absolute_path = self.absolute(path);
-            const is_sys = absolute_path === "/sys" || absolute_path.startsWith("/sys/");
 
-            if (is_sys) {
+            const is_protected =
+                absolute_path === "/sys" ||
+                absolute_path.startsWith("/sys/") ||
+                absolute_path === "/boot" ||
+                absolute_path.startsWith("/boot/");
+
+            if (is_protected) {
                 throw new ReadOnlyError(absolute_path);
             }
 
