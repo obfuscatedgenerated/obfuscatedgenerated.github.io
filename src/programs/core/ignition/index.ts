@@ -201,6 +201,9 @@ export default {
         // start initial services
         svc_mgr.start_initial_services();
 
+        let window_start: number | null = null;
+        let deaths_in_window = 0;
+
         // execute boot target in a respawn loop
         while (running) {
             const boot_target_proc = kernel.spawn(boot_target, boot_args);
@@ -219,7 +222,28 @@ export default {
 
             console.log(`boot target ${boot_target} exited with code ${exit_code}`);
 
-            // TODO: error recovery logic if boot target fails multiple times in a row
+            term.writeln(`Boot target ${boot_target} exited with code ${exit_code}!`);
+            if (error) {
+                term.writeln(`Error details: ${error}`);
+            }
+
+            const now = Date.now();
+            if (!window_start || (now - window_start) > 10000) {
+                window_start = now;
+                deaths_in_window = 0;
+            }
+
+            deaths_in_window++;
+
+            if (deaths_in_window >= 5) {
+                term.writeln("Boot target has crashed too many times in a short period. Halting to prevent a crash loop.");
+                term.writeln("Press any key to retry...");
+                await term.wait_for_keypress();
+                deaths_in_window = 0;
+                window_start = null;
+            }
+
+            // TODO: add recovery options
         }
 
         return final_code;
