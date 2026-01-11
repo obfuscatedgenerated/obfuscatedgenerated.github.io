@@ -125,7 +125,7 @@ export class Kernel {
         };
 
         // create new process context
-        const process = this.#process_manager.create_process(parsed_line);
+        const process = this.#process_manager.create_process(parsed_line, shell);
 
         // if the command is found, run it
         // const data = {
@@ -274,7 +274,17 @@ export class Kernel {
     }
 
     async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
-        // TODO: if a shell is present, it should be delegated there instead
+        // check if the shell wants to handle it
+        if (process.shell && typeof process.shell.handle_privilege_request === "function") {
+            const process_proxy = process.create_userspace_proxy_as_other_process();
+            const shell_response = await process.shell.handle_privilege_request(reason, process_proxy);
+
+            if (shell_response) {
+                return this;
+            } else {
+                return false;
+            }
+        }
 
         this.#term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
 

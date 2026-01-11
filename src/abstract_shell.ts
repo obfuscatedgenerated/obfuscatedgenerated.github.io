@@ -1,3 +1,5 @@
+import type {UserspaceOtherProcessContext} from "./processes";
+
 export abstract class AbstractShellMemory {
     abstract get current_history_index(): number;
     abstract set current_history_index(index: number);
@@ -34,4 +36,6 @@ export abstract class AbstractShell {
 
     // edit_doc_title should default to true in implementations
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
+
+    abstract handle_privilege_request?(reason: string, process: UserspaceOtherProcessContext): Promise<boolean>;
 }

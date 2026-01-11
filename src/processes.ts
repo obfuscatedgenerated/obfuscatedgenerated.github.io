@@ -1,5 +1,6 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
-import {LineParseResultCommand} from "./programs/core/ash/parser";
+import type {LineParseResultCommand} from "./programs/core/ash/parser";
+import type {AbstractShell} from "./abstract_shell";
 
 export interface IPCMessage {
     from: number;
@@ -286,6 +287,7 @@ export class ProcessContext {
 
     readonly #source_command: LineParseResultCommand;
     readonly #created_at: Date = new Date();
+    readonly #shell: AbstractShell | undefined;
 
     readonly #exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
 
@@ -300,10 +302,14 @@ export class ProcessContext {
 
     readonly #windows: Set<AbstractWindow> = new Set();
 
-    constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager) {
+    constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
         this.#source_command = source_command;
         this.#manager = registry;
+
+        if (shell) {
+            this.#shell = shell;
+        }
 
         if (source_command.run_in_bg) {
             this.#attachment = ProcessAttachment.BACKGROUND;
@@ -313,13 +319,16 @@ export class ProcessContext {
     get pid(): number {
         return this.#pid;
     }
-
     get source_command(): LineParseResultCommand {
         return this.#source_command;
     }
 
     get created_at(): Date {
         return this.#created_at;
+    }
+
+    get shell(): AbstractShell | undefined {
+        return this.#shell;
     }
 
     get is_detached(): boolean {
@@ -564,9 +573,9 @@ export class ProcessManager {
         this.#processes.clear();
     }
 
-    create_process(source_command: LineParseResultCommand): ProcessContext {
+    create_process(source_command: LineParseResultCommand, shell?: AbstractShell): ProcessContext {
         const pid = this.#next_pid++;
-        const context = new ProcessContext(pid, source_command, this);
+        const context = new ProcessContext(pid, source_command, this, shell);
         this.#processes.set(pid, context);
         return context;
     }
