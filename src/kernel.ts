@@ -373,6 +373,8 @@ export class Kernel {
             console.warn("Privilege request timed out.");
         }
 
+        agent_proc.process.kill(approved === null ? 1 : 0);
+
         // return result
         if (approved) {
             return this;

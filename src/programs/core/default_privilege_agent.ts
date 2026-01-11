@@ -16,7 +16,7 @@ export default {
     hide_from_help: true,
     compat: "2.0.0",
     main: async (data) => {
-        const { kernel, term, args } = data;
+        const { kernel, term, args, process: my_process } = data;
 
         // expect arg for channel id
         const channel_id_str = args[0];
@@ -89,12 +89,17 @@ export default {
             finished = true;
         });
 
+        my_process.add_exit_listener(() => {
+            finished = true;
+        });
+
         // wait to handle for up to 10 seconds
         // overall timeout up to 60 seconds
         const start_time = Date.now();
         // TODO: clean up logic here
         while ((Date.now() - start_time) < 60000 && !finished && (handling_request || (Date.now() - start_time) < 10000)) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            const timeout_id = my_process.create_timeout(() => {}, 100);
+            await my_process.wait_for_timeout(timeout_id);
         }
 
         return 0;
