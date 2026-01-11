@@ -157,17 +157,6 @@ export class Kernel {
         // create new process context
         const process = this.#process_manager.create_process(parsed_line, shell);
 
-        // if the command is found, run it
-        // const data = {
-        //     kernel: this,
-        //     term: this.#term,
-        //     args,
-        //     shell,
-        //     unsubbed_args: parsed_line.unsubbed_args,
-        //     raw_parts: parsed_line.raw_parts,
-        //     process
-        // };
-
         // protect from pollution
         const data = Object.create(null);
 
