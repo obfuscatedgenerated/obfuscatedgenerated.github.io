@@ -274,6 +274,8 @@ export class Kernel {
     }
 
     async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
+        // TODO: if a shell is present, it should be delegated there instead
+
         this.#term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
 
         this.#term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);

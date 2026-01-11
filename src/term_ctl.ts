@@ -588,5 +588,7 @@ export class WrappedTerminal extends Terminal {
     }
 }
 
+// TODO: term needs hardening and possibly userspace protection to ensure programs cant dispatch keys to auto accept elevation prompts
+
 // as of 09/01/2026, the god class of WrappedTerminal is no more!
 // this used to be the kernel, shell, tty, and bootstrap all in one
