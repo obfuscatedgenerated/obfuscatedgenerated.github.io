@@ -240,7 +240,7 @@ export class Kernel {
 
         // run init program
         try {
-            const init = this.spawn(init_program, init_args);
+            const init = this.spawn(init_program, init_args, undefined, true);
 
             if (on_init_spawned) {
                 on_init_spawned(this).catch((e) => {
