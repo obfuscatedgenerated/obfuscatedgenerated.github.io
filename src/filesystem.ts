@@ -445,7 +445,7 @@ export abstract class AbstractFileSystem {
             const is_sys = absolute_path === "/sys" || absolute_path.startsWith("/sys/");
 
             if (is_sys) {
-                throw new Error(`Security Error: Access denied to protected path '${absolute_path}'.`);
+                throw new ReadOnlyError(absolute_path);
             }
 
             return absolute_path;
@@ -459,7 +459,22 @@ export abstract class AbstractFileSystem {
             list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(self.absolute(path), dirs_first), enumerable: true },
             exists: { value: (path: string) => self.exists(self.absolute(path)), enumerable: true },
             dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path)), enumerable: true },
-            is_readonly: { value: (path: string) => self.is_readonly(self.absolute(path)), enumerable: true },
+            is_readonly: {
+                value: async (path: string) => {
+                    try {
+                        check_path(path);
+                    } catch (e) {
+                        if (e instanceof ReadOnlyError) {
+                            return true;
+                        }
+
+                        throw e;
+                    }
+
+                    return await self.is_readonly(self.absolute(path));
+                },
+                enumerable: true
+            },
             join: { value: (base: string, ...paths: string[]) => self.join(base, ...paths), enumerable: true },
             absolute: { value: (path: string) => self.absolute(path), enumerable: true },
             get_cwd: { value: () => self.get_cwd(), enumerable: true },
