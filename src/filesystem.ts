@@ -439,6 +439,7 @@ export abstract class AbstractFileSystem {
         const self = fs;
         const proxy = Object.create(null);
 
+        // write protect /sys and its subdirectories
         const check_path = (path: string): string => {
             const absolute_path = self.absolute(path);
             const is_sys = absolute_path === "/sys" || absolute_path.startsWith("/sys/");
@@ -503,3 +504,5 @@ export abstract class AbstractFileSystem {
         return Object.freeze(proxy);
     }
 }
+
+// TODO: need a way to block programs from accessing the localstorage/OPFS themselves directly, maybe need a function wrapper for that to shadow it away?
