@@ -31,7 +31,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
 
     // open ipc with ignition
     const ipc = kernel.get_ipc();
-    const channel_id = ipc.create_channel(process.pid, "init");
+    const channel_id = ipc.create_channel("init");
 
     if (!channel_id) {
         term.writeln(`${PREFABS.error}Failed to communicate with ignition.${STYLE.reset_all}`);
@@ -44,7 +44,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
     let return_code = 0;
 
     // listen for replies
-    ipc.channel_listen(channel_id, process.pid, async (msg) => {
+    ipc.channel_listen(channel_id, async (msg) => {
         const payload = msg.data as IgnitionIPCReply;
 
         if (payload.type === "data") {
@@ -94,7 +94,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
     reply_timeout = process.create_timeout(() => {}, 3000);
 
     // can just send the action and service id directly rather than needing additional checking as the action matches the ipc action names
-    ipc.channel_send(channel_id, process.pid, {
+    ipc.channel_send(channel_id, {
         type: "service",
         action,
         service_id

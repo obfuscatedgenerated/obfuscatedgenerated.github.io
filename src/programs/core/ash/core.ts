@@ -1,5 +1,5 @@
 import type {AbstractShell} from "../../../abstract_shell";
-import type {Kernel, SpawnResult} from "../../../kernel";
+import type {UserspaceKernel, SpawnResult} from "../../../kernel";
 
 import {ANSI, NEWLINE, type WrappedTerminal} from "../../../term_ctl";
 
@@ -9,7 +9,7 @@ import {parse_line} from "./parser";
 const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
-    readonly #kernel: Kernel;
+    readonly #kernel: UserspaceKernel;
     readonly #term: WrappedTerminal;
     readonly #memory = new AshMemory();
 
@@ -18,7 +18,7 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: WrappedTerminal, kernel: Kernel) {
+    constructor(term: WrappedTerminal, kernel: UserspaceKernel) {
         this.#term = term;
         this.#kernel = kernel;
     }
@@ -32,10 +32,6 @@ export class AshShell implements AbstractShell {
         const kernel = this.#kernel;
         const term = this.#term;
         const memory = this.#memory;
-
-        if (kernel.panicked) {
-            return false;
-        }
 
         // TODO: semicolon to run multiple commands regardless of success
         // TODO: double ampersand to run multiple commands only if previous succeeded
@@ -233,12 +229,7 @@ export class AshShell implements AbstractShell {
     }
 
     async insert_prompt(newline = true) {
-        const kernel = this.#kernel;
         const term = this.#term;
-
-        if (kernel.panicked) {
-            return;
-        }
 
         if (newline) {
             term.write(NEWLINE);

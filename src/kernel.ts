@@ -32,6 +32,7 @@ export interface UserspaceKernel {
     get_ipc(): UserspaceIPCManager;
     get_env_info(): {version: string, env: string};
     spawn(command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult; // TODO: how safe will this be to expose?
+    request_privilege(reason: string): Promise<Kernel | false>;
 }
 
 export class Kernel {
@@ -263,6 +264,12 @@ export class Kernel {
         }
 
         return true;
+    }
+
+    async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
+        // TODO: implement privilege system
+        this.#term.writeln(`Privilege request denied for PID ${process.pid}: ${reason}`);
+        return false;
     }
 
     constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager) {

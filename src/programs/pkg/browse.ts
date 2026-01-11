@@ -2,7 +2,7 @@ import {ANSI, NEWLINE} from "../../term_ctl";
 import type { WrappedTerminal } from "../../term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
-import type {Kernel} from "../../kernel";
+import type {UserspaceKernel} from "../../kernel";
 import type {AbstractShell} from "../../abstract_shell";
 
 // extract from ANSI to make code less verbose
@@ -10,7 +10,7 @@ const { STYLE, FG, CURSOR } = ANSI;
 
 const ROWS = 10;
 
-const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
+const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
     const pkg_data = await repo_query.get_pkg_json(pkg_name);
     const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
 

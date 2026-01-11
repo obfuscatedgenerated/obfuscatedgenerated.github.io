@@ -44,13 +44,7 @@ export default {
             return 1;
         }
 
-        const process = pm.get_process(pid);
-        if (!process) {
-            term.writeln(`${PREFABS.error}No process found with PID ${pid}.${STYLE.reset_all}`);
-            return 1;
-        }
-
-        process.kill(143); // SIGTERM
+        pm.kill(pid, 143); // SIGTERM
         return 0;
     }
 } as Program;

@@ -3,21 +3,42 @@ import type {WrappedTerminal} from "./term_ctl";
 import type {ProcessContext} from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
-export interface ProgramMainData {
-    kernel: UserspaceKernel | Kernel,
+export interface ProgramMainData<K = UserspaceKernel> {
+    /*
+      methods to interact with the kernel.
+      by default, this is the userspace kernel interface.
+      if you expect your program to have immediate privileged access, (i.e. init system, drivers) use the PrivilegedProgram types / Program<Kernel> generics.
+      otherwise, use kernel.request_privilege() to access a privileged kernel.
+    */
+    kernel: K,
+
+    // terminal to interact with
     term: WrappedTerminal,
+
+    // shell that invoked the program, if any
     shell?: AbstractShell;
+
+    // process info for the currently running program
     process: ProcessContext,
 
+    // args after variable substitution
     args: string[],
+
+    // args before variable substitution
     unsubbed_args: string[],
-    raw_parts: string[], // raw command parts, including program name and unparsed args
+
+    // raw command parts, including program name and unparsed args
+    raw_parts: string[],
 }
 
-export type ProgramMain = (data: ProgramMainData) => Promise<number>;
+export type PrivilegedProgramMainData = ProgramMainData<Kernel>;
+
+export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
+
+export type PrivilegedProgramMain = ProgramMain<Kernel>;
 
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
-export interface Program {
+export interface Program<K = UserspaceKernel> {
     // command to execute the program, should ideally match the filename for consistency
     name: string,
 
@@ -37,7 +58,7 @@ export interface Program {
     hide_from_help?: boolean,
 
     // async entry point of the program, returning the exit code
-    main: ProgramMain,
+    main: ProgramMain<K>,
 
     // optional tab completion generator
     completion?: CompletionGenerator,
@@ -46,11 +67,13 @@ export interface Program {
     compat?: string
 }
 
+export type PrivilegedProgram = Program<Kernel>;
+
 // TODO: move some of these to their correct modules
 
 export interface CompletionData {
     term: WrappedTerminal,
-    kernel: Kernel,
+    kernel: UserspaceKernel,
     shell?: AbstractShell,
 
     args: string[],
@@ -64,7 +87,7 @@ export interface CompletionData {
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
 
 export interface ProgramRegistrant {
-    program: Program,
+    program: Program<unknown>,
     built_in: boolean,
 }
 

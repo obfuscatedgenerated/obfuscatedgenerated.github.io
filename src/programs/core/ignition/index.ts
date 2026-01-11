@@ -1,4 +1,4 @@
-import type { Program } from "../../../types";
+import type { PrivilegedProgram } from "../../../types";
 
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../processes";
@@ -214,4 +214,4 @@ export default {
 
         return final_code;
     }
-} as Program;
+} as PrivilegedProgram;

@@ -9,7 +9,7 @@ import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
 
-import type {Kernel, SpawnResult} from "../../kernel";
+import type {UserspaceKernel, SpawnResult} from "../../kernel";
 import type {AbstractShell} from "../../abstract_shell";
 
 
@@ -447,7 +447,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -486,7 +486,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: Kernel, shell?: AbstractShell) => {
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: WrappedTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);

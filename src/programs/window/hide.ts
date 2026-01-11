@@ -5,7 +5,7 @@ import { ProgramMainData } from "../../types"
 const { STYLE, FG, PREFABS } = ANSI;
 export const hide_subcommand = async (data: ProgramMainData) => {
     // extract from data to make code less verbose
-    const { args, term, kernel } = data;
+    const { args, term, kernel: userspace_kernel } = data;
 
     // remove subcommand name
     args.shift();
@@ -21,6 +21,13 @@ export const hide_subcommand = async (data: ProgramMainData) => {
     if (isNaN(window_id)) {
         term.writeln(`${PREFABS.error}Invalid window ID '${args[0]}'. Window ID must be an integer.`)
         term.writeln(`Try 'window list' to see all open windows.${STYLE.reset_all}`);
+        return 1;
+    }
+
+    // request elevation
+    const kernel = await userspace_kernel.request_privilege("Access the window manager to hide a window.");
+    if (!kernel) {
+        term.writeln(`${PREFABS.error}Permission denied to access the window manager.${STYLE.reset_all}`);
         return 1;
     }
 

@@ -10,17 +10,17 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, term, process } = data;
+        const { kernel, term } = data;
 
         const ipc = kernel.get_ipc();
-        const channel = ipc.create_channel(process.pid, "ipc_bg_test");
+        const channel = ipc.create_channel("ipc_bg_test");
         
         if (!channel) {
             term.writeln("Failed to create IPC channel to service 'ipc_bg_test'.");
             return 1;
         }
 
-        ipc.channel_send(channel, process.pid, { message: "Hello from ipc_fg_test!" });
+        ipc.channel_send(channel, { message: "Hello from ipc_fg_test!" });
 
         return 0;
     }

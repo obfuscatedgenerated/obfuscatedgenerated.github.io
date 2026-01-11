@@ -232,6 +232,7 @@ export interface UserspaceOtherProcessContext {
     readonly is_background: boolean;
     readonly is_foreground: boolean;
     readonly attachment: ProcessAttachment;
+    readonly source_command: LineParseResultCommand;
 }
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
@@ -448,9 +449,10 @@ export class ProcessContext {
 }
 
 export interface UserspaceProcessManager {
+    readonly ipc_manager: UserspaceIPCManager;
     list_pids(): number[];
     get_process(pid: number): UserspaceOtherProcessContext | undefined;
-    get_ipc(): UserspaceIPCManager;
+    kill(pid: number, exit_code?: number): boolean;
 }
 
 export class ProcessManager {
@@ -499,5 +501,15 @@ export class ProcessManager {
 
     mark_terminated(pid: number): void {
         this.#processes.delete(pid);
+    }
+
+    kill(pid: number, exit_code = 0): boolean {
+        const process = this.#processes.get(pid);
+        if (!process) {
+            return false;
+        }
+
+        process.kill(exit_code);
+        return true;
     }
 }
