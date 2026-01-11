@@ -66,7 +66,13 @@ export default {
 
         // check if ignition is already running (only allowed to be PID 1)
         if (process.pid !== 1) {
-            term.writeln("Cannot run ignition.");
+            term.writeln("ignition can only be run as PID 1!");
+            return 1;
+        }
+
+        // check for privileged environment
+        if (!kernel.privileged) {
+            term.writeln("ignition requires privileged environment!");
             return 1;
         }
 
