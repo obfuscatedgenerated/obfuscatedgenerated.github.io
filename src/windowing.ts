@@ -104,6 +104,83 @@ export abstract class AbstractWindow {
     abstract set_custom_flag(flag: string, value: boolean): void;
 
     abstract wait_for_event(event: WindowEvent): Promise<void>;
+
+    create_userspace_proxy_as_other_window(): UserspaceOtherWindow {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        Object.defineProperties(proxy, {
+            id: { get: () => self.id, enumerable: true },
+            manager: { get: () => self.manager.create_userspace_proxy(), enumerable: true },
+            owner_pid: { get: () => self.owner_pid, enumerable: true },
+            title: { get: () => self.title, enumerable: true },
+            width: { get: () => self.width, enumerable: true },
+            height: { get: () => self.height, enumerable: true },
+            x: { get: () => self.x, enumerable: true },
+            y: { get: () => self.y, enumerable: true },
+            visible: { get: () => self.visible, enumerable: true },
+            maximised: { get: () => self.maximised, enumerable: true }
+        });
+
+        return Object.freeze(proxy);
+    }
+
+    create_userspace_proxy_as_full_window(): UserspaceWindow {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        const manager_proxy = self.manager.create_userspace_proxy();
+
+        Object.defineProperties(proxy, {
+            id: { get: () => self.id, enumerable: true },
+            manager: { get: () => manager_proxy, enumerable: true },
+            owner_pid: { get: () => self.owner_pid, enumerable: true },
+            dom: { get: () => self.dom, enumerable: true },
+            title: {
+                get: () => self.title,
+                set: (new_title: string) => { self.title = new_title; },
+                enumerable: true
+            },
+            width: {
+                get: () => self.width,
+                set: (css_width: string) => { self.width = css_width; },
+                enumerable: true
+            },
+            height: {
+                get: () => self.height,
+                set: (css_height: string) => { self.height = css_height; },
+                enumerable: true
+            },
+            x: {
+                get: () => self.x,
+                set: (css_pos: string | number) => { self.x = css_pos; },
+                enumerable: true
+            },
+            y: {
+                get: () => self.y,
+                set: (css_pos: string | number) => { self.y = css_pos; },
+                enumerable: true
+            },
+            visible: {
+                get: () => self.visible,
+                set: (is_visible: boolean) => { self.visible = is_visible; },
+                enumerable: true
+            },
+            maximised: { get: () => self.maximised, enumerable: true },
+            center: { value: () => { self.center(); }, enumerable: true },
+            focus: { value: () => { self.focus(); }, enumerable: true },
+            show: { value: () => { self.show(); }, enumerable: true },
+            hide: { value: () => { self.hide(); }, enumerable: true },
+            toggle: { value: () => { self.toggle(); }, enumerable: true },
+            close: { value: () => { self.close(); }, enumerable: true },
+            add_event_listener: { value: (event: WindowEvent, callback: () => void) => { self.add_event_listener(event, callback); }, enumerable: true },
+            wait_for_event: { value: (event: WindowEvent) => self.wait_for_event(event), enumerable: true }
+        });
+
+        return Object.freeze(proxy);
+    }
 }
 
 export interface UserspaceWindowManager {
@@ -122,6 +199,29 @@ export abstract class AbstractWindowManager {
     abstract get_window_by_id(id: number): AbstractWindow | null;
 
     abstract dispose_all(): void;
+
+    create_userspace_proxy(): UserspaceWindowManager {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        Object.defineProperties(proxy, {
+            get_unique_manager_type_name: { value: () => self.get_unique_manager_type_name(), enumerable: true },
+            get_all_windows: {
+                value: () => self.get_all_windows().map((win) => win.create_userspace_proxy_as_other_window()),
+                enumerable: true
+            },
+            get_window_by_id: {
+                value: (id: number) => {
+                    const win = self.get_window_by_id(id);
+                    return win ? win.create_userspace_proxy_as_other_window() : null;
+                },
+                enumerable: true
+            }
+        });
+
+        return Object.freeze(proxy);
+    }
 }
 
 // TODO: use separate interfaces so that only the process registry can create windows

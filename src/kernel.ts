@@ -91,7 +91,7 @@ export class Kernel {
         this.#env_info.env = env;
     }
 
-    spawn = (command: string, args: string[] = [], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult => {
+    spawn = (command: string, args: string[] = [], shell?: AbstractShell, start_privileged?: boolean, original_line_parse?: LineParseResultCommand): SpawnResult => {
         // TODO: harden arg handling against possible prototype pollution
 
         // search for the command in the registry
@@ -140,7 +140,13 @@ export class Kernel {
         // protect from pollution
         const data = Object.create(null);
 
-        data.kernel = this;
+        // provide either privileged or userspace kernel access
+        if (start_privileged) {
+            data.kernel = this;
+        } else {
+            data.kernel = this.create_userspace_proxy(process);
+        }
+
         data.term = this.#term;
         data.args = args;
         data.shell = shell;
@@ -279,5 +285,44 @@ export class Kernel {
         this.#sfx_registry = sound_registry || new SoundRegistry();
         this.#wm = wm || null;
         this.#process_manager = new ProcessManager(this.#wm);
+    }
+
+    create_userspace_proxy(process: ProcessContext): UserspaceKernel {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
+
+        Object.defineProperties(proxy, {
+            //get_program_registry: { value: () => self.get_program_registry().create_userspace_proxy(), enumerable: true },
+            //get_sound_registry: { value: () => self.get_sound_registry().create_userspace_proxy(), enumerable: true },
+            //get_fs: { value: () => self.get_fs().create_userspace_proxy(), enumerable: true },
+            get_program_registry: { value: () => self.get_program_registry(), enumerable: true },
+            get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
+            get_fs: { value: () => self.get_fs(), enumerable: true },
+            get_window_manager: {
+                value: () => {
+                    const wm = self.get_window_manager();
+                    return wm ? wm.create_userspace_proxy() : null;
+                },
+                enumerable: true
+            },
+            has_window_manager: { value: () => self.has_window_manager(), enumerable: true },
+            get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
+            get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
+            get_env_info: { value: () => self.get_env_info(), enumerable: true },
+            spawn: {
+                value: (command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand) =>
+                    self.spawn(command, args, shell, false, original_line_parse),
+                enumerable: true
+            },
+            request_privilege: {
+                value: (reason: string) => self.request_privilege(reason, process),
+                enumerable: true
+            }
+        });
+
+        return Object.freeze(proxy);
     }
 }

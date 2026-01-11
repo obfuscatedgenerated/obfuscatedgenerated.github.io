@@ -215,6 +215,41 @@ export class IPCManager {
 
         return true;
     }
+
+    create_userspace_proxy(process_pid: number): UserspaceIPCManager {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        Object.defineProperties(proxy, {
+            service_register: { value: (name: string, on_connection: IPCServiceOnConnectionCallback) => {
+                self.service_register(name, process_pid, on_connection);
+            }, enumerable: true },
+            service_unregister: { value: (name: string) => {
+                self.service_unregister(name);
+            }, enumerable: true },
+            service_lookup: { value: (name: string) => {
+                return self.service_lookup(name);
+            }, enumerable: true },
+            create_channel: { value: (service_name: string) => {
+                return self.create_channel(process_pid, service_name);
+            }, enumerable: true },
+            destroy_channel: { value: (channel_id: number) => {
+                self.destroy_channel(channel_id);
+            }, enumerable: true },
+            channel_listen: { value: (channel_id: number, listener: IPCChannelListener) => {
+                return self.channel_listen(channel_id, process_pid, listener);
+            }, enumerable: true },
+            channel_unlisten: { value: (channel_id: number, listener: IPCChannelListener) => {
+                return self.channel_unlisten(channel_id, process_pid, listener);
+            }, enumerable: true },
+            channel_send: { value: (channel_id: number, data: unknown) => {
+                return self.channel_send(channel_id, process_pid, data);
+            }, enumerable: true },
+        });
+
+        return Object.freeze(proxy);
+    }
 }
 
 // TODO: could migrate the stuff where programs grab "scary" stuff like WindowManager and ProcessManager to be services
@@ -446,6 +481,51 @@ export class ProcessContext {
 
         return win;
     }
+
+
+    create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        Object.defineProperties(proxy, {
+            pid: { get: () => self.pid, enumerable: true },
+            created_at: { get: () => self.created_at, enumerable: true },
+            is_detached: { get: () => self.is_detached, enumerable: true },
+            is_background: { get: () => self.is_background, enumerable: true },
+            is_foreground: { get: () => self.is_foreground, enumerable: true },
+            attachment: { get: () => self.attachment, enumerable: true },
+            source_command: { get: () => self.source_command, enumerable: true },
+        });
+
+        return Object.freeze(proxy);
+    }
+
+    create_userspace_proxy(): UserspaceProcessContext {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        Object.defineProperties(proxy, {
+            pid: { get: () => self.pid, enumerable: true },
+            created_at: { get: () => self.created_at, enumerable: true },
+            is_detached: { get: () => self.is_detached, enumerable: true },
+            is_background: { get: () => self.is_background, enumerable: true },
+            is_foreground: { get: () => self.is_foreground, enumerable: true },
+            attachment: { get: () => self.attachment, enumerable: true },
+            source_command: { get: () => self.source_command, enumerable: true },
+
+            detach: { value: (silently = false) => { self.detach(silently); }, enumerable: true },
+            kill: { value: (exit_code = 0) => { self.kill(exit_code); }, enumerable: true },
+            create_timeout: { value: (callback: () => void, delay: number) => self.create_timeout(callback, delay), enumerable: true },
+            cancel_timeout: { value: (id: number) => { self.cancel_timeout(id); }, enumerable: true },
+            create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
+            clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
+            create_window: { value: () => self.create_window(),  enumerable: true },
+        });
+
+        return Object.freeze(proxy);
+    }
 }
 
 export interface UserspaceProcessManager {
@@ -511,5 +591,25 @@ export class ProcessManager {
 
         process.kill(exit_code);
         return true;
+    }
+
+    create_userspace_proxy(process_pid: number): UserspaceProcessManager {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        const ipc_mgr_proxy = self.#ipc_manager.create_userspace_proxy(process_pid);
+
+        Object.defineProperties(proxy, {
+            ipc_manager: { get: () => ipc_mgr_proxy, enumerable: true },
+            list_pids: { value: () => self.list_pids(), enumerable: true },
+            get_process: { value: (pid: number) => {
+                const process = self.get_process(pid);
+                return process ? process.create_userspace_proxy_as_other_process() : undefined;
+            }, enumerable: true },
+            kill: { value: (pid: number, exit_code?: number) => self.kill(pid, exit_code), enumerable: true },
+        });
+
+        return Object.freeze(proxy);
     }
 }
