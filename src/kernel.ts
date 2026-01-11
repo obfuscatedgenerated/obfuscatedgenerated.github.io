@@ -92,8 +92,6 @@ export class Kernel {
     }
 
     spawn = (command: string, args: string[] = [], shell?: AbstractShell, start_privileged?: boolean, original_line_parse?: LineParseResultCommand): SpawnResult => {
-        // TODO: harden arg handling against possible prototype pollution
-
         // search for the command in the registry
         const program = this.#prog_registry.getProgram(command);
         if (program === undefined) {
@@ -112,6 +110,9 @@ export class Kernel {
         if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
             throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
+
+        // shallow clone args to avoid mutation exploits (you never know)
+        args = args.slice();
 
         // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
         const parsed_line: LineParseResultCommand = original_line_parse ?? {

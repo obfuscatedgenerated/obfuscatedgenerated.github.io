@@ -43,7 +43,7 @@ export enum FSEventType {
 
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
-// TODO: see if a userspace proxy will be needed
+// TODO: see if a userspace proxy will be needed, a behavioural one definitely will actually for when the /sys directory is implemented
 
 // TODO: privacy protect abstract members and check implementations too
 
