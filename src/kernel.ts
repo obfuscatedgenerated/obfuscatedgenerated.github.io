@@ -4,13 +4,20 @@ import type {AbstractFileSystem} from "./filesystem";
 // TODO: organise this stuff to a kernel directory?
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
-import {IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager} from "./processes";
+import {
+    IPCManager,
+    KERNEL_FAKE_PID,
+    ProcessContext,
+    ProcessManager,
+    UserspaceIPCManager, UserspaceOtherProcessContext,
+    UserspaceProcessManager
+} from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
 // TODO: decouple, either make generic interface or dont use at all
 import type {LineParseResultCommand} from "./programs/core/ash/parser";
 
-import {ANSI, NEWLINE, type WrappedTerminal} from "./term_ctl";
+import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
@@ -275,42 +282,85 @@ export class Kernel {
     }
 
     async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
-        // check if the shell wants to handle it
-        // TODO: this should NOT be handled by the shell which is userspace! instead a separate "privilege handler" process (IPC) should be assigned by the init system
-        if (process.shell && typeof process.shell.handle_privilege_request === "function") {
-            const process_proxy = process.create_userspace_proxy_as_other_process();
-            const shell_response = await process.shell.handle_privilege_request(reason, process_proxy);
-
-            if (shell_response) {
-                return this;
-            } else {
-                return false;
-            }
-        }
-
-        this.#term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
-
-        this.#term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);
-        this.#term.writeln(`The process gave the following reason for the request:${NEWLINE}`);
-
-        this.#term.writeln(`${ANSI.STYLE.bold}${ANSI.FG.yellow}"${reason}"${ANSI.FG.reset}${ANSI.STYLE.no_bold_or_dim}${NEWLINE}`);
-
-        this.#term.writeln("Granting this request will allow the process full access to the kernel, which may compromise system security and stability.");
-        this.#term.writeln("It may also be able to temporarily share this access with other running processes.");
-
-        this.#term.writeln(`${NEWLINE}Do you wish to grant elevated privileges to PID ${process.pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
-
         // TODO: remember my answer option when /sys security is implemented
         // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
 
-        const event = await this.#term.wait_for_keypress();
-        this.#term.write(ANSI.CURSOR.visible);
+        // read /sys/privilege_agent to determine privilege agent
+        const fs = this.get_fs();
+        let agent_program = "default_privilege_agent";
+        try {
+            const agent_data = await fs.read_file("/sys/privilege_agent") as string;
+            agent_program = agent_data.trim();
+        } catch {
+            // ignore, use default
+            console.warn("Failed to read /sys/privilege_agent, using default privilege agent.");
+        }
 
-        if (event.key.toLowerCase() === "y") {
-            this.#term.writeln(`${NEWLINE}${ANSI.BG.green}${ANSI.FG.white}Privilege request granted.${ANSI.STYLE.reset_all}${NEWLINE}`);
+        if (!agent_program) {
+            agent_program = "default_privilege_agent";
+            console.warn("/sys/privilege_agent is empty, using default privilege agent.");
+        }
+
+        // create an unassigned ipc channel
+        const ipc = this.get_ipc();
+        const channel_id = ipc.reserve_kernel_channel();
+
+        // spawn the privilege agent program, passing the channel id, and assign the channel to it
+        const agent_proc = this.spawn(agent_program, [channel_id.toString()]);
+        ipc.assign_kernel_channel(channel_id, agent_proc.process.pid);
+
+        let handling_request = false;
+        let approved: boolean | null = null;
+
+        // listen for response on the channel
+        ipc.channel_listen(channel_id, KERNEL_FAKE_PID, async (msg) => {
+            const data = msg.data as { process: UserspaceOtherProcessContext; granted?: boolean; handling?: boolean; };
+
+            // validate approved pid matches requesting pid
+            if (data.process.pid !== process.pid) {
+                console.warn(`Privilege request response pid ${data.process.pid} does not match requesting pid ${process.pid}, ignoring response.`);
+                return;
+            }
+
+            // check if handling acknowledgement
+            if (data.handling) {
+                handling_request = true;
+                return;
+            }
+
+            // otherwise, check for granted/denied
+            if (data.granted !== undefined) {
+                approved = data.granted;
+            }
+        });
+
+        const process_proxy = process.create_userspace_proxy_as_other_process();
+
+        // wait to handle for up to 10 seconds, repeating the request if not yet being handled
+        // overall timeout up to 60 seconds
+        const start_time = Date.now();
+        // TODO: cleaner logic here
+        while ((Date.now() - start_time) < 60000 && approved === null && (handling_request || (Date.now() - start_time) < 10000)) {
+            if (!handling_request) {
+                ipc.channel_send(channel_id, KERNEL_FAKE_PID, {
+                    process: process_proxy,
+                    reason
+                });
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        ipc.destroy_channel(channel_id);
+
+        if (approved === null) {
+            console.warn("Privilege request timed out.");
+        }
+
+        // return result
+        if (approved) {
             return this;
         } else {
-            this.#term.writeln(`${NEWLINE}${ANSI.BG.red}${ANSI.FG.white}Privilege request denied.${ANSI.STYLE.reset_all}${NEWLINE}`);
             return false;
         }
     }

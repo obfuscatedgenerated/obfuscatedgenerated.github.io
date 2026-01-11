@@ -29,6 +29,9 @@ interface IPCService {
     on_connection: IPCServiceOnConnectionCallback;
 }
 
+export const KERNEL_FAKE_PID = 0;
+const UNASSIGNED_FAKE_PID = -1;
+
 export interface UserspaceIPCManager {
     service_register(name: string, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
@@ -108,13 +111,8 @@ export class IPCManager {
         return service.pid;
     }
 
-    create_channel(initiator_pid: number, service_name: string): number | null {
+    create_direct_channel(initiator_pid: number, peer_pid: number): number {
         const channel_id = this.#next_channel_id++;
-        const peer_pid = this.service_lookup(service_name);
-
-        if (!peer_pid) {
-            return null;
-        }
 
         this.#channels.set(channel_id, {
             initiator: initiator_pid,
@@ -126,6 +124,18 @@ export class IPCManager {
             listeners: new Map(),
         });
 
+        return channel_id;
+    }
+
+    create_channel(initiator_pid: number, service_name: string): number | null {
+        const peer_pid = this.service_lookup(service_name);
+
+        if (!peer_pid) {
+            return null;
+        }
+
+        const channel_id = this.create_direct_channel(initiator_pid, peer_pid);
+
         // notify service of new connection without blocking
         const service = this.#services.get(service_name)!;
         service.on_connection(channel_id, initiator_pid).catch((err) => {
@@ -133,6 +143,24 @@ export class IPCManager {
         });
 
         return channel_id;
+    }
+
+    reserve_kernel_channel(): number {
+        return this.create_direct_channel(KERNEL_FAKE_PID, UNASSIGNED_FAKE_PID);
+    }
+
+    assign_kernel_channel(channel_id: number, peer_pid: number): boolean {
+        const channel = this.#channels.get(channel_id);
+        if (!channel) {
+            return false;
+        }
+
+        if (channel.initiator !== KERNEL_FAKE_PID || channel.peer !== UNASSIGNED_FAKE_PID) {
+            return false;
+        }
+
+        channel.peer = peer_pid;
+        return true;
     }
 
     destroy_channel(channel_id: number): void {
