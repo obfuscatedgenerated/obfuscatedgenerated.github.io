@@ -141,6 +141,12 @@ export class Kernel {
             throw new Error(`Command not found: ${command}`);
         }
 
+        // validate that the name stored in the program matches the command called
+        // under normal circumstances this should always be true, but doing this prevents obscure spoofing exploits
+        if (program.name !== command) {
+            throw new Error(`Program name mismatch for command ${command}: expected ${command}, got ${program.name}`);
+        }
+
         let compat = "1.0.0";
         if (typeof program.compat === "string") {
             compat = program.compat;
