@@ -275,12 +275,16 @@ export class Kernel {
 
     async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
         this.#term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
+
         this.#term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);
         this.#term.writeln(`The process gave the following reason for the request:${NEWLINE}`);
+
         this.#term.writeln(`${ANSI.STYLE.bold}${ANSI.FG.yellow}"${reason}"${ANSI.FG.reset}${ANSI.STYLE.no_bold_or_dim}${NEWLINE}`);
+
         this.#term.writeln("Granting this request will allow the process full access to the kernel, which may compromise system security and stability.");
         this.#term.writeln("It may also be able to temporarily share this access with other running processes.");
-        this.#term.writeln(`Do you wish to grant elevated privileges to PID ${process.pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
+
+        this.#term.writeln(`${NEWLINE}Do you wish to grant elevated privileges to PID ${process.pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
 
         // TODO: remember my answer option when /sys security is implemented
         // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
@@ -289,10 +293,10 @@ export class Kernel {
         this.#term.write(ANSI.CURSOR.visible);
 
         if (event.key.toLowerCase() === "y") {
-            this.#term.writeln(`${NEWLINE}${ANSI.FG.green}${ANSI.BG.gray}Privilege request granted.${ANSI.STYLE.reset_all}${NEWLINE}`);
+            this.#term.writeln(`${NEWLINE}${ANSI.BG.green}${ANSI.FG.white}Privilege request granted.${ANSI.STYLE.reset_all}${NEWLINE}`);
             return this;
         } else {
-            this.#term.writeln(`${NEWLINE}${ANSI.FG.red}${ANSI.BG.gray}Privilege request denied.${ANSI.STYLE.reset_all}${NEWLINE}`);
+            this.#term.writeln(`${NEWLINE}${ANSI.BG.red}${ANSI.FG.white}Privilege request denied.${ANSI.STYLE.reset_all}${NEWLINE}`);
             return false;
         }
     }
