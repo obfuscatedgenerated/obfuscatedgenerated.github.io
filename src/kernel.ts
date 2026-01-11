@@ -38,7 +38,7 @@ export interface UserspaceKernel {
     get_process_manager(): UserspaceProcessManager;
     get_ipc(): UserspaceIPCManager;
     get_env_info(): {version: string, env: string};
-    spawn(command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult; // TODO: how safe will this be to expose?
+    spawn(cmd_or_line_parse: string | LineParseResultCommand, explicit_args?: string[], shell?: AbstractShell): SpawnResult; // TODO: how safe will this be to expose?
     request_privilege(reason: string): Promise<Kernel | false>;
 }
 
@@ -100,11 +100,36 @@ export class Kernel {
         this.#env_info.env = env;
     }
 
-    spawn = (command: string, args: string[] = [], shell?: AbstractShell, start_privileged?: boolean, original_line_parse?: LineParseResultCommand): SpawnResult => {
+    // TODO: cleaner interface, shame theres no function overloading (but could make two more methods)
+    spawn = (cmd_or_parse: string | LineParseResultCommand, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean): SpawnResult => {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
 
-        // TODO: original_line_parse is vulnerable to spoofing if passed from userspace, need a better way to handle this
+        // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
+        // args are only used if cmd_or_parse is a string
+        // by ensuring only 1 source of truth is used at a time, we avoid manipulation from conflicting data
+        let parsed_line: LineParseResultCommand;
+        if (typeof cmd_or_parse === "string") {
+            if (!explicit_args) {
+                explicit_args = [];
+            }
+
+            parsed_line = {
+                type: "command",
+                command: cmd_or_parse,
+                args: [...explicit_args],
+                unsubbed_args: [...explicit_args],
+                raw_parts: [cmd_or_parse, ...explicit_args],
+                run_in_bg: false
+            };
+        } else {
+            parsed_line = cmd_or_parse;
+        }
+
+        const {command} = parsed_line;
+
+        // shallow clone args to avoid mutation exploits (you never know)
+        const args = parsed_line.args.slice();
 
         // search for the command in the registry
         const program = this.#prog_registry.getProgram(command);
@@ -124,19 +149,6 @@ export class Kernel {
         if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
             throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
-
-        // shallow clone args to avoid mutation exploits (you never know)
-        args = args.slice();
-
-        // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
-        const parsed_line: LineParseResultCommand = original_line_parse ?? {
-            type: "command",
-            command,
-            args,
-            unsubbed_args: args,
-            raw_parts: [command, ...args],
-            run_in_bg: false
-        };
 
         // create new process context
         const process = this.#process_manager.create_process(parsed_line, shell);
@@ -406,8 +418,8 @@ export class Kernel {
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
-                value: (command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand) =>
-                    self.spawn(command, args, shell, false, original_line_parse),
+                value: (command: string | LineParseResultCommand, args?: string[], shell?: AbstractShell) =>
+                    self.spawn(command, args, shell, false),
                 enumerable: true
             },
             request_privilege: {
