@@ -139,7 +139,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             }
 
             try {
-                prog_reg.unregister(program_name);
+                await prog_reg.unregister(program_name);
                 term.writeln(`${FG.cyan}(-) ${program_name}${STYLE.reset_all}`);
             } catch (e) {
                 term.writeln(`${FG.yellow + STYLE.bold}Warning: Program ${program_name} was never registered.${STYLE.reset_all}`);

@@ -244,7 +244,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 continue;
             }
 
-            await mount_and_register_with_output(filename, value, prog_reg, term, true);
+            await prog_reg.mount_and_register_with_output(filename, value, term, true);
         }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);

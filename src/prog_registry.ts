@@ -120,7 +120,7 @@ export const determine_program_name_from_js = async (js_code: string): Promise<s
 
 
 // mounts and registers a program and outputs errors to the terminal
-export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry, term: WrappedTerminal, output_success = false) => {
+export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry | UserspaceProgramRegistry, term: WrappedTerminal, output_success = false) => {
     const { PREFABS, FG, STYLE } = ANSI;
 
     let reg: ProgramRegistrant;
@@ -141,7 +141,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
     }
 
     try {
-        prog_reg.registerProgram(reg);
+        await prog_reg.registerProgram(reg);
 
         if (output_success) {
             term.writeln(`${FG.cyan}(+) ${reg.program.name}${STYLE.reset_all}`);
@@ -154,7 +154,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
 }
 
 // recurses through a directory and mounts and registers all programs in it as well as its subdirectories
-export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry, term: WrappedTerminal) => {
+export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry | UserspaceProgramRegistry, term: WrappedTerminal) => {
     const entries = await fs.list_dir(dir_path);
 
     for (const entry of entries) {
@@ -175,14 +175,22 @@ export const recurse_mount_and_register_with_output = async (fs: AbstractFileSys
 
 // TODO: these 2 methods are a bit messy! perhaps remove the output stuff and just have the user deal with it
 
-
-// TODO: behavioural userspace proxy to prevent unregistering built-in programs as well as overriding other people's programs!!!
+export interface UserspaceProgramRegistry {
+    getProgram(name: string): Program | undefined;
+    listProgramNames(includes_builtin?: boolean, includes_mounted?: boolean): string[];
+    registerProgram(program_reg: ProgramRegistrant): Promise<void>;
+    unregister(name: string): Promise<void>;
+    forceUnregister(name: string): Promise<void>;
+    build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
+    determine_program_name_from_js(js_code: string): Promise<string>;
+    mount_and_register_with_output(filename: string, content: string, term: WrappedTerminal, output_success?: boolean): Promise<void>;
+    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal): Promise<void>;
+}
 
 export class ProgramRegistry {
     readonly #program_regs: Map<string, ProgramRegistrant> = new Map();
 
-
-    registerProgram(program_reg: ProgramRegistrant) {
+    async registerProgram(program_reg: ProgramRegistrant) {
         const program = program_reg.program;
 
         if (this.#program_regs.has(program.name)) {
@@ -249,17 +257,19 @@ export class ProgramRegistry {
     }
 
 
-    forceUnregister(name: string) {
+    async forceUnregister(name: string) {
         this.#program_regs.delete(name);
     }
 
-    unregister(name: string) {
+    async unregister(name: string) {
         if (!this.#program_regs.has(name)) {
             throw new Error(`Program with name ${name} does not exist.`);
         }
 
-        this.forceUnregister(name);
+        await this.forceUnregister(name);
     }
+
+    // note that some methods above are async because the userspace proxy needs them to be async
 
     // TODO: move usage of above methods to use class methods instead of the standalone functions
 
@@ -278,4 +288,107 @@ export class ProgramRegistry {
     async recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal) {
         return recurse_mount_and_register_with_output(fs, dir_path, this, term);
     }
+
+    create_userspace_proxy(init_program: string, fs: AbstractFileSystem): UserspaceProgramRegistry {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null);
+
+        const check_protected = async (name: string) => {
+            const reg = self.getProgramRegistrant(name);
+
+            // userspace cannot unregister built-in programs
+            if (reg?.built_in) {
+                throw new Error(`Security Error: Built-in program '${name}' is protected and cannot be modified.`);
+            }
+
+            // userspace cannot unregister the loaded init system
+            if (name === init_program) {
+                throw new Error(`Security Error: The init system program '${name}' cannot be modified.`);
+            }
+
+            // userspace cannot unregister program referenced by /sys/privilege_agent
+            let privilege_agent_program = "default_privilege_agent";
+            try {
+                const pa_data = await fs.read_file("/sys/privilege_agent") as string;
+                privilege_agent_program = pa_data.trim();
+            } catch {
+                // ignore error
+            }
+
+            if (!privilege_agent_program) {
+                privilege_agent_program = "default_privilege_agent";
+            }
+
+            if (name === privilege_agent_program) {
+                throw new Error(`Security Error: The privilege agent program '${name}' cannot be modified.`);
+            }
+        }
+
+        Object.defineProperties(proxy, {
+            getProgram: {
+                value: (name: string) => self.getProgram(name),
+                enumerable: true
+            },
+            listProgramNames: {
+                value: (inc_builtin?: boolean, inc_mounted?: boolean) =>
+                    self.listProgramNames(inc_builtin, inc_mounted),
+                enumerable: true
+            },
+            registerProgram: {
+                value: async (program_reg: ProgramRegistrant) => {
+                    if (program_reg.built_in) {
+                        throw new Error("Security Error: Cannot register built-in programs from userspace.");
+                    }
+
+                    await check_protected(program_reg.program.name);
+                    await self.registerProgram(program_reg);
+                },
+                enumerable: true
+            },
+            unregister: {
+                value: async (name: string) => {
+                    await check_protected(name);
+                    await self.unregister(name);
+                },
+                enumerable: true
+            },
+            forceUnregister: {
+                value: async (name: string) => {
+                    await check_protected(name);
+                    await self.forceUnregister(name);
+                },
+                enumerable: true
+            },
+
+            // its fine to build the registrant as builtin, but not fine to register it
+            build_registrant_from_js: {
+                value: async (js_code: string, built_in = false) =>
+                    self.build_registrant_from_js(js_code, built_in),
+                enumerable: true
+            },
+            determine_program_name_from_js: {
+                value: async (js_code: string) =>
+                    self.determine_program_name_from_js(js_code),
+                enumerable: true
+            },
+
+            // ensure the proxy is used for these methods to enforce protections
+            mount_and_register_with_output: {
+                value: async (filename: string, content: string, term: WrappedTerminal, output_success = false) =>
+                    mount_and_register_with_output(filename, content, proxy, term, output_success),
+                enumerable: true
+            },
+            recurse_mount_and_register_with_output: {
+                value: async (dir_path: string, term: WrappedTerminal) =>
+                    recurse_mount_and_register_with_output(fs, dir_path, proxy, term),
+                enumerable: true
+            },
+        });
+
+        return Object.freeze(proxy);
+    }
 }
+
+// TODO: restructure methods to not need fs (i.e. move this closer to the kernel where fs is accessible)
+

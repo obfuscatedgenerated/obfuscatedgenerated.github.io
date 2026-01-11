@@ -1,4 +1,4 @@
-import {ProgramRegistry, recurse_mount_and_register_with_output} from "./prog_registry";
+import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
 import type {AbstractFileSystem} from "./filesystem";
 
 // TODO: organise this stuff to a kernel directory?
@@ -30,7 +30,7 @@ export interface SpawnResult {
 }
 
 export interface UserspaceKernel {
-    get_program_registry(): ProgramRegistry;
+    get_program_registry(): UserspaceProgramRegistry;
     get_sound_registry(): SoundRegistry;
     get_fs(): AbstractFileSystem;
     get_window_manager(): UserspaceWindowManager | null;
@@ -56,6 +56,8 @@ export class Kernel {
         version: "unknown",
         env: "unknown"
     };
+
+    #init_program_name: string | null = null;
 
     get panicked(): boolean {
         return this.#panicked;
@@ -250,6 +252,7 @@ export class Kernel {
         // run init program
         try {
             const init = this.spawn(init_program, init_args, undefined, true);
+            this.#init_program_name = init_program;
 
             if (on_init_spawned) {
                 on_init_spawned(this).catch((e) => {
@@ -374,20 +377,19 @@ export class Kernel {
         this.#process_manager = new ProcessManager(this.#wm);
     }
 
-    create_userspace_proxy(process: ProcessContext): UserspaceKernel {
+    create_userspace_proxy(process: ProcessContext): Promise<UserspaceKernel> {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
         const proxy = Object.create(null);
 
+        const fs = self.get_fs();
         const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
+        const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, fs);
 
         Object.defineProperties(proxy, {
-            //get_program_registry: { value: () => self.get_program_registry().create_userspace_proxy(), enumerable: true },
-            //get_sound_registry: { value: () => self.get_sound_registry().create_userspace_proxy(), enumerable: true },
-            //get_fs: { value: () => self.get_fs().create_userspace_proxy(), enumerable: true },
-            get_program_registry: { value: () => self.get_program_registry(), enumerable: true },
+            get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
             get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
-            get_fs: { value: () => self.get_fs(), enumerable: true },
+            get_fs: { value: () => fs, enumerable: true },
             get_window_manager: {
                 value: () => {
                     const wm = self.get_window_manager();

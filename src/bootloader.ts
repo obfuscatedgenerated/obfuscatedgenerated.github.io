@@ -24,7 +24,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     // create a program registry by importing all programs
     const prog_reg = new ProgramRegistry();
     for (const prog of Object.values(programs)) {
-        prog_reg.registerProgram({
+        await prog_reg.registerProgram({
             program: prog,
             built_in: true,
         });
