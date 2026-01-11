@@ -1,5 +1,4 @@
 import {graph_query, json_convert_dep_sets_to_arrs, repo_query, triggers} from ".";
-import {mount_and_register_with_output} from "../../prog_registry";
 
 import {ANSI, NEWLINE} from "../../term_ctl";
 import {ProgramMainData} from "../../types"

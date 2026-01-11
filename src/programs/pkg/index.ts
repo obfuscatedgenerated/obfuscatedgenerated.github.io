@@ -3,7 +3,7 @@ import {remove_subcommand} from "./remove";
 
 import {ANSI, type WrappedTerminal} from "../../term_ctl";
 import type {Program} from "../../types";
-import type {AbstractFileSystem} from "../../filesystem";
+import type {UserspaceFileSystem} from "../../filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
@@ -266,7 +266,7 @@ export const graph_query = {
     },
 
     // installs a NEW package. if this is not a top level package, you must specify an initial dependent. you cannot modify an existing package unless you use the defined functions.
-    install_new_pkg: async (fs: AbstractFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: string) => {
+    install_new_pkg: async (fs: UserspaceFileSystem, pkg: string, version: string, deps: Set<PkgAtVersion>, top_level: boolean, dependended_by?: string) => {
         // TODO: resolve what to do if the package is already installed rather than exploding, makes using it a lot simpler
 
         if (graph[pkg]) {
@@ -296,7 +296,7 @@ export const graph_query = {
     },
 
     // makes a package a top level package, no checks are performed as top level packages may have dependents
-    promote_pkg_to_top_level: async (fs: AbstractFileSystem, pkg: string) => {
+    promote_pkg_to_top_level: async (fs: UserspaceFileSystem, pkg: string) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -308,7 +308,7 @@ export const graph_query = {
     },
 
     // makes a package not a top level package, but only if it has no dependents. use add_pkg_dependent FIRST before demoting if it has dependents now.
-    demote_pkg_from_top_level: async (fs: AbstractFileSystem, pkg: string) => {
+    demote_pkg_from_top_level: async (fs: UserspaceFileSystem, pkg: string) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -324,7 +324,7 @@ export const graph_query = {
     },
 
     // adds a dependent to a package, provided the dependent is already installed. also adds the dependency to the dependent package.
-    add_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_pkg: string, add_to_deps = false) => {
+    add_pkg_dependent: async (fs: UserspaceFileSystem, pkg: string, dependent_pkg: string, add_to_deps = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -346,7 +346,7 @@ export const graph_query = {
     },
 
     // removes a dependent from a package, as well as clearing the dependency from the dependent package
-    remove_pkg_dependent: async (fs: AbstractFileSystem, pkg: string, dependent_pkg: string, remove_from_deps = false) => {
+    remove_pkg_dependent: async (fs: UserspaceFileSystem, pkg: string, dependent_pkg: string, remove_from_deps = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -378,7 +378,7 @@ export const graph_query = {
     },
 
     // removes a package from the graph, provided it has no dependents. you can skip this check, but this will leave dangling dependencies.
-    remove_pkg: async (fs: AbstractFileSystem, pkg: string, skip_dep_check = false) => {
+    remove_pkg: async (fs: UserspaceFileSystem, pkg: string, skip_dep_check = false) => {
         if (!graph[pkg]) {
             throw new Error(`Package ${pkg} is not installed.`);
         }
@@ -415,7 +415,7 @@ export const graph_query = {
         return Object.keys(graph).filter((pkg) => !graph[pkg].top_level && graph[pkg].dependents.size === 0);
     },
 
-    get_file_path_in_pkg_bin: (fs: AbstractFileSystem, pkg: string, filepath: string) => {
+    get_file_path_in_pkg_bin: (fs: UserspaceFileSystem, pkg: string, filepath: string) => {
         const pkg_dir = fs.join(BIN_DIR, pkg);
         return fs.join(pkg_dir, filepath);
     }
@@ -427,7 +427,7 @@ interface TriggerFile {
 }
 
 export const triggers = {
-    load_trigger_file: async (fs: AbstractFileSystem, trigger_name: string): Promise<TriggerFile | null> => {
+    load_trigger_file: async (fs: UserspaceFileSystem, trigger_name: string): Promise<TriggerFile | null> => {
         const trigger_path = fs.join(TRIGGER_DIR, trigger_name + ".json");
         if (!(await fs.exists(trigger_path))) {
             return null;
@@ -442,7 +442,7 @@ export const triggers = {
         }
     },
 
-    trigger_exists: async (fs: AbstractFileSystem, trigger_name: string): Promise<boolean> => {
+    trigger_exists: async (fs: UserspaceFileSystem, trigger_name: string): Promise<boolean> => {
         return (await triggers.load_trigger_file(fs, trigger_name)) !== null;
     },
 

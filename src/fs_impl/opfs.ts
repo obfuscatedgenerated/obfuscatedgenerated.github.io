@@ -17,6 +17,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
         // get the root directory handle
         navigator.storage.getDirectory().then((handle) => {
             this._opfs_handle = handle;
+            this._initialised = true;
         }).catch((err) => {
             console.error("Failed to get OPFS directory handle:", err);
         });

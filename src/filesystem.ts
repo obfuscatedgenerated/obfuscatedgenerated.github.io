@@ -43,16 +43,42 @@ export enum FSEventType {
 
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
-// TODO: see if a userspace proxy will be needed, a behavioural one definitely will actually for when the /sys directory is implemented
+export interface UserspaceFileSystem {
+    get_unique_fs_type_name(): string;
+    erase_all(): Promise<void>;
+    purge_cache(smart?: boolean): void;
+    read_file(path: string, as_uint?: boolean): Promise<string | Uint8Array>;
+    write_file(path: string, data: string | Uint8Array, force?: boolean): Promise<void>;
+    delete_file(path: string): Promise<void>;
+    move_file(path: string, new_path: string): Promise<void>;
+    list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
+    make_dir(path: string): Promise<void>;
+    delete_dir(path: string, recursive?: boolean): Promise<void>;
+    move_dir(src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean): Promise<void>;
+    set_readonly(path: string, readonly: boolean): Promise<void>;
+    is_readonly(path: string): Promise<boolean>;
+    exists(path: string): Promise<boolean>;
+    dir_exists(path: string): Promise<boolean>;
+    join(base_dir: string, ...paths: string[]): string;
+    absolute(path: string): string;
+    get_cwd(): string;
+    set_cwd(path: string): void;
+    get_home(): string;
+    get_root(): string;
+}
 
-// TODO: privacy protect abstract members and check implementations too
+// TODO: could protect erase_all but then also need to check recursive deletion, doesnt really gain much
 
 export abstract class AbstractFileSystem {
     //TODO: dry
+
+    // note some members are conventionally private with _ prefix to allow implementations to access them
+    // they wont be exposed to userspace though
+
     _initialised = false;
 
-    _cache: Map<string, { readonly: boolean, content: string | Uint8Array, as_uint: boolean }> = new Map();
-    _callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
+    readonly #cache: Map<string, { readonly: boolean, content: string | Uint8Array, as_uint: boolean }> = new Map();
+    readonly #callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
 
     _root = "/";
     _home = "/home";
@@ -65,18 +91,18 @@ export abstract class AbstractFileSystem {
 
     purge_cache(smart = false): void {
         if (smart) {
-            for (const path in this._cache) {
+            for (const path in this.#cache) {
                 if (!this.exists_direct(path)) {
-                    this._cache.delete(path);
+                    this.#cache.delete(path);
                 }
             }
         } else {
-            this._cache = new Map();
+            this.#cache.clear();
         }
     }
 
     force_remove_from_cache(path: string): void {
-        this._cache.delete(path);
+        this.#cache.delete(path);
     }
 
     remote_purge_cache(smart: boolean): void {
@@ -87,7 +113,7 @@ export abstract class AbstractFileSystem {
         localStorage.setItem("remove_from_cache", path);
     }
 
-    _remote_listener(): void {
+    #remote_listener(): void {
         const purge_cache = localStorage.getItem("purge_cache");
         if (purge_cache) {
             this.purge_cache(purge_cache === "true");
@@ -104,22 +130,22 @@ export abstract class AbstractFileSystem {
 
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void {
         // if there are no callbacks for this event type, create an empty array
-        if (!this._callbacks.has(event_type)) {
-            this._callbacks.set(event_type, []);
+        if (!this.#callbacks.has(event_type)) {
+            this.#callbacks.set(event_type, []);
         }
 
         // add callback to array
-        this._callbacks.get(event_type).push(callback);
+        this.#callbacks.get(event_type).push(callback);
 
         // return function to remove callback
         return () => {
-            this._callbacks.get(event_type).splice(this._callbacks.get(event_type).indexOf(callback), 1);
+            this.#callbacks.get(event_type).splice(this.#callbacks.get(event_type).indexOf(callback), 1);
         }
     }
 
     _call_callbacks(event_type: FSEventType, data: string): void {
         // call all callbacks
-        for (const callback of this._callbacks.get(event_type) ?? []) {
+        for (const callback of this.#callbacks.get(event_type) ?? []) {
             callback(data, this);
         }
     }
@@ -140,14 +166,14 @@ export abstract class AbstractFileSystem {
         this._call_callbacks(FSEventType.READING_FILE, path);
 
         // check if file is in cache and still exists, as well as if it's the correct type
-        const cached = this._cache.get(path);
+        const cached = this.#cache.get(path);
         if (cached && await this.exists(path) && cached.as_uint === as_uint) {
-            return this._cache.get(path).content;
+            return this.#cache.get(path).content;
         }
 
         // if not, read it from disk and cache it
         const content = await this.read_file_direct(path, as_uint);
-        this._cache.set(path, { readonly: await this.is_readonly(path), content, as_uint });
+        this.#cache.set(path, { readonly: await this.is_readonly(path), content, as_uint });
         return content;
     }
 
@@ -163,15 +189,15 @@ export abstract class AbstractFileSystem {
         }
 
         // write to disk and cache
-        this._cache.set(path, { readonly, content: data, as_uint: data instanceof Uint8Array });
+        this.#cache.set(path, { readonly, content: data, as_uint: data instanceof Uint8Array });
         await this.write_file_direct(path, data);
         this._call_callbacks(FSEventType.WROTE_FILE, path);
     }
 
     async delete_file(path: string): Promise<void> {
         // delete from cache and disk
-        if (this._cache.has(path)) {
-            this._cache.delete(path);
+        if (this.#cache.has(path)) {
+            this.#cache.delete(path);
         }
         await this.delete_file_direct(path);
         this._call_callbacks(FSEventType.DELETED_FILE, path);
@@ -180,8 +206,8 @@ export abstract class AbstractFileSystem {
     // does not check if destination exists
     async move_file(path: string, new_path: string): Promise<void> {
         // move in cache and disk
-        this._cache.set(new_path, this._cache.get(path));
-        this._cache.delete(path);
+        this.#cache.set(new_path, this.#cache.get(path));
+        this.#cache.delete(path);
         await this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
     }
@@ -193,12 +219,12 @@ export abstract class AbstractFileSystem {
         }
 
         // set readonly in cache and disk
-        const entry = this._cache.get(path);
+        const entry = this.#cache.get(path);
         if (entry) {
             entry.readonly = readonly;
-            this._cache.set(path, entry);
+            this.#cache.set(path, entry);
         } else {
-            this._cache.set(path, {readonly, content: await this.read_file(path), as_uint: false});
+            this.#cache.set(path, {readonly, content: await this.read_file(path), as_uint: false});
         }
 
         await this.set_readonly_direct(path, readonly);
@@ -212,7 +238,7 @@ export abstract class AbstractFileSystem {
         }
 
         // check if file is in cache
-        const cached = this._cache.get(path);
+        const cached = this.#cache.get(path);
         if (cached) {
             return cached.readonly;
         }
@@ -289,7 +315,7 @@ export abstract class AbstractFileSystem {
 
     async exists(path: string): Promise<boolean> {
         // check if file is in cache
-        if (this._cache.has(path)) {
+        if (this.#cache.has(path)) {
             return true;
         }
 
@@ -406,6 +432,74 @@ export abstract class AbstractFileSystem {
 
     protected constructor() {
         // check if the cache should be purged from remote changes
-        setInterval(() => this._remote_listener(), 100);
+        setInterval(() => this.#remote_listener(), 100);
+    }
+
+    static create_userspace_proxy(fs: AbstractFileSystem): UserspaceFileSystem {
+        const self = fs;
+        const proxy = Object.create(null);
+
+        const check_path = (path: string): string => {
+            const absolute_path = self.absolute(path);
+            const is_sys = absolute_path === "/sys" || absolute_path.startsWith("/sys/");
+
+            if (is_sys) {
+                throw new Error(`Security Error: Access denied to protected path '${absolute_path}'.`);
+            }
+
+            return absolute_path;
+        };
+
+        Object.defineProperties(proxy, {
+            get_unique_fs_type_name: { value: () => self.get_unique_fs_type_name(), enumerable: true },
+            erase_all: { value: () => self.erase_all(), enumerable: true },
+            purge_cache: { value: (smart?: boolean) => self.purge_cache(smart), enumerable: true },
+            read_file: { value: (path: string, as_uint?: boolean) => self.read_file(self.absolute(path), as_uint), enumerable: true },
+            list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(self.absolute(path), dirs_first), enumerable: true },
+            exists: { value: (path: string) => self.exists(self.absolute(path)), enumerable: true },
+            dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path)), enumerable: true },
+            is_readonly: { value: (path: string) => self.is_readonly(self.absolute(path)), enumerable: true },
+            join: { value: (base: string, ...paths: string[]) => self.join(base, ...paths), enumerable: true },
+            absolute: { value: (path: string) => self.absolute(path), enumerable: true },
+            get_cwd: { value: () => self.get_cwd(), enumerable: true },
+            get_home: { value: () => self.get_home(), enumerable: true },
+            get_root: { value: () => self.get_root(), enumerable: true },
+            write_file: {
+                value: (path: string, data: string | Uint8Array, force?: boolean) =>
+                    self.write_file(check_path(path), data, force),
+                enumerable: true
+            },
+            delete_file: {
+                value: (path: string) => self.delete_file(check_path(path)),
+                enumerable: true
+            },
+            move_file: {
+                value: (path: string, new_path: string) => {
+                    return self.move_file(check_path(path), check_path(new_path));
+                },
+                enumerable: true
+            },
+            make_dir: {
+                value: (path: string) => self.make_dir(check_path(path)),
+                enumerable: true
+            },
+            delete_dir: {
+                value: (path: string, recursive?: boolean) => self.delete_dir(check_path(path), recursive),
+                enumerable: true
+            },
+            move_dir: {
+                value: (src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean) => {
+                    return self.move_dir(check_path(src), check_path(dest), no_overwrite, move_inside);
+                },
+                enumerable: true
+            },
+            set_readonly: {
+                value: (path: string, readonly: boolean) => self.set_readonly(check_path(path), readonly),
+                enumerable: true
+            },
+            set_cwd: { value: (path: string) => self.set_cwd(path), enumerable: true }
+        });
+
+        return Object.freeze(proxy);
     }
 }

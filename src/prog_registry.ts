@@ -303,6 +303,7 @@ export class ProgramRegistry {
             }
 
             // userspace cannot unregister the loaded init system
+            // TODO: is this actually necessary security wise? it wont get run as kernel til next boot anyway. maybe the boot file should be protected instead?
             if (name === init_program) {
                 throw new Error(`Security Error: The init system program '${name}' cannot be modified.`);
             }

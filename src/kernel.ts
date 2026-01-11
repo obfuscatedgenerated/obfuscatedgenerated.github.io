@@ -1,5 +1,5 @@
 import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
-import type {AbstractFileSystem} from "./filesystem";
+import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
 // TODO: organise this stuff to a kernel directory?
 import {SoundRegistry} from "./sfx_registry";
@@ -32,7 +32,7 @@ export interface SpawnResult {
 export interface UserspaceKernel {
     get_program_registry(): UserspaceProgramRegistry;
     get_sound_registry(): SoundRegistry;
-    get_fs(): AbstractFileSystem;
+    get_fs(): UserspaceFileSystem;
     get_window_manager(): UserspaceWindowManager | null;
     has_window_manager(): boolean;
     get_process_manager(): UserspaceProcessManager;
@@ -382,14 +382,16 @@ export class Kernel {
         const self = this;
         const proxy = Object.create(null);
 
-        const fs = self.get_fs();
+        const kernel_fs = self.get_fs();
+
         const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
-        const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, fs);
+        const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, kernel_fs);
+        const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs);
 
         Object.defineProperties(proxy, {
             get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
             get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
-            get_fs: { value: () => fs, enumerable: true },
+            get_fs: { value: () => fs_proxy, enumerable: true },
             get_window_manager: {
                 value: () => {
                     const wm = self.get_window_manager();
