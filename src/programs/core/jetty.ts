@@ -66,9 +66,16 @@ export default {
             const shell_proc = kernel.spawn(default_shell, default_shell_args);
             current_shell_process = shell_proc.process;
 
-            const exit_code = await shell_proc.completion;
-            // TODO: why is this needed? is spawn not managing process death correctly?
-            shell_proc.process.kill(exit_code);
+            let exit_code: number;
+            let error: Error | null = null;
+            try {
+                exit_code = await shell_proc.completion;
+                shell_proc.process.kill(exit_code);
+            } catch (e) {
+                console.error(e);
+                error = e as Error;
+                exit_code = -1;
+            }
 
             console.log(`default shell ${default_shell} exited with code ${exit_code}`);
 
@@ -80,6 +87,11 @@ export default {
             term.reset();
 
             term.writeln(exit_code === 0 ? "Logged out." : `Shell exited with code ${exit_code}!`);
+
+            if (error) {
+                term.writeln(`Error details: ${error}`);
+            }
+
             term.writeln(`Press any key to log back in.${ANSI.CURSOR.invisible}`);
 
             await term.wait_for_keypress();

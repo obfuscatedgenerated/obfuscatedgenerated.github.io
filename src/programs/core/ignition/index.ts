@@ -206,7 +206,17 @@ export default {
             const boot_target_proc = kernel.spawn(boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
-            const exit_code = await boot_target_proc.completion;
+            let exit_code: number;
+            let error: Error | null = null;
+            try {
+                exit_code = await boot_target_proc.completion;
+                boot_target_proc.process.kill(exit_code);
+            } catch (e) {
+                console.error(e);
+                error = e as Error;
+                exit_code = -1;
+            }
+
             console.log(`boot target ${boot_target} exited with code ${exit_code}`);
 
             // TODO: error recovery logic if boot target fails multiple times in a row
