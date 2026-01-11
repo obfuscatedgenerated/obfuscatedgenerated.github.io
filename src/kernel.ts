@@ -3,8 +3,8 @@ import type {AbstractFileSystem} from "./filesystem";
 
 // TODO: organise this stuff to a kernel directory?
 import {SoundRegistry} from "./sfx_registry";
-import {AbstractWindowManager} from "./windowing";
-import {IPCManager, ProcessContext, ProcessManager} from "./processes";
+import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
+import {IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager} from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
 // TODO: decouple, either make generic interface or dont use at all
@@ -20,6 +20,18 @@ const CURRENT_API_COMPAT = "2.0.0";
 export interface SpawnResult {
     process: ProcessContext;
     completion: Promise<number>;
+}
+
+export interface UserspaceKernel {
+    get_program_registry(): ProgramRegistry;
+    get_sound_registry(): SoundRegistry;
+    get_fs(): AbstractFileSystem;
+    get_window_manager(): UserspaceWindowManager | null;
+    has_window_manager(): boolean;
+    get_process_manager(): UserspaceProcessManager;
+    get_ipc(): UserspaceIPCManager;
+    get_env_info(): {version: string, env: string};
+    spawn(command: string, args?: string[], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult; // TODO: how safe will this be to expose?
 }
 
 export class Kernel {

@@ -28,6 +28,17 @@ interface IPCService {
     on_connection: IPCServiceOnConnectionCallback;
 }
 
+export interface UserspaceIPCManager {
+    service_register(name: string, on_connection: IPCServiceOnConnectionCallback): void;
+    service_unregister(name: string): void;
+    service_lookup(name: string): number | undefined;
+    create_channel(service_name: string): number | null;
+    destroy_channel(channel_id: number): void;
+    channel_listen(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_unlisten(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_send(channel_id: number, data: unknown): boolean;
+}
+
 export class IPCManager {
     readonly #process_manager: ProcessManager;
 
@@ -212,6 +223,25 @@ enum ProcessAttachment {
     FOREGROUND,
     BACKGROUND,
     DETACHED,
+}
+
+export interface UserspaceOtherProcessContext {
+    readonly pid: number;
+    readonly created_at: Date;
+    readonly is_detached: boolean;
+    readonly is_background: boolean;
+    readonly is_foreground: boolean;
+    readonly attachment: ProcessAttachment;
+}
+
+export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    detach(silently?: boolean): void;
+    kill(exit_code?: number): void;
+    create_timeout(callback: () => void, delay: number): number;
+    cancel_timeout(id: number): void;
+    create_interval(callback: () => void, interval: number): number;
+    clear_interval(id: number): void;
+    create_window(): AbstractWindow | null;
 }
 
 export class ProcessContext {
@@ -415,6 +445,12 @@ export class ProcessContext {
 
         return win;
     }
+}
+
+export interface UserspaceProcessManager {
+    list_pids(): number[];
+    get_process(pid: number): UserspaceOtherProcessContext | undefined;
+    get_ipc(): UserspaceIPCManager;
 }
 
 export class ProcessManager {

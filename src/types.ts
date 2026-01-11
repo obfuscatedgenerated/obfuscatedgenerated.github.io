@@ -1,10 +1,10 @@
-import type {Kernel} from "./kernel";
+import type {Kernel, UserspaceKernel} from "./kernel";
 import type {WrappedTerminal} from "./term_ctl";
 import type {ProcessContext} from "./processes";
 import type {AbstractShell} from "./abstract_shell";
 
 export interface ProgramMainData {
-    kernel: Kernel,
+    kernel: UserspaceKernel | Kernel,
     term: WrappedTerminal,
     shell?: AbstractShell;
     process: ProcessContext,

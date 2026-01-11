@@ -43,6 +43,10 @@ export enum FSEventType {
 
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
+// TODO: see if a userspace proxy will be needed
+
+// TODO: privacy protect abstract members and check implementations too
+
 export abstract class AbstractFileSystem {
     //TODO: dry
     _initialised = false;
