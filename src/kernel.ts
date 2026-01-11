@@ -92,9 +92,8 @@ export class Kernel {
     }
 
     spawn = (command: string, args: string[] = [], shell?: AbstractShell, start_privileged?: boolean, original_line_parse?: LineParseResultCommand): SpawnResult => {
-        // TODO: big security hole, passing a custom shell lets you bypass privilege requests
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
-        // TODO: replace both the above with process ownership :) and forcibly set it on the userspace proxy
+        // TODO: replace the above with process ownership :)
 
         // search for the command in the registry
         const program = this.#prog_registry.getProgram(command);
@@ -277,6 +276,7 @@ export class Kernel {
 
     async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
         // check if the shell wants to handle it
+        // TODO: this should NOT be handled by the shell which is userspace! instead a separate "privilege handler" process (IPC) should be assigned by the init system
         if (process.shell && typeof process.shell.handle_privilege_request === "function") {
             const process_proxy = process.create_userspace_proxy_as_other_process();
             const shell_response = await process.shell.handle_privilege_request(reason, process_proxy);
