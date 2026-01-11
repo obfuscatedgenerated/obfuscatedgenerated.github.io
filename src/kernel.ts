@@ -92,7 +92,7 @@ export class Kernel {
     }
 
     get_env_info(): {version: string, env: string} {
-        return this.#env_info;
+        return {...this.#env_info};
     }
 
     set_env_info(version: string, env: string) {

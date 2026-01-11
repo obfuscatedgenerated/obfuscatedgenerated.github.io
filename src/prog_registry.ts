@@ -20,6 +20,7 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
 
     const data_url = encode_js_to_url(js_code);
     // note: risk to user, show warning
+    // TODO: explore sandboxing via webworkers or other methods
     const imp = await import(/* webpackIgnore: true */data_url);
     let program = imp.default;
 
