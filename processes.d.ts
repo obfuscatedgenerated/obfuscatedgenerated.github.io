@@ -1,5 +1,6 @@
 import type { AbstractWindow, AbstractWindowManager } from "./windowing";
-import { LineParseResultCommand } from "./programs/core/ash/parser";
+import type { AbstractShell } from "./abstract_shell";
+import type { ParsedCommandLine } from "./kernel";
 export interface IPCMessage {
     from: number;
     to: number;
@@ -7,44 +8,64 @@ export interface IPCMessage {
 }
 export type IPCChannelListener = (msg: IPCMessage) => Promise<void>;
 export type IPCServiceOnConnectionCallback = (channel_id: number, from_pid: number) => Promise<void>;
+export declare const KERNEL_FAKE_PID = 0;
+export interface UserspaceIPCManager {
+    service_register(name: string, on_connection: IPCServiceOnConnectionCallback): void;
+    service_unregister(name: string): void;
+    service_lookup(name: string): number | undefined;
+    create_channel(service_name: string): number | null;
+    destroy_channel(channel_id: number): void;
+    channel_listen(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_unlisten(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_send(channel_id: number, data: unknown): boolean;
+}
 export declare class IPCManager {
-    private readonly _process_manager;
-    private readonly _services;
-    private readonly _channels;
-    private _next_channel_id;
+    #private;
     constructor(process_manager: ProcessManager);
     dispose_all(): void;
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
+    create_direct_channel(initiator_pid: number, peer_pid: number): number;
     create_channel(initiator_pid: number, service_name: string): number | null;
+    reserve_kernel_channel(): number;
+    assign_kernel_channel(channel_id: number, peer_pid: number): boolean;
     destroy_channel(channel_id: number): void;
     channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
     channel_unlisten(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, from_pid: number, data: unknown): boolean;
+    create_userspace_proxy(process_pid: number): UserspaceIPCManager;
 }
 declare enum ProcessAttachment {
     FOREGROUND = 0,
     BACKGROUND = 1,
     DETACHED = 2
 }
+export interface UserspaceOtherProcessContext {
+    readonly pid: number;
+    readonly created_at: Date;
+    readonly is_detached: boolean;
+    readonly is_background: boolean;
+    readonly is_foreground: boolean;
+    readonly attachment: ProcessAttachment;
+    readonly source_command: ParsedCommandLine;
+}
+export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    detach(silently?: boolean): void;
+    kill(exit_code?: number): void;
+    create_timeout(callback: () => void, delay: number): number;
+    cancel_timeout(id: number): void;
+    create_interval(callback: () => void, interval: number): number;
+    clear_interval(id: number): void;
+    create_window(): AbstractWindow | null;
+}
 export declare class ProcessContext {
-    private readonly _pid;
-    private readonly _manager;
-    private readonly _source_command;
-    private readonly _created_at;
-    private readonly _exit_listeners;
-    private _attachment;
-    private _detach_silently;
-    private readonly _timeouts;
-    private readonly _timeout_promises;
-    private readonly _timeout_cancel_callbacks;
-    private readonly _intervals;
-    private readonly _windows;
-    constructor(pid: number, source_command: LineParseResultCommand, registry: ProcessManager);
+    #private;
+    constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell);
     get pid(): number;
-    get source_command(): LineParseResultCommand;
+    get source_command(): ParsedCommandLine;
     get created_at(): Date;
+    get shell(): AbstractShell | undefined;
     get is_detached(): boolean;
     get is_background(): boolean;
     get is_foreground(): boolean;
@@ -62,19 +83,26 @@ export declare class ProcessContext {
     clear_interval(id: number): void;
     wait_for_timeout(id: number): Promise<boolean>;
     create_window(): AbstractWindow | null;
+    create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext;
+    create_userspace_proxy(): UserspaceProcessContext;
+}
+export interface UserspaceProcessManager {
+    readonly ipc_manager: UserspaceIPCManager;
+    list_pids(): number[];
+    get_process(pid: number): UserspaceOtherProcessContext | undefined;
+    kill(pid: number, exit_code?: number): boolean;
 }
 export declare class ProcessManager {
-    private readonly _processes;
-    private _next_pid;
-    private readonly _wm;
-    private readonly _ipc_manager;
+    #private;
     constructor(wm?: AbstractWindowManager | null);
     get window_manager(): AbstractWindowManager | null;
     get ipc_manager(): IPCManager;
     dispose_all(): void;
-    create_process(source_command: LineParseResultCommand): ProcessContext;
+    create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
     mark_terminated(pid: number): void;
+    kill(pid: number, exit_code?: number): boolean;
+    create_userspace_proxy(process_pid: number): UserspaceProcessManager;
 }
 export {};

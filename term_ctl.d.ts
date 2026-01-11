@@ -1,5 +1,5 @@
-import { IDisposable, ITerminalOptions, Terminal } from "@xterm/xterm";
-import type { KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier } from "./types";
+import { ITerminalOptions, Terminal } from "@xterm/xterm";
+import type { KeyEvent, KeyEventHandler } from "./types";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -69,15 +69,7 @@ export interface ReadLineBuffer {
 }
 export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 export declare class WrappedTerminal extends Terminal {
-    _disposable_onkey: IDisposable;
-    _key_handlers: Map<RegisteredKeyEventIdentifier, {
-        handler: KeyEventHandler;
-        block: boolean;
-    }[]>;
-    _on_printable_handlers: KeyEventHandler[];
-    _key_event_queue: KeyEvent[];
-    _is_handling_key_events: boolean;
-    _kernel_has_panicked: boolean;
+    #private;
     get ansi(): {
         FG: {
             reset: string;

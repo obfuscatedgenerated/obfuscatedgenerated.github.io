@@ -1,4 +1,6 @@
 export declare abstract class AbstractShellMemory {
+    abstract get current_history_index(): number;
+    abstract set current_history_index(index: number);
     abstract clear_history(): void;
     abstract get_previous_history_entry(): string | undefined;
     abstract get_next_history_entry(): string | undefined;

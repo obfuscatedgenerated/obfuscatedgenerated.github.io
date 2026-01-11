@@ -27,14 +27,32 @@ export declare enum FSEventType {
     CHECKING_DIR_EXISTS = 16
 }
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
+export interface UserspaceFileSystem {
+    get_unique_fs_type_name(): string;
+    erase_all(): Promise<void>;
+    purge_cache(smart?: boolean): void;
+    read_file(path: string, as_uint?: boolean): Promise<string | Uint8Array>;
+    write_file(path: string, data: string | Uint8Array, force?: boolean): Promise<void>;
+    delete_file(path: string): Promise<void>;
+    move_file(path: string, new_path: string): Promise<void>;
+    list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
+    make_dir(path: string): Promise<void>;
+    delete_dir(path: string, recursive?: boolean): Promise<void>;
+    move_dir(src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean): Promise<void>;
+    set_readonly(path: string, readonly: boolean): Promise<void>;
+    is_readonly(path: string): Promise<boolean>;
+    exists(path: string): Promise<boolean>;
+    dir_exists(path: string): Promise<boolean>;
+    join(base_dir: string, ...paths: string[]): string;
+    absolute(path: string): string;
+    get_cwd(): string;
+    set_cwd(path: string): void;
+    get_home(): string;
+    get_root(): string;
+}
 export declare abstract class AbstractFileSystem {
+    #private;
     _initialised: boolean;
-    _cache: Map<string, {
-        readonly: boolean;
-        content: string | Uint8Array;
-        as_uint: boolean;
-    }>;
-    _callbacks: Map<FSEventType, FSEventHandler[]>;
     _root: string;
     _home: string;
     _cwd: string;
@@ -45,7 +63,6 @@ export declare abstract class AbstractFileSystem {
     force_remove_from_cache(path: string): void;
     remote_purge_cache(smart: boolean): void;
     remote_remove_from_cache(path: string): void;
-    _remote_listener(): void;
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void;
     _call_callbacks(event_type: FSEventType, data: string): void;
     abstract read_file_direct(path: string, as_uint: boolean): Promise<string | Uint8Array>;
@@ -78,4 +95,5 @@ export declare abstract class AbstractFileSystem {
     absolute(path: string): string;
     join(base_dir: string, ...paths: string[]): string;
     protected constructor();
+    static create_userspace_proxy(fs: AbstractFileSystem): UserspaceFileSystem;
 }

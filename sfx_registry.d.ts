@@ -1,9 +1,6 @@
 import { Howl } from "howler";
 export declare class SoundRegistry {
-    _registry: Map<string, {
-        ready: boolean;
-        howl: Howl;
-    }>;
+    #private;
     register_howl(name: string, howl: Howl, ready?: boolean): void;
     register_file(name: string, file: string): void;
     await_ready(name: string, interval?: number): Promise<void>;
