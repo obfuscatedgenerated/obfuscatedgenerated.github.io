@@ -98,6 +98,8 @@ export default {
             term.write(ANSI.CURSOR.visible);
 
             term.reset();
+
+            // TODO: add recovery logic here too, maybe add /etc/safe_mode_shell file to launch ash --no-scripts or similar
         }
 
         return final_code;

@@ -3,6 +3,8 @@ import type { PrivilegedProgram } from "../../../types";
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../processes";
 
+import {ANSI} from "../../../term_ctl";
+
 interface IgnitionIPCMessageBase {
     type: string;
 }
@@ -59,6 +61,8 @@ export default {
     compat: "2.0.0",
     main: async (data) => {
         const { kernel, term, process } = data;
+
+        const {CURSOR} = ANSI;
 
         // check if ignition is already running (only allowed to be PID 1)
         if (process.pid !== 1) {
@@ -213,13 +217,13 @@ export default {
             let error: Error | null = null;
             try {
                 exit_code = await boot_target_proc.completion;
-                boot_target_proc.process.kill(exit_code);
             } catch (e) {
                 console.error(e);
                 error = e as Error;
                 exit_code = -1;
             }
 
+            boot_target_proc.process.kill(exit_code);
             console.log(`boot target ${boot_target} exited with code ${exit_code}`);
 
             term.writeln(`Boot target ${boot_target} exited with code ${exit_code}!`);
@@ -236,9 +240,31 @@ export default {
             deaths_in_window++;
 
             if (deaths_in_window >= 5) {
-                term.writeln("Boot target has crashed too many times in a short period. Halting to prevent a crash loop.");
-                term.writeln("Press any key to retry...");
-                await term.wait_for_keypress();
+                term.writeln("Boot target has crashed too many times in a short period.");
+                term.writeln("Press R key to enter recovery mode, or any other key to retry...");
+                term.write(CURSOR.invisible);
+
+                const key = await term.wait_for_keypress();
+                if (key.key.toLowerCase() === "r") {
+                    term.writeln("Entering recovery mode...");
+
+                    const recovery_proc = kernel.spawn("recovery", [], undefined, true);
+                    let recovery_exit_code: number;
+                    try {
+                        recovery_exit_code = await recovery_proc.completion;
+                        recovery_proc.process.kill(recovery_exit_code);
+                    } catch (e) {
+                        console.error(e);
+                        recovery_exit_code = -1;
+                    }
+
+                    term.writeln(`Recovery environment exited with code ${recovery_exit_code}. Retrying boot target...`);
+                } else {
+                    term.writeln("Retrying boot target...");
+                }
+
+                term.write(CURSOR.visible);
+
                 deaths_in_window = 0;
                 window_start = null;
             }

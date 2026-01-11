@@ -27,6 +27,7 @@ export interface SpawnResult {
 }
 
 export interface UserspaceKernel {
+    readonly privileged: boolean;
     get_program_registry(): UserspaceProgramRegistry;
     get_sound_registry(): SoundRegistry;
     get_fs(): UserspaceFileSystem;
@@ -63,6 +64,10 @@ export class Kernel {
     };
 
     #init_program_name: string | null = null;
+
+    get privileged(): boolean {
+        return true;
+    }
 
     get panicked(): boolean {
         return this.#panicked;
@@ -265,7 +270,9 @@ export class Kernel {
         // run init program
         try {
             const init = this.spawn(init_program, init_args, undefined, true);
+
             this.#init_program_name = init_program;
+            this.#term.focus();
 
             if (on_init_spawned) {
                 on_init_spawned(this).catch((e) => {
@@ -404,6 +411,7 @@ export class Kernel {
         const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs);
 
         Object.defineProperties(proxy, {
+            privileged: { value: false, enumerable: true },
             get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
             get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
             get_fs: { value: () => fs_proxy, enumerable: true },

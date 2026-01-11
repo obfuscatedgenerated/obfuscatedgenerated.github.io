@@ -7,10 +7,11 @@ import {make_read_line_key_handlers, make_read_line_printable_handler} from "./k
 export default {
     name: "ash",
     description: "A shell.",
-    usage_suffix: "[--login]",
+    usage_suffix: "[--login] [--no-scripts]",
     arg_descriptions: {
         "Arguments:": {
-            "--login": "Start the shell as a login shell. Don't pass this flag manually, it's handled by the system."
+            "--login": "Start the shell as a login shell. Don't pass this flag manually, it's handled by the system.",
+            "--no-scripts": "Do not run any startup scripts like .ashrc or .ash_profile."
         }
     },
     compat: "2.0.0",
@@ -47,13 +48,13 @@ export default {
             }
 
             // run .ash_profile, checking it exists again just in case (because why not)
-            if (await fs.exists(absolute_profile)) {
+            if (!args.includes("--no-scripts") && await fs.exists(absolute_profile)) {
                 await shell.run_script(absolute_profile);
             }
         }
 
         // run .ashrc, checking it exists again just in case (could be deleted in profile)
-        if (await fs.exists(absolute_rc)) {
+        if (!args.includes("--no-scripts") && await fs.exists(absolute_rc)) {
             await shell.run_script(absolute_rc);
         }
 
@@ -66,8 +67,6 @@ export default {
 
         const read_line_key_handlers = make_read_line_key_handlers(shell, kernel);
         const read_line_printable_handler = make_read_line_printable_handler(shell);
-
-        term.focus();
 
         while (running) {
             await shell.insert_prompt(true);
