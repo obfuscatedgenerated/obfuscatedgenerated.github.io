@@ -104,6 +104,8 @@ export class Kernel {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
 
+        // TODO: original_line_parse is vulnerable to spoofing if passed from userspace, need a better way to handle this
+
         // search for the command in the registry
         const program = this.#prog_registry.getProgram(command);
         if (program === undefined) {
