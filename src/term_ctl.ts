@@ -92,14 +92,14 @@ export interface ReadLineBuffer {
 export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 
 export class WrappedTerminal extends Terminal {
-    _disposable_onkey: IDisposable;
+    #disposable_onkey: IDisposable;
 
-    _key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
-    _on_printable_handlers: KeyEventHandler[] = [];
-    _key_event_queue: KeyEvent[] = [];
-    _is_handling_key_events = false;
+    readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
+    readonly #on_printable_handlers: KeyEventHandler[] = [];
+    readonly #key_event_queue: KeyEvent[] = [];
+    #is_handling_key_events = false;
 
-    _kernel_has_panicked = false;
+    #kernel_has_panicked = false;
 
     // TODO: this exporting is a bit lazy, but it works for now
 
@@ -256,7 +256,7 @@ export class WrappedTerminal extends Terminal {
     }
 
     _search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
-        for (const pair of this._key_handlers.entries()) {
+        for (const pair of this.#key_handlers.entries()) {
             const identfier = pair[0] as RegisteredKeyEventIdentifier;
 
             // if strict matching is required, both key and domEventCode must match
@@ -298,7 +298,7 @@ export class WrappedTerminal extends Terminal {
         // if the identifier has not already been registered, create a new array for it
         const existing_entries = this._search_handlers(props.keyString, props.domEventCode, true);
         if (existing_entries.length === 0) {
-            this._key_handlers.set(identifier, [entry]);
+            this.#key_handlers.set(identifier, [entry]);
         } else {
             // otherwise, add the handler to the existing array
             // NOTE: reference is retained so no need to search
@@ -312,7 +312,7 @@ export class WrappedTerminal extends Terminal {
         // return a function to unregister the handler
         // NOTE: reference is retained so no need to search
         return () => {
-            const handlers = this._key_handlers.get(identifier);
+            const handlers = this.#key_handlers.get(identifier);
             if (!handlers) {
                 return;
             }
@@ -321,7 +321,7 @@ export class WrappedTerminal extends Terminal {
 
             // if there are no more handlers for the identifier, remove the identifier from the map
             if (handlers.length === 0) {
-                this._key_handlers.delete(identifier);
+                this.#key_handlers.delete(identifier);
             }
         }
     }
@@ -360,7 +360,7 @@ export class WrappedTerminal extends Terminal {
         // check if the key is printable
         if (e.key.match(NON_PRINTABLE_REGEX) === null) {
             // call any registered printable key handlers
-            for (const handler of this._on_printable_handlers) {
+            for (const handler of this.#on_printable_handlers) {
                 await handler(e, this);
             }
         }
@@ -373,32 +373,32 @@ export class WrappedTerminal extends Terminal {
      */
     register_on_printable_key_event_handler = (handler: KeyEventHandler, high_priority = false) => {
         if (high_priority) {
-            this._on_printable_handlers.unshift(handler);
+            this.#on_printable_handlers.unshift(handler);
         } else {
-            this._on_printable_handlers.push(handler);
+            this.#on_printable_handlers.push(handler);
         }
     }
 
     _enqueue_key_event = (e: KeyEvent) => {
-        this._key_event_queue.push(e);
+        this.#key_event_queue.push(e);
 
         // if the queue is not being handled, handle it
-        if (!this._is_handling_key_events) {
-            this._is_handling_key_events = true;
+        if (!this.#is_handling_key_events) {
+            this.#is_handling_key_events = true;
             this._handle_key_event_queue();
         }
     }
 
     _handle_key_event_queue = async () => {
         // if there are no events in the queue, return
-        if (this._key_event_queue.length === 0) {
-            this._is_handling_key_events = false;
+        if (this.#key_event_queue.length === 0) {
+            this.#is_handling_key_events = false;
             return;
         }
 
-        if (this._is_handling_key_events) {
+        if (this.#is_handling_key_events) {
             // handle the first event in the queue
-            await this._handle_key_event(this._key_event_queue.shift()!);
+            await this._handle_key_event(this.#key_event_queue.shift()!);
 
             // handle the rest of the events in the queue
             this._handle_key_event_queue();
@@ -409,15 +409,15 @@ export class WrappedTerminal extends Terminal {
     // note that this does not recieve pasted input, use a key event handler for that
     wait_for_keypress = async (): Promise<KeyEvent> => {
         // dispose of the current key handler (block bubbling)
-        this._disposable_onkey.dispose();
+        this.#disposable_onkey.dispose();
 
         return new Promise((resolve) => {
-            this._disposable_onkey = this.onKey((e) => {
+            this.#disposable_onkey = this.onKey((e) => {
                 // dispose of this handler
-                this._disposable_onkey.dispose();
+                this.#disposable_onkey.dispose();
 
                 // re-register the original handler
-                this._disposable_onkey = this.onKey(this._enqueue_key_event);
+                this.#disposable_onkey = this.onKey(this._enqueue_key_event);
 
                 // resolve the promise
                 resolve(e);
@@ -495,7 +495,7 @@ export class WrappedTerminal extends Terminal {
     }
 
     paste() {
-        if (this._kernel_has_panicked) {
+        if (this.#kernel_has_panicked) {
             return;
         }
 
@@ -521,12 +521,12 @@ export class WrappedTerminal extends Terminal {
                     dom_event_code = "Space";
                 }
 
-                this._key_event_queue.push(({ key, domEvent: { code: dom_event_code } } as KeyEvent));
+                this.#key_event_queue.push(({ key, domEvent: { code: dom_event_code } } as KeyEvent));
             }
 
             // if the queue is not being handled, handle it
-            if (!this._is_handling_key_events) {
-                this._is_handling_key_events = true;
+            if (!this.#is_handling_key_events) {
+                this.#is_handling_key_events = true;
                 this._handle_key_event_queue();
             }
         });
@@ -542,16 +542,16 @@ export class WrappedTerminal extends Terminal {
     }
 
     handle_kernel_panic = (message: string, process_info: string, debug_info?: string) => {
-        if (this._kernel_has_panicked) {
+        if (this.#kernel_has_panicked) {
             return;
         }
 
-        this._kernel_has_panicked = true;
+        this.#kernel_has_panicked = true;
 
         this.reset();
 
         // stop reading key events
-        this._disposable_onkey.dispose();
+        this.#disposable_onkey.dispose();
         this.write(ANSI.CURSOR.invisible);
 
         if (this.textarea) {
@@ -584,7 +584,7 @@ export class WrappedTerminal extends Terminal {
 
     constructor(xterm_opts?: ITerminalOptions) {
         super(xterm_opts);
-        this._disposable_onkey = this.onKey(this._enqueue_key_event);
+        this.#disposable_onkey = this.onKey(this._enqueue_key_event);
     }
 }
 

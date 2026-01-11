@@ -1,35 +1,35 @@
 import {AbstractWindow, AbstractWindowManager, WindowEvent} from "../windowing";
 
 export class DOMWindowManager extends AbstractWindowManager {
-    private top_z_index = 10;
+    #top_z_index = 10;
 
-    private _window_id_counter = 1;
-    private _window_map: Map<number, AbstractWindow> = new Map();
+    #window_id_counter = 1;
+    readonly #window_map: Map<number, AbstractWindow> = new Map();
 
-    private readonly _WindowClass: new (owner_pid: number) => AbstractWindow;
+    readonly #WindowClass: new (owner_pid: number) => AbstractWindow;
 
     get_unique_manager_type_name(): string {
         return "DOM";
     }
 
     get Window() {
-        return this._WindowClass;
+        return this.#WindowClass;
     }
 
     get_all_windows = () => {
-        return Array.from(this._window_map.values());
+        return Array.from(this.#window_map.values());
     }
 
     get_window_by_id = (id: number) => {
-        return this._window_map.get(id) || null;
+        return this.#window_map.get(id) || null;
     }
 
     dispose_all() {
-        for (const window of this._window_map.values()) {
+        for (const window of this.#window_map.values()) {
             window.dispose();
         }
 
-        this._window_map.clear();
+        this.#window_map.clear();
     }
 
     constructor() {
@@ -70,7 +70,7 @@ export class DOMWindowManager extends AbstractWindowManager {
             constructor(owner_pid: number) {
                 super(owner_pid);
 
-                this._window_id = manager._window_id_counter++;
+                this._window_id = manager.#window_id_counter++;
 
                 // contains the entire window
                 this._window_root = document.createElement("div");
@@ -80,7 +80,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_root.id = `window-${this._window_id}`;
                 document.body.appendChild(this._window_root);
 
-                this._window_root.style.zIndex = manager.top_z_index.toString();
+                this._window_root.style.zIndex = manager.#top_z_index.toString();
                 this._window_root.addEventListener("mousedown", () => this.focus(), { capture: true });
                 window.addEventListener("blur", () => this._handle_window_blur());
 
@@ -142,7 +142,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 // TODO: resize handles
                 // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
 
-                manager._window_map.set(this._window_id, this);
+                manager.#window_map.set(this._window_id, this);
             }
 
             get id() {
@@ -151,7 +151,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             dispose() {
                 this._window_root.remove();
-                manager._window_map.delete(this._window_id);
+                manager.#window_map.delete(this._window_id);
             }
 
             close() {
@@ -168,8 +168,8 @@ export class DOMWindowManager extends AbstractWindowManager {
             focus() {
                 this._emit_event("focus");
 
-                manager.top_z_index += 1;
-                this._window_root.style.zIndex = manager.top_z_index.toString();
+                manager.#top_z_index += 1;
+                this._window_root.style.zIndex = manager.#top_z_index.toString();
             }
 
             private _handle_window_blur() {
@@ -445,6 +445,6 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
         }
 
-        this._WindowClass = DOMWindow;
+        this.#WindowClass = DOMWindow;
     }
 }

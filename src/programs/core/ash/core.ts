@@ -9,29 +9,29 @@ import {parse_line} from "./parser";
 const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
-    _kernel: Kernel;
-    _term: WrappedTerminal;
-    _memory = new AshMemory();
+    readonly #kernel: Kernel;
+    readonly #term: WrappedTerminal;
+    readonly #memory = new AshMemory();
 
-    _prompt_suffix = "$ ";
+    #prompt_suffix = "$ ";
 
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
     constructor(term: WrappedTerminal, kernel: Kernel) {
-        this._term = term;
-        this._kernel = kernel;
+        this.#term = term;
+        this.#kernel = kernel;
     }
 
     get memory(): AshMemory {
-        return this._memory;
+        return this.#memory;
     }
 
     // returns success flag (or error if critical)
     execute = async (line: string, edit_doc_title = true, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> => {
-        const kernel = this._kernel;
-        const term = this._term;
-        const memory = this._memory;
+        const kernel = this.#kernel;
+        const term = this.#term;
+        const memory = this.#memory;
 
         if (kernel.panicked) {
             return false;
@@ -103,7 +103,7 @@ export class AshShell implements AbstractShell {
                 console.warn(`Program ${command} did not return an exit code. Defaulting to -2.`)
             }
 
-            memory._current_history_index = 0;
+            memory.current_history_index = 0;
 
             if (edit_doc_title) {
                 document.title = old_title;
@@ -175,12 +175,12 @@ export class AshShell implements AbstractShell {
                 // set the exit code variable
                 memory.set_variable("?", exit_code.toString());
             } else {
-                this._term.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
+                this.#term.writeln(`${FG.gray}[${process.pid}] ${STYLE.italic}running in background${STYLE.reset_all}`);
 
                 completion.then((exit_code) => {
                     on_execute_completion(exit_code);
                 }).catch((e) => {
-                    this._term.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                    this.#term.writeln(`${PREFABS.error}An unhandled error occurred in background process [${process.pid}]: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
                     console.error(e);
 
                     on_execute_completion(-1);
@@ -198,7 +198,7 @@ export class AshShell implements AbstractShell {
     }
 
     async run_script(path: string) {
-        const fs = this._kernel.get_fs();
+        const fs = this.#kernel.get_fs();
 
         if (await fs.exists(path)) {
             // iter through the lines of the file and execute them
@@ -211,15 +211,15 @@ export class AshShell implements AbstractShell {
     }
 
     get_prompt_suffix(): string {
-        return this._prompt_suffix;
+        return this.#prompt_suffix;
     }
 
     set_prompt_suffix(suffix: string): void {
-        this._prompt_suffix = suffix;
+        this.#prompt_suffix = suffix;
     }
 
     get_prompt_string(): string {
-        const fs = this._kernel.get_fs();
+        const fs = this.#kernel.get_fs();
 
         let path = fs.get_cwd();
 
@@ -229,12 +229,12 @@ export class AshShell implements AbstractShell {
         }
 
         // build result e.g. ~$
-        return `${PREFABS.dir_name}${path}${STYLE.reset_all}${this._prompt_suffix}`;
+        return `${PREFABS.dir_name}${path}${STYLE.reset_all}${this.#prompt_suffix}`;
     }
 
     async insert_prompt(newline = true) {
-        const kernel = this._kernel;
-        const term = this._term;
+        const kernel = this.#kernel;
+        const term = this.#term;
 
         if (kernel.panicked) {
             return;

@@ -177,13 +177,13 @@ export const recurse_mount_and_register_with_output = async (fs: AbstractFileSys
 
 
 export class ProgramRegistry {
-    _program_regs: Map<string, ProgramRegistrant> = new Map();
+    readonly #program_regs: Map<string, ProgramRegistrant> = new Map();
 
 
     registerProgram(program_reg: ProgramRegistrant) {
         const program = program_reg.program;
 
-        if (this._program_regs.has(program.name)) {
+        if (this.#program_regs.has(program.name)) {
             throw new Error(`Program with name ${program.name} already exists.`);
         }
 
@@ -192,12 +192,12 @@ export class ProgramRegistry {
             return;
         }
 
-        this._program_regs.set(program.name, program_reg);
+        this.#program_regs.set(program.name, program_reg);
     }
 
 
     getProgramRegistrant(name: string): ProgramRegistrant | undefined {
-        return this._program_regs.get(name);
+        return this.#program_regs.get(name);
     }
 
     getProgram(name: string): Program | undefined {
@@ -211,7 +211,7 @@ export class ProgramRegistry {
 
 
     listProgramRegistrants(includes_builtin = true, includes_mounted = false): ProgramRegistrant[] {
-        const arr = Array.from(this._program_regs.values());
+        const arr = Array.from(this.#program_regs.values());
 
         if (includes_builtin && includes_mounted) {
             return arr;
@@ -227,7 +227,7 @@ export class ProgramRegistry {
     }
 
     listProgramNames(includes_builtin = true, includes_mounted = false): string[] {
-        const arr = Array.from(this._program_regs.keys());
+        const arr = Array.from(this.#program_regs.keys());
 
         if (includes_builtin && includes_mounted) {
             return arr;
@@ -248,11 +248,11 @@ export class ProgramRegistry {
 
 
     forceUnregister(name: string) {
-        this._program_regs.delete(name);
+        this.#program_regs.delete(name);
     }
 
     unregister(name: string) {
-        if (!this._program_regs.has(name)) {
+        if (!this.#program_regs.has(name)) {
             throw new Error(`Program with name ${name} does not exist.`);
         }
 

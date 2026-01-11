@@ -23,64 +23,66 @@ export interface SpawnResult {
 }
 
 export class Kernel {
-    _term: WrappedTerminal;
-    _process_manager: ProcessManager;
-    _prog_registry: ProgramRegistry;
-    _sfx_registry: SoundRegistry;
-    _fs: AbstractFileSystem;
-    _wm: AbstractWindowManager | null = null;
+    readonly #term: WrappedTerminal;
+    readonly #process_manager: ProcessManager;
+    readonly #prog_registry: ProgramRegistry;
+    readonly #sfx_registry: SoundRegistry;
+    readonly #fs: AbstractFileSystem;
+    readonly #wm: AbstractWindowManager | null = null;
 
-    _panicked = false;
+    #panicked = false;
 
-    _env_info = {
+    #env_info = {
         version: "unknown",
         env: "unknown"
-    }
+    };
 
     get panicked(): boolean {
-        return this._panicked;
+        return this.#panicked;
     }
 
     get_program_registry(): ProgramRegistry {
-        return this._prog_registry;
+        return this.#prog_registry;
     }
 
     get_sound_registry(): SoundRegistry {
-        return this._sfx_registry;
+        return this.#sfx_registry;
     }
 
     get_fs(): AbstractFileSystem {
-        return this._fs;
+        return this.#fs;
     }
 
     get_window_manager(): AbstractWindowManager | null {
-        return this._wm;
+        return this.#wm;
     }
 
     has_window_manager(): boolean {
-        return this._wm !== null;
+        return this.#wm !== null;
     }
 
     get_process_manager(): ProcessManager {
-        return this._process_manager;
+        return this.#process_manager;
     }
 
     get_ipc(): IPCManager {
-        return this._process_manager.ipc_manager;
+        return this.#process_manager.ipc_manager;
     }
 
     get_env_info(): {version: string, env: string} {
-        return this._env_info;
+        return this.#env_info;
     }
 
     set_env_info(version: string, env: string) {
-        this._env_info.version = version;
-        this._env_info.env = env;
+        this.#env_info.version = version;
+        this.#env_info.env = env;
     }
 
     spawn = (command: string, args: string[] = [], shell?: AbstractShell, original_line_parse?: LineParseResultCommand): SpawnResult => {
+        // TODO: harden arg handling against possible prototype pollution
+
         // search for the command in the registry
-        const program = this._prog_registry.getProgram(command);
+        const program = this.#prog_registry.getProgram(command);
         if (program === undefined) {
             throw new Error(`Command not found: ${command}`);
         }
@@ -109,12 +111,12 @@ export class Kernel {
         };
 
         // create new process context
-        const process = this._process_manager.create_process(parsed_line);
+        const process = this.#process_manager.create_process(parsed_line);
 
         // if the command is found, run it
         const data = {
             kernel: this,
-            term: this._term,
+            term: this.#term,
             args,
             shell,
             unsubbed_args: parsed_line.unsubbed_args,
@@ -139,11 +141,11 @@ export class Kernel {
     }
 
     panic(message: string, debug_info?: string) {
-        if (this._panicked) {
+        if (this.#panicked) {
             return;
         }
 
-        this._panicked = true;
+        this.#panicked = true;
 
         // print formatted panic to js console
         console.error(`%cPANIC: ${message}\n${debug_info || ""}`, "background: red; color: white; font-weight: bold;");
@@ -165,7 +167,7 @@ export class Kernel {
         process_info = process_info.trimEnd();
 
         proc_mgr.dispose_all();
-        this._term.handle_kernel_panic(message, process_info, debug_info);
+        this.#term.handle_kernel_panic(message, process_info, debug_info);
     }
 
     async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<boolean> {
@@ -176,7 +178,7 @@ export class Kernel {
         // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
         const usr_bin = fs.absolute("/usr/bin");
         if (await fs.exists(usr_bin)) {
-            await recurse_mount_and_register_with_output(fs, usr_bin, this.get_program_registry(), this._term);
+            await recurse_mount_and_register_with_output(fs, usr_bin, this.get_program_registry(), this.#term);
         }
 
         // read /boot/init to determine init system
@@ -239,11 +241,11 @@ export class Kernel {
     }
 
     constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager) {
-        this._term = term;
-        this._fs = fs;
-        this._prog_registry = prog_registry || new ProgramRegistry();
-        this._sfx_registry = sound_registry || new SoundRegistry();
-        this._wm = wm || null;
-        this._process_manager = new ProcessManager(this._wm);
+        this.#term = term;
+        this.#fs = fs;
+        this.#prog_registry = prog_registry || new ProgramRegistry();
+        this.#sfx_registry = sound_registry || new SoundRegistry();
+        this.#wm = wm || null;
+        this.#process_manager = new ProcessManager(this.#wm);
     }
 }

@@ -29,67 +29,67 @@ interface IPCService {
 }
 
 export class IPCManager {
-    private readonly _process_manager: ProcessManager;
+    readonly #process_manager: ProcessManager;
 
     // service name -> IPCService
-    private readonly _services: Map<string, IPCService> = new Map();
+    readonly #services: Map<string, IPCService> = new Map();
 
     // channel id -> IPCChannel
-    private readonly _channels: Map<number, IPCChannel> = new Map();
-    private _next_channel_id = 1;
+    readonly #channels: Map<number, IPCChannel> = new Map();
+    #next_channel_id = 1;
 
     constructor(process_manager: ProcessManager) {
-        this._process_manager = process_manager;
+        this.#process_manager = process_manager;
 
         // clean up dead services and channels periodically
         // TODO: add a global exit listener to process manager to be immediately notified of process exits
         setInterval(() => {
             // clean up services
-            for (const [name, service] of this._services) {
-                const process = this._process_manager.get_process(service.pid);
+            for (const [name, service] of this.#services) {
+                const process = this.#process_manager.get_process(service.pid);
                 if (!process) {
-                    this._services.delete(name);
+                    this.#services.delete(name);
                 }
             }
 
             // clean up channels
-            for (const [channel_id, channel] of this._channels) {
-                const initiator_process = this._process_manager.get_process(channel.initiator);
-                const peer_process = this._process_manager.get_process(channel.peer);
+            for (const [channel_id, channel] of this.#channels) {
+                const initiator_process = this.#process_manager.get_process(channel.initiator);
+                const peer_process = this.#process_manager.get_process(channel.peer);
 
                 if (!initiator_process || !peer_process) {
-                    this._channels.delete(channel_id);
+                    this.#channels.delete(channel_id);
                 }
             }
         }, 10000);
     }
 
     dispose_all(): void {
-        this._services.clear();
-        this._channels.clear();
+        this.#services.clear();
+        this.#channels.clear();
     }
 
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void {
-        this._services.set(name, { pid, on_connection });
+        this.#services.set(name, { pid, on_connection });
     }
 
     // TODO: disconnect callback? or change the on_connection to on_event with different event types
 
     service_unregister(name: string): void {
-        this._services.delete(name);
+        this.#services.delete(name);
     }
 
     service_lookup(name: string): number | undefined {
-        const service = this._services.get(name);
+        const service = this.#services.get(name);
 
         if (!service) {
             return undefined;
         }
 
         // check if process is still running
-        const process = this._process_manager.get_process(service.pid);
+        const process = this.#process_manager.get_process(service.pid);
         if (!process) {
-            this._services.delete(name);
+            this.#services.delete(name);
             return undefined;
         }
 
@@ -97,14 +97,14 @@ export class IPCManager {
     }
 
     create_channel(initiator_pid: number, service_name: string): number | null {
-        const channel_id = this._next_channel_id++;
+        const channel_id = this.#next_channel_id++;
         const peer_pid = this.service_lookup(service_name);
 
         if (!peer_pid) {
             return null;
         }
 
-        this._channels.set(channel_id, {
+        this.#channels.set(channel_id, {
             initiator: initiator_pid,
             peer: peer_pid,
 
@@ -115,7 +115,7 @@ export class IPCManager {
         });
 
         // notify service of new connection without blocking
-        const service = this._services.get(service_name)!;
+        const service = this.#services.get(service_name)!;
         service.on_connection(channel_id, initiator_pid).catch((err) => {
             console.error("IPC service on_connection error:", err);
         });
@@ -124,11 +124,11 @@ export class IPCManager {
     }
 
     destroy_channel(channel_id: number): void {
-        this._channels.delete(channel_id);
+        this.#channels.delete(channel_id);
     }
 
     channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
-        const channel = this._channels.get(channel_id);
+        const channel = this.#channels.get(channel_id);
         if (!channel) {
             return false;
         }
@@ -146,7 +146,7 @@ export class IPCManager {
     }
 
     channel_unlisten(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
-        const channel = this._channels.get(channel_id);
+        const channel = this.#channels.get(channel_id);
         if (!channel) {
             return false;
         }
@@ -165,7 +165,7 @@ export class IPCManager {
     }
 
     channel_send(channel_id: number, from_pid: number, data: unknown): boolean {
-        const channel = this._channels.get(channel_id);
+        const channel = this.#channels.get(channel_id);
         if (!channel) {
             return false;
         }

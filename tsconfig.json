@@ -5,8 +5,8 @@
     "noEmitOnError": true,
     "removeComments": false,
     "sourceMap": true,
-    "target": "es2019",
-    "module": "ES2020",
+    "target": "esnext",
+    "module": "esnext",
     "outDir": "public/script",
     "typeRoots": [
       "./declarations",

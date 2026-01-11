@@ -52,19 +52,19 @@ interface ServiceStatusRunning extends ServiceStatusBase {
 export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
 
 export class ServiceManager {
-    private readonly _kernel: Kernel;
+    readonly #kernel: Kernel;
 
-    private readonly _service_files: Map<string, ServiceFileWithId> = new Map();
-    private readonly _running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
-    private readonly _should_be_running_services: Set<string> = new Set();
-    private readonly _failed_services: Set<string> = new Set();
+    readonly #service_files: Map<string, ServiceFileWithId> = new Map();
+    readonly #running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
+    readonly #should_be_running_services: Set<string> = new Set();
+    readonly #failed_services: Set<string> = new Set();
 
     constructor(kernel: Kernel) {
-        this._kernel = kernel;
+        this.#kernel = kernel;
     }
 
     async load_service_files() {
-        const fs = this._kernel.get_fs();
+        const fs = this.#kernel.get_fs();
 
         if (!await fs.exists(SERVICES_DIR)) {
             console.warn(`Services directory ${SERVICES_DIR} does not exist. Skipping service loading.`);
@@ -91,7 +91,7 @@ export class ServiceManager {
                     };
 
                     // add or update service file
-                    this._service_files.set(service_id, service);
+                    this.#service_files.set(service_id, service);
                 } catch (e) {
                     console.error(`Failed to parse service file ${file_name}:`, e);
                 }
@@ -99,9 +99,9 @@ export class ServiceManager {
         }
 
         // remove any services that no longer exist
-        for (const existing_service_id of this._service_files.keys()) {
+        for (const existing_service_id of this.#service_files.keys()) {
             if (!service_files.includes(existing_service_id + ".service.json")) {
-                this._service_files.delete(existing_service_id);
+                this.#service_files.delete(existing_service_id);
             }
         }
     }
@@ -121,7 +121,7 @@ export class ServiceManager {
 
             temp_mark.add(service_id);
 
-            const service = this._service_files.get(service_id);
+            const service = this.#service_files.get(service_id);
             if (service && service.dependencies) {
                 for (const dep of service.dependencies) {
                     visit(dep);
@@ -133,7 +133,7 @@ export class ServiceManager {
             result.push(service_id);
         };
 
-        for (const service_id of this._service_files.keys()) {
+        for (const service_id of this.#service_files.keys()) {
             visit(service_id);
         }
 
@@ -150,30 +150,30 @@ export class ServiceManager {
     start_service(service_id: string) {
         // TODO: check dependencies are running
 
-        if (this._running_services.has(service_id)) {
+        if (this.#running_services.has(service_id)) {
             console.warn(`Service ${service_id} is already running.`);
             return;
         }
 
-        const service = this._service_files.get(service_id);
+        const service = this.#service_files.get(service_id);
         if (!service) {
             console.error(`Service ${service_id} not found.`);
             return;
         }
 
         // mark service as should be running, so exit handlers know to restart it
-        this._should_be_running_services.add(service_id);
+        this.#should_be_running_services.add(service_id);
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this._kernel.spawn(service.exec, service.args || []);
+            spawn_result = this.#kernel.spawn(service.exec, service.args || []);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
             return;
         }
 
-        this._running_services.set(service_id, spawn_result);
-        this._failed_services.delete(service_id);
+        this.#running_services.set(service_id, spawn_result);
+        this.#failed_services.delete(service_id);
 
         const { process, completion } = spawn_result;
 
@@ -183,25 +183,25 @@ export class ServiceManager {
         // check for errors
         completion.catch((e) => {
             console.error(`Service ${service_id} encountered an error:`, e);
-            this._running_services.delete(service_id);
-            this._failed_services.add(service_id);
+            this.#running_services.delete(service_id);
+            this.#failed_services.add(service_id);
             this._handle_service_exit(service_id, -1);
         });
 
         // handle normal exit
         process.add_exit_listener((exit_code) => {
-            this._running_services.delete(service_id);
+            this.#running_services.delete(service_id);
             this._handle_service_exit(service_id, exit_code);
         });
     }
 
     stop_service(service_id: string) {
-        if (!this._running_services.has(service_id)) {
+        if (!this.#running_services.has(service_id)) {
             console.warn(`Service ${service_id} is not running.`);
             return;
         }
 
-        const spawn_result = this._running_services.get(service_id);
+        const spawn_result = this.#running_services.get(service_id);
         if (!spawn_result) {
             console.error(`Service ${service_id} spawn result not found.`);
             return;
@@ -210,7 +210,7 @@ export class ServiceManager {
         const { process } = spawn_result;
 
         // mark service as should not be running
-        this._should_be_running_services.delete(service_id);
+        this.#should_be_running_services.delete(service_id);
 
         // send SIGTERM
         process.kill(143);
@@ -224,12 +224,12 @@ export class ServiceManager {
     }
 
     get_service_status(service_id: string): ServiceStatus | null {
-        if (!this._service_files.has(service_id)) {
+        if (!this.#service_files.has(service_id)) {
             return null;
         }
 
-        if (this._running_services.has(service_id)) {
-            const spawn_result = this._running_services.get(service_id);
+        if (this.#running_services.has(service_id)) {
+            const spawn_result = this.#running_services.get(service_id);
             if (spawn_result) {
                 return {
                     state: "running",
@@ -237,7 +237,7 @@ export class ServiceManager {
                 };
             }
         } else {
-            if (this._failed_services.has(service_id)) {
+            if (this.#failed_services.has(service_id)) {
                 return {
                     state: "failed"
                 };
@@ -252,11 +252,11 @@ export class ServiceManager {
     private _handle_service_exit(service_id: string, exit_code: number) {
         console.warn(`Service ${service_id} exited with code ${exit_code}.`);
 
-        if (!this._should_be_running_services.has(service_id)) {
+        if (!this.#should_be_running_services.has(service_id)) {
             return;
         }
 
-        const service = this._service_files.get(service_id);
+        const service = this.#service_files.get(service_id);
         if (!service) {
             return;
         }
