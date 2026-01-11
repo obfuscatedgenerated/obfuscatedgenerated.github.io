@@ -176,6 +176,8 @@ export const recurse_mount_and_register_with_output = async (fs: AbstractFileSys
 // TODO: these 2 methods are a bit messy! perhaps remove the output stuff and just have the user deal with it
 
 
+// TODO: behavioural userspace proxy to prevent unregistering built-in programs?
+
 export class ProgramRegistry {
     readonly #program_regs: Map<string, ProgramRegistrant> = new Map();
 
