@@ -3,4 +3,7 @@
   "entryPoints": ["src/api_docs/index.ts"],
   "sort": ["required-first"],
   "readme": "src/api_docs/README.md",
+  "headings": {
+    "readme": false
+  }
 }
