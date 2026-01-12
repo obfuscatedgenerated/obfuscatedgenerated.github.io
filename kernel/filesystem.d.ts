@@ -4,6 +4,9 @@ export declare class PathNotFoundError extends Error {
 export declare class NonRecursiveDirectoryError extends Error {
     constructor(path: string);
 }
+export declare class MoveDestinationDirectoryNotEmptyError extends Error {
+    constructor(path: string);
+}
 export declare class ReadOnlyError extends Error {
     constructor(path: string);
 }
@@ -38,7 +41,7 @@ export interface UserspaceFileSystem {
     list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
     make_dir(path: string): Promise<void>;
     delete_dir(path: string, recursive?: boolean): Promise<void>;
-    move_dir(src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean): Promise<void>;
+    move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
     set_readonly(path: string, readonly: boolean): Promise<void>;
     is_readonly(path: string): Promise<boolean>;
     exists(path: string): Promise<boolean>;
@@ -80,9 +83,9 @@ export declare abstract class AbstractFileSystem {
     abstract list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
     abstract make_dir(path: string): Promise<void>;
     abstract delete_dir_direct(path: string, recursive: boolean): Promise<void>;
-    abstract move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): Promise<void>;
+    abstract move_dir_direct(src: string, dest: string, force_move_inside: boolean): Promise<void>;
     delete_dir(path: string, recursive?: boolean): Promise<void>;
-    move_dir(src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean): Promise<void>;
+    move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
     get_cwd(): string;
     set_cwd(path: string): void;
     get_home(): string;
