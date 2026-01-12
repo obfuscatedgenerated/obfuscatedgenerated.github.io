@@ -1,5 +1,4 @@
 import { ITerminalOptions, Terminal } from "@xterm/xterm";
-import type { KeyEvent, KeyEventHandler } from "../types";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -61,6 +60,15 @@ export declare const ANSI: {
         secret: string;
     };
 };
+export interface KeyEvent {
+    key: string;
+    domEvent: KeyboardEvent;
+}
+export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void | Promise<void>;
+export interface RegisteredKeyEventIdentifier {
+    key?: string;
+    domEventCode?: string;
+}
 export interface ReadLineBuffer {
     current_line: string;
     current_index: number;
