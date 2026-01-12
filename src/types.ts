@@ -69,8 +69,6 @@ export interface Program<K = UserspaceKernel> {
 
 export type PrivilegedProgram = Program<Kernel>;
 
-// TODO: move some of these to their correct modules
-
 export interface CompletionData {
     term: WrappedTerminal,
     kernel: UserspaceKernel,
@@ -85,19 +83,3 @@ export interface CompletionData {
 
 // return null to fall back to default completion behavior (file paths)
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
-
-export interface ProgramRegistrant {
-    program: Program<unknown>,
-    built_in: boolean,
-}
-
-export interface KeyEvent {
-    key: string;
-    domEvent: KeyboardEvent;
-}
-
-export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void | Promise<void>;
-export interface RegisteredKeyEventIdentifier {
-    key?: string;
-    domEventCode?: string;
-}

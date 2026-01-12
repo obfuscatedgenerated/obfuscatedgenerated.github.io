@@ -1,4 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/api_docs/index.ts"]
+  "entryPoints": ["src/api_docs/index.ts"],
+  "sort": ["required-first"],
+  "readme": "src/api_docs/README.md",
 }

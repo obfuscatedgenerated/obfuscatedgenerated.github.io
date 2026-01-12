@@ -1,5 +1,6 @@
 /**
- * @module Types
+ * @module Program Types
+ * @description Type interfaces for the definition of program files.
  */
 
 export type {
@@ -9,7 +10,7 @@ export type {
     ArgDescriptions,
     CompletionGenerator,
     CompletionData,
-    ProgramRegistrant,
-    KeyEvent,
-    KeyEventHandler
+    PrivilegedProgram,
+    PrivilegedProgramMain,
+    PrivilegedProgramMainData
 } from "../types";

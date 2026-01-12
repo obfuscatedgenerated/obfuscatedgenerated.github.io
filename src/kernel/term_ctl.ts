@@ -1,5 +1,4 @@
 import {IDisposable, ITerminalOptions, Terminal} from "@xterm/xterm";
-import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "../types";
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */
@@ -81,6 +80,18 @@ export const ANSI = {
 
 
 // TODO: docstrings everywhere
+
+export interface KeyEvent {
+    key: string;
+    domEvent: KeyboardEvent;
+}
+
+export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void | Promise<void>;
+
+export interface RegisteredKeyEventIdentifier {
+    key?: string;
+    domEventCode?: string;
+}
 
 export interface ReadLineBuffer {
     current_line: string;

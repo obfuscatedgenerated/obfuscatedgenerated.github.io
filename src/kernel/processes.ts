@@ -283,7 +283,7 @@ export class IPCManager {
 
 // TODO: could migrate the stuff where programs grab "scary" stuff like WindowManager and ProcessManager to be services
 
-enum ProcessAttachment {
+export enum ProcessAttachment {
     FOREGROUND,
     BACKGROUND,
     DETACHED,

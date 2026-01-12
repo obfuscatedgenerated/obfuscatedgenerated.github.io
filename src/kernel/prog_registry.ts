@@ -1,10 +1,15 @@
-import type { Program, ProgramRegistrant } from "../types";
-import type { AbstractFileSystem } from "./filesystem";
-import { ANSI, WrappedTerminal } from "./term_ctl";
+import type {Program} from "../types";
+import type {AbstractFileSystem} from "./filesystem";
+import {ANSI, WrappedTerminal} from "./term_ctl";
 
 const encode_js_to_url = (js_code: string): string => {
     const encoded = encodeURIComponent(js_code);
     return `data:text/javascript;charset=utf-8,${encoded}`;
+}
+
+export interface ProgramRegistrant {
+    program: Program<unknown>,
+    built_in: boolean,
 }
 
 export const build_registrant_from_js = async (js_code: string, built_in = false): Promise<ProgramRegistrant> => {

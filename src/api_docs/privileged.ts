@@ -5,6 +5,6 @@
 
 export type { Kernel } from "../kernel";
 export type { AbstractFileSystem } from "../kernel/filesystem";
-export type { ProcessManager, IPCManager, ProcessContext } from "../kernel/processes";
+export type { ProcessManager, ProcessContext, IPCManager } from "../kernel/processes";
 export type { ProgramRegistry } from "../kernel/prog_registry";
 export type { AbstractWindow, AbstractWindowManager } from "../kernel/windowing";
