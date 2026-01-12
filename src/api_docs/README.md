@@ -4,6 +4,8 @@ Welcome to the OllieOS Program API documentation.
 
 This document provides an overview of the APIs available to your program and their usage.
 
+The APIs and context are exposed to the program by passing a [data object](./interfaces/Program_Types.ProgramMainData.html) to the program's `main` function.
+
 ## Categories
 
 ### [Userspace API](./modules/Userspace.html)
