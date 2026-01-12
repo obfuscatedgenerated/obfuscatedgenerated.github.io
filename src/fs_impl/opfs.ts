@@ -1,4 +1,9 @@
-import {AbstractFileSystem, NonRecursiveDirectoryError, PathNotFoundError} from "../kernel/filesystem";
+import {
+    AbstractFileSystem,
+    MoveDestinationDirectoryNotEmptyError,
+    NonRecursiveDirectoryError,
+    PathNotFoundError
+} from "../kernel/filesystem";
 
 export class OPFSFileSystem extends AbstractFileSystem {
     private _opfs_handle: FileSystemDirectoryHandle | null = null;
@@ -163,9 +168,126 @@ export class OPFSFileSystem extends AbstractFileSystem {
         localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));
     }
 
-    async move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean) {
-        // TODO: implement
-        return Promise.resolve(undefined);
+    async move_dir_direct(src: string, dest: string, force_move_inside: boolean) {
+        const root = this.get_root_handle();
+
+        // using unix style rules, i.e
+        // mv dir1 dir2 ->
+        // (if dir2 exists or force_move_inside) move dir1 into dir2
+        // (if dir2 doesn't exist) rename dir1 to dir2
+        // fail if dir2 exists and dir2/dir1 already exists
+
+        const src_parts = src.split("/").filter(part => part.length > 0);
+        const dest_parts = dest.split("/").filter(part => part.length > 0);
+
+        const src_basename = src_parts[src_parts.length - 1];
+        const dest_basename = dest_parts[dest_parts.length - 1];
+
+        // get handle for source's parent and source directory
+        let src_parent_handle = root;
+        for (let i = 0; i < src_parts.length - 1; i++) {
+            try {
+                src_parent_handle = await src_parent_handle.getDirectoryHandle(src_parts[i]);
+            } catch (err) {
+                if (err instanceof DOMException && err.name === "NotFoundError") {
+                    throw new PathNotFoundError(src);
+                }
+                throw err;
+            }
+        }
+
+        let src_handle: FileSystemDirectoryHandle;
+        try {
+            src_handle = await src_parent_handle.getDirectoryHandle(src_basename);
+        } catch (err) {
+            if (err instanceof DOMException && err.name === "NotFoundError") {
+                throw new PathNotFoundError(src);
+            }
+            throw err;
+        }
+
+        // get handle for destination's parent and try to get destination directory (but not an error yet if it doesn't exist)
+        let dest_parent_handle = root;
+        for (let i = 0; i < dest_parts.length - 1; i++) {
+            try {
+                dest_parent_handle = await dest_parent_handle.getDirectoryHandle(dest_parts[i]);
+            } catch (err) {
+                if (err instanceof DOMException && err.name === "NotFoundError") {
+                    throw new PathNotFoundError(dest);
+                }
+                throw err;
+            }
+        }
+
+        let dest_handle: FileSystemDirectoryHandle | null = null;
+        try {
+            dest_handle = await dest_parent_handle.getDirectoryHandle(dest_basename);
+        } catch (err) {
+            if (err instanceof DOMException && err.name !== "NotFoundError") {
+                throw err;
+            }
+        }
+
+        // apply the rules to determine final destination
+        let final_dest_parent_handle: FileSystemDirectoryHandle;
+        let final_dest_name: string;
+
+        if (dest_handle || force_move_inside) {
+            // if destination already exists or force_move_inside is true, move source inside destination
+
+            if (!dest_handle) {
+                throw new PathNotFoundError(dest);
+            }
+
+            final_dest_parent_handle = dest_handle;
+            final_dest_name = src_basename;
+        } else {
+            // rename source to destination
+
+            final_dest_parent_handle = dest_parent_handle;
+            final_dest_name = dest_basename;
+        }
+
+        // ensure destination is empty
+        try {
+            await final_dest_parent_handle.getDirectoryHandle(final_dest_name);
+            throw new MoveDestinationDirectoryNotEmptyError(dest);
+        } catch (err) {
+            if (err instanceof DOMException && err.name !== "NotFoundError") {
+                throw err;
+            }
+        }
+
+        // perform move, first check if the browser supports handle.move, and if not recursively copy and delete
+        if ("move" in src_handle) {
+            // @ts-ignore - not part of spec yet
+            await src_handle.move(final_dest_parent_handle, final_dest_name);
+        } else {
+            // copy recursively
+            const new_dest_handle = await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true });
+            await this.#copy_directory_recursive(src_handle, new_dest_handle);
+
+            // delete source directory
+            await src_parent_handle.removeEntry(src_basename, { recursive: true });
+        }
+    }
+
+    async #copy_directory_recursive(src_handle: FileSystemDirectoryHandle, dest_handle: FileSystemDirectoryHandle) {
+        for await (const [name, handle] of src_handle.entries()) {
+            if (handle.kind === "file") {
+                const file_handle = await src_handle.getFileHandle(name);
+                const file = await file_handle.getFile();
+                const array_buffer = await file.arrayBuffer();
+                const dest_file_handle = await dest_handle.getFileHandle(name, { create: true });
+                const writable = await dest_file_handle.createWritable();
+                await writable.write(array_buffer);
+                await writable.close();
+            } else if (handle.kind === "directory") {
+                const src_subdir_handle = await src_handle.getDirectoryHandle(name);
+                const dest_subdir_handle = await dest_handle.getDirectoryHandle(name, { create: true });
+                await this.#copy_directory_recursive(src_subdir_handle, dest_subdir_handle);
+            }
+        }
     }
 
     async read_file_direct(path: string, as_uint: boolean) {

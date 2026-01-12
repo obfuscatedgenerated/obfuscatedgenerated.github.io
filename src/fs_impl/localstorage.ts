@@ -77,94 +77,107 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
     }
 
-    async move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+    async move_dir_direct(src: string, dest: string, move_inside: boolean) {
+        // (yes, this was ai generated, i just wanted to bring this very outdated fs_impl up to par with opfs. although its idea to make a helper was good, i should have done that years ago)
 
-        // using unix style rules, i.e
-        
-        // mv dir1 dir2 -> rename dir1 to dir2, or move dir1 into dir2 if dir2 already exists (THIS IS WHEN MOVE_INSIDE IS FALSE)
-        // overwrite any files in the destination directory if they exist in the source directory if no_overwrite is false
-        // and of course move across any files from the source directory to the destination directory and leave any only in the destination directory alone
-        
-        // mv dir1 dir2/ -> move dir1 into dir2 (dir2 must exist, dir1 must not exist in dir2) (THIS IS WHEN MOVE_INSIDE IS TRUE, THERE WILL NOT BE A TRAILING / IN THE DESTINATION PATH)
+        const state = JSON.parse(localStorage.getItem("fs") || "{}");
 
-        // split path into parts, if root, use single empty string to avoid doubling
-        const src_parts = src === this._root ? [""] : src.split("/");
-        const dest_parts = dest.split("/");
+        // Helper to traverse to a path and return the parent and the target key
+        // This allows us to modify the parent (delete/assign) later
+        const get_node = (path: string) => {
+            const parts = path.split("/").filter(p => p.length > 0);
+            const basename = parts[parts.length - 1];
+            let current = state;
 
-        // get directory for each part inside the previous one
-        let current_dir = state;
-        let current_dir_parent = null;
-        for (const part of src_parts) {
-            if (!current_dir[part]) {
-                throw new PathNotFoundError(src);
-            }
-            current_dir_parent = current_dir;
-            current_dir = current_dir[part];
-        }
-
-        // check if source is a directory
-        if (typeof current_dir !== "object") {
-            throw new PathNotFoundError(src);
-        }
-
-        // get directory for each part inside the previous one
-        let dest_current_dir = state;
-        //let dest_current_dir_parent = null;
-        for (const part of dest_parts) {
-            if (!dest_current_dir[part]) {
-                // if this is the last part, create the directory, otherwise throw an error
-                // TODO: is this correct? it acts correct, but is it too lax?
-                if (part === dest_parts[dest_parts.length - 1]) {
-                    dest_current_dir[part] = {};
-                } else {
-                    throw new PathNotFoundError(dest);
+            // Traverse to parent
+            for (let i = 0; i < parts.length - 1; i++) {
+                const part = parts[i];
+                if (!current[part] || typeof current[part] !== "object") {
+                    throw new Error(`Path not found: ${path}`); // Simulates Linux "No such file or directory"
                 }
-            }
-            //dest_current_dir_parent = dest_current_dir;
-            dest_current_dir = dest_current_dir[part];
-        }
-
-        // check if destination is a directory
-        if (typeof dest_current_dir !== "object") {
-            throw new PathNotFoundError(dest);
-        }
-
-        // if we have equivalent paths, do nothing (so we don't accidentally delete the directory when calling delete after move)
-        if (src === dest) {
-            console.warn("source and destination are the same");
-            return;
-        }
-
-        // TODO: significant fixes required! moving directories is just a mess
-        // TODO: need to consolidate exactly when we should be merging directories. its not exactly clear and chatgpt contradicts itself when asking for a formal definition!
-
-        if (move_inside) {
-            // if moving inside, check that the directory named the same as the source does not exist in the destination
-            if (dest_current_dir[src_parts[src_parts.length - 1]]) {
-                throw new Error(`Directory already exists in destination: ${dest}`);
+                current = current[part];
             }
 
-            // move directory inside destination
-            dest_current_dir[src_parts[src_parts.length - 1]] = current_dir;
+            return { parent: current, basename: basename, value: current[basename] };
+        };
 
-            // delete source directory
-            delete current_dir_parent[src_parts[src_parts.length - 1]];
+        // 1. Resolve Source
+        // We need the parent so we can 'delete' the entry later
+        const src_node = get_node(src);
+        if (!src_node.value) throw new PathNotFoundError(src);
+        if (typeof src_node.value !== "object") throw new PathNotFoundError(src);
+
+        // 2. Resolve Destination Parent
+        // Unlike your original code, we do NOT auto-create the destination path.
+        // Linux 'mv' fails if you try to move to 'a/b/c' and 'a/b' doesn't exist.
+        const dest_parts = dest.split("/").filter(p => p.length > 0);
+        const dest_basename = dest_parts[dest_parts.length - 1];
+
+        // Check if the generic destination path exists (e.g. is 'dest' already there?)
+        let dest_exists = false;
+        let dest_is_dir = false;
+        let dest_parent_obj = state; // Default to root
+
+        // Traverse to the parent of the destination
+        for (let i = 0; i < dest_parts.length - 1; i++) {
+            const part = dest_parts[i];
+            if (!dest_parent_obj[part] || typeof dest_parent_obj[part] !== "object") {
+                throw new Error(`Destination parent path not found: ${dest}`);
+            }
+            dest_parent_obj = dest_parent_obj[part];
+        }
+
+        // Check the actual destination node
+        if (dest_parent_obj[dest_basename]) {
+            dest_exists = true;
+            dest_is_dir = typeof dest_parent_obj[dest_basename] === "object";
+        }
+
+        // 3. Apply Logic (Rename vs Move Into)
+        let final_parent;
+        let final_name;
+
+        if (move_inside || (dest_exists && dest_is_dir)) {
+            // RULE: Move 'src' INTO 'dest'
+
+            if (!dest_exists) {
+                // "mv dir1 dir2/" but dir2 missing -> Error
+                throw new Error(`Destination directory not found: ${dest}`);
+            }
+
+            // Our new parent is the destination folder itself
+            final_parent = dest_parent_obj[dest_basename];
+            final_name = src_node.basename; // Keep original name
         } else {
-            // not moving inside, so merge files and directories from source into destination
-            for (const key of Object.keys(current_dir)) {
-                if (dest_current_dir[key] && no_overwrite) {
-                    throw new Error(`File or directory already exists in destination: ${dest}`);
-                }
+            // RULE: Rename 'src' TO 'dest'
 
-                dest_current_dir[key] = current_dir[key];
+            if (dest_exists && !dest_is_dir) {
+                // Trying to overwrite a file with a directory -> Error
+                throw new Error(`Cannot overwrite non-directory '${dest}' with directory.`);
             }
 
-            // delete source directory
-            delete current_dir_parent[src_parts[src_parts.length - 1]];
+            // Our new parent is the destination's parent
+            final_parent = dest_parent_obj;
+            final_name = dest_basename; // New name
         }
 
-        // save state
+        // 4. Collision Check (Strict Linux: No Merging)
+        if (final_parent[final_name]) {
+            // In Linux, 'mv' fails if the target directory is not empty.
+            // Since we are moving a directory, we strictly fail here.
+            throw new Error(`Directory not empty: ${final_name} already exists in destination.`);
+        }
+
+        // 5. Execute Move (Atomic Reference Change)
+        // This is the beauty of LocalStorage/JSON: No recursive copy needed.
+        // Just point the new key to the old object.
+
+        final_parent[final_name] = src_node.value;
+
+        // 6. Delete Source
+        delete src_node.parent[src_node.basename];
+
+        // 7. Save State
         localStorage.setItem("fs", JSON.stringify(state));
     }
 

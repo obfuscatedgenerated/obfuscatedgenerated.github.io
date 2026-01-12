@@ -10,6 +10,12 @@ export class NonRecursiveDirectoryError extends Error {
     }
 }
 
+export class MoveDestinationDirectoryNotEmptyError extends Error {
+    constructor(path: string) {
+        super(`Destination directory is not empty: ${path}`);
+    }
+}
+
 export class ReadOnlyError extends Error {
     constructor(path: string) {
         super(`Path is read-only: ${path}`);
@@ -54,7 +60,7 @@ export interface UserspaceFileSystem {
     list_dir(path: string, dirs_first?: boolean): Promise<string[]>;
     make_dir(path: string): Promise<void>;
     delete_dir(path: string, recursive?: boolean): Promise<void>;
-    move_dir(src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean): Promise<void>;
+    move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
     set_readonly(path: string, readonly: boolean): Promise<void>;
     is_readonly(path: string): Promise<boolean>;
     exists(path: string): Promise<boolean>;
@@ -252,7 +258,7 @@ export abstract class AbstractFileSystem {
     // (recursive)
     abstract make_dir(path: string): Promise<void>;
     abstract delete_dir_direct(path: string, recursive: boolean): Promise<void>;
-    abstract move_dir_direct(src: string, dest: string, no_overwrite: boolean, move_inside: boolean): Promise<void>;
+    abstract move_dir_direct(src: string, dest: string, force_move_inside: boolean): Promise<void>;
 
     async delete_dir(path: string, recursive = false): Promise<void> {
         await this.delete_dir_direct(path, recursive);
@@ -261,8 +267,8 @@ export abstract class AbstractFileSystem {
         this.purge_cache(true);
     }
 
-    async move_dir(src: string, dest: string, no_overwrite = false, move_inside = false): Promise<void> {
-        await this.move_dir_direct(src, dest, no_overwrite, move_inside);
+    async move_dir(src: string, dest: string, force_move_inside = false): Promise<void> {
+        await this.move_dir_direct(src, dest, force_move_inside);
 
         // smart purge cache
         this.purge_cache(true);
@@ -509,8 +515,8 @@ export abstract class AbstractFileSystem {
                 enumerable: true
             },
             move_dir: {
-                value: (src: string, dest: string, no_overwrite?: boolean, move_inside?: boolean) => {
-                    return self.move_dir(check_path(src), check_path(dest), no_overwrite, move_inside);
+                value: (src: string, dest: string, move_inside?: boolean) => {
+                    return self.move_dir(check_path(src), check_path(dest), move_inside);
                 },
                 enumerable: true
             },

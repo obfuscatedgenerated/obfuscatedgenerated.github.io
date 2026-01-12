@@ -18,7 +18,7 @@ export default {
         const { kernel, args, term } = data;
 
         // extract from ANSI to make code less verbose
-        const { PREFABS, STYLE, FG } = ANSI;
+        const { PREFABS, STYLE } = ANSI;
 
         // get fs
         const fs = kernel.get_fs();
@@ -36,7 +36,9 @@ export default {
 
         // get source and destination
         const source = fs.absolute(args[0]);
-        let destination = fs.absolute(args[1]);
+        const raw_destination = args[1];
+        const ended_with_slash = raw_destination.endsWith("/");
+        let destination = fs.absolute(raw_destination);
 
         // check if source exists
         if (!(await fs.exists(source))) {
@@ -44,14 +46,14 @@ export default {
             return 1;
         }
 
-        const ended_with_slash = destination.endsWith("/");
         const dest_is_dir = await fs.dir_exists(destination);
 
-        // if destination is a directory and ending with a slash, append the basename of source to destination
-        if (dest_is_dir && ended_with_slash) {
-            const basename = source.split("/").pop() as string;
-            destination = fs.join(destination, basename);
-        }
+        // now handled by move_dir implementation
+        // // if destination is a directory and ending with a slash, append the basename of source to destination
+        // if (dest_is_dir && ended_with_slash) {
+        //     const basename = source.split("/").pop() as string;
+        //     destination = fs.join(destination, basename);
+        // }
 
         // check if destination exists if -n is passed OR we are moving a FILE (not a directory) into a DIRECTORY ending specifically with /
         // TODO: there must be a way to adjust logic of the fs functions to make this check unnecessary or simpler. oh well.
@@ -64,13 +66,13 @@ export default {
         // move source to destination
         // TODO: abstractfilesystem should have a file_exists function so we don't have to check if it's a directory first
         if (await fs.dir_exists(source)) {
-            // temporary warning
-            term.writeln(`${FG.yellow + STYLE.bold}Warning: Moving directories is not fully supported yet. Some features may not work as expected! The operation will be performed anyway.${STYLE.reset_all}`);
-
-            // move inside if ended with slash OR the destination is a directory that already exists
-            // TODO: is this correct???? maybe???
-            const move_inside = ended_with_slash || (dest_is_dir && await fs.dir_exists(destination));
-            await fs.move_dir(source, destination, no_overwrite, move_inside);
+            // force move inside if ended with slash
+            try {
+                await fs.move_dir(source, destination, ended_with_slash);
+            } catch (e) {
+                term.writeln(`${PREFABS.error}Error moving directory: ${(e as Error).message}${STYLE.reset_all}`);
+                return 1;
+            }
         } else if (await fs.exists(source)) {
             await fs.move_file(source, destination);
         } else {
