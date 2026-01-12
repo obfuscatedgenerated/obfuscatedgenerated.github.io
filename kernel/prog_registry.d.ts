@@ -1,4 +1,4 @@
-import type { Program, ProgramRegistrant } from "./types";
+import type { Program, ProgramRegistrant } from "../types";
 import type { AbstractFileSystem } from "./filesystem";
 import { WrappedTerminal } from "./term_ctl";
 export declare const build_registrant_from_js: (js_code: string, built_in?: boolean) => Promise<ProgramRegistrant>;

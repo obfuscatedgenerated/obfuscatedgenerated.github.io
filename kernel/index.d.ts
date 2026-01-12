@@ -3,7 +3,7 @@ import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager } from "./processes";
-import type { AbstractShell } from "./abstract_shell";
+import type { AbstractShell } from "../abstract_shell";
 import { type WrappedTerminal } from "./term_ctl";
 export interface SpawnResult {
     process: ProcessContext;

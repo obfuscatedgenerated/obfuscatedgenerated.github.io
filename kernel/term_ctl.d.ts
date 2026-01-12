@@ -1,5 +1,5 @@
 import { ITerminalOptions, Terminal } from "@xterm/xterm";
-import type { KeyEvent, KeyEventHandler } from "./types";
+import type { KeyEvent, KeyEventHandler } from "../types";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
