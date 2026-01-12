@@ -17,7 +17,8 @@
     "clean": "rimraf public/script",
     "generate-licenses": "node ./bin/generate_licenses.js",
     "publish": "npm run clean && npm run bundle && npm run generate-licenses && gh-pages deploy -d . -s \"{!(node_modules)/**/*.html,*.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
-    "build:types": "tsc src/kernel/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020 -allowSyntheticDefaultImports"
+    "build:types": "tsc src/kernel/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020 -allowSyntheticDefaultImports",
+    "build:docs": "typedoc --options typedoc.json"
   },
   "repository": {
     "type": "git",
@@ -56,6 +57,7 @@
     "rimraf": "^3.0.2",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.3.1",
+    "typedoc": "^0.28.16",
     "typescript": "^5.0.4",
     "webpack": "^5.95.0",
     "webpack-cli": "^4.10.0"

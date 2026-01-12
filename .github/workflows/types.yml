@@ -1,5 +1,7 @@
 name: Build and Deploy Types
 
+# todo: more stable entrypoint for build:types
+
 on:
   push:
     branches:
