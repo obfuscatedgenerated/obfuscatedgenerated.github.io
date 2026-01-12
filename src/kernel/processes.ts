@@ -1,6 +1,6 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
-import type {AbstractShell} from "./abstract_shell";
-import type {ParsedCommandLine} from "./kernel";
+import type {AbstractShell} from "../abstract_shell";
+import type {ParsedCommandLine} from "./index";
 
 export interface IPCMessage {
     from: number;

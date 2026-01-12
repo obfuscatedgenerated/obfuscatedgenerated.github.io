@@ -1,5 +1,5 @@
 import type {Program} from "../types";
-import {ANSI} from "../term_ctl";
+import {ANSI} from "../kernel/term_ctl";
 
 // yes, the actual touch command is used to modify access time and has more flags, but this os doesn't have access times and this is meant to be simple
 

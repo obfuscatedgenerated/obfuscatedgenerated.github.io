@@ -1,9 +1,9 @@
 import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
-import {ANSI, type WrappedTerminal} from "../../term_ctl";
+import {ANSI, type WrappedTerminal} from "../../kernel/term_ctl";
 import type {Program} from "../../types";
-import type {UserspaceFileSystem} from "../../filesystem";
+import type {UserspaceFileSystem} from "../../kernel/filesystem";
 import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";

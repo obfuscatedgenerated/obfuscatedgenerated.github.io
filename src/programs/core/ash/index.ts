@@ -1,5 +1,5 @@
 import type {Program} from "../../../types";
-import {NEWLINE} from "../../../term_ctl";
+import {NEWLINE} from "../../../kernel/term_ctl";
 
 import {AshShell} from "./core";
 import {make_read_line_key_handlers, make_read_line_printable_handler} from "./key_handlers";

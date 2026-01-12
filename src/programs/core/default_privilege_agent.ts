@@ -1,7 +1,7 @@
 import type { Program } from "../../types";
-import type {UserspaceOtherProcessContext} from "../../processes";
+import type {UserspaceOtherProcessContext} from "../../kernel/processes";
 
-import {ANSI, NEWLINE} from "../../term_ctl";
+import {ANSI, NEWLINE} from "../../kernel/term_ctl";
 
 interface PrivilegeRequestMessage {
     process: UserspaceOtherProcessContext;

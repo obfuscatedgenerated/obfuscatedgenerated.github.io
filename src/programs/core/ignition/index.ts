@@ -1,9 +1,9 @@
 import type { PrivilegedProgram } from "../../../types";
 
 import {ServiceManager} from "./services";
-import type {ProcessContext} from "../../../processes";
+import type {ProcessContext} from "../../../kernel/processes";
 
-import {ANSI} from "../../../term_ctl";
+import {ANSI} from "../../../kernel/term_ctl";
 
 interface IgnitionIPCMessageBase {
     type: string;

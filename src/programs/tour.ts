@@ -1,5 +1,5 @@
 import type {Program, ProgramMainData} from "../types";
-import { ANSI, NEWLINE, type WrappedTerminal } from "../term_ctl";
+import { ANSI, NEWLINE, type WrappedTerminal } from "../kernel/term_ctl";
 
 
 const wait_block = (term: WrappedTerminal) => {

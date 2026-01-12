@@ -1,7 +1,6 @@
 import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
 import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
-// TODO: organise this stuff to a kernel directory?
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
 import {
@@ -12,7 +11,7 @@ import {
     UserspaceIPCManager, UserspaceOtherProcessContext,
     UserspaceProcessManager
 } from "./processes";
-import type {AbstractShell} from "./abstract_shell";
+import type {AbstractShell} from "../abstract_shell";
 
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 

@@ -1,4 +1,4 @@
-import {ANSI} from "../../term_ctl";
+import {ANSI} from "../../kernel/term_ctl";
 import type {Program} from "../../types";
 
 import {info_subcommand} from "./info";

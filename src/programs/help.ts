@@ -1,4 +1,4 @@
-import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../term_ctl";
+import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../kernel/term_ctl";
 import type { Program, ArgDescriptions } from "../types";
 
 

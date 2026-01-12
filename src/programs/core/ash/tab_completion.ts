@@ -1,5 +1,5 @@
 import type {UserspaceKernel} from "../../../kernel";
-import type {ReadLineBuffer, WrappedTerminal} from "../../../term_ctl";
+import type {ReadLineBuffer, WrappedTerminal} from "../../../kernel/term_ctl";
 import type {CompletionData} from "../../../types";
 
 import {parse_line} from "./parser";

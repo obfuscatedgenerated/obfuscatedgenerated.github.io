@@ -2,10 +2,10 @@
 import * as fs_impls from "../fs_impl/@ALL";
 
 // import the fs interface
-import {AbstractFileSystem} from "../filesystem";
+import {AbstractFileSystem} from "../kernel/filesystem";
 
 // other imports
-import {NEWLINE} from "../term_ctl";
+import {NEWLINE} from "../kernel/term_ctl";
 import Swal from "sweetalert2";
 
 

@@ -1,4 +1,4 @@
-import type { Program, ProgramRegistrant } from "./types";
+import type { Program, ProgramRegistrant } from "../types";
 import type { AbstractFileSystem } from "./filesystem";
 import { ANSI, WrappedTerminal } from "./term_ctl";
 

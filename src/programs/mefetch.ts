@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../term_ctl";
+import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../kernel/term_ctl";
 
 import { default as img2ascii } from "imgToAscii";
 

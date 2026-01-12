@@ -1,7 +1,7 @@
 import type {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, SpawnResult} from "../../../kernel";
 
-import {ANSI, NEWLINE, type WrappedTerminal} from "../../../term_ctl";
+import {ANSI, NEWLINE, type WrappedTerminal} from "../../../kernel/term_ctl";
 
 import {AshMemory} from "./memory";
 import {parse_line} from "./parser";

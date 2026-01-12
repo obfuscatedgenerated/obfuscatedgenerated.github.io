@@ -1,5 +1,5 @@
 import {IDisposable, ITerminalOptions, Terminal} from "@xterm/xterm";
-import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "./types";
+import type {KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier} from "../types";
 
 export const NEWLINE = "\r\n";
 /* eslint-disable-next-line no-control-regex, no-misleading-character-class */

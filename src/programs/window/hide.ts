@@ -1,4 +1,4 @@
-import {ANSI} from "../../term_ctl";
+import {ANSI} from "../../kernel/term_ctl";
 import { ProgramMainData } from "../../types"
 
 // extract from ANSI to make code less verbose

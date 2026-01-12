@@ -1,6 +1,6 @@
 import type { Program } from "../types";
-import { ANSI } from "../term_ctl";
-import { NonRecursiveDirectoryError, PathNotFoundError } from "../filesystem";
+import { ANSI } from "../kernel/term_ctl";
+import { NonRecursiveDirectoryError, PathNotFoundError } from "../kernel/filesystem";
 
 export default {
     name: "rm",

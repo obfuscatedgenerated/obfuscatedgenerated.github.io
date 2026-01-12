@@ -1,6 +1,6 @@
 import type {Program} from "../../types";
-import type {ProcessContext} from "../../processes";
-import {ANSI} from "../../term_ctl";
+import type {ProcessContext} from "../../kernel/processes";
+import {ANSI} from "../../kernel/term_ctl";
 
 export default {
     name: "jetty",

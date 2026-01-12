@@ -1,4 +1,4 @@
-import {AbstractFileSystem, NonRecursiveDirectoryError, PathNotFoundError} from "../filesystem";
+import {AbstractFileSystem, NonRecursiveDirectoryError, PathNotFoundError} from "../kernel/filesystem";
 
 export class OPFSFileSystem extends AbstractFileSystem {
     private _opfs_handle: FileSystemDirectoryHandle | null = null;

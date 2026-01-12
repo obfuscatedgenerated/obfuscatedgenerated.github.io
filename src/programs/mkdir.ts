@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import {ANSI} from "../term_ctl";
+import {ANSI} from "../kernel/term_ctl";
 
 export default {
     name: "mkdir",

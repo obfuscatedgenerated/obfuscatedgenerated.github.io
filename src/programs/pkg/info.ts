@@ -1,5 +1,5 @@
-import {ANSI, NEWLINE} from "../../term_ctl";
-import type { WrappedTerminal } from "../../term_ctl";
+import {ANSI, NEWLINE} from "../../kernel/term_ctl";
+import type { WrappedTerminal } from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
 

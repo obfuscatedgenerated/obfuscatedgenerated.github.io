@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../term_ctl";
+import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../kernel/term_ctl";
 
 const HEADER = 2;
 

@@ -1,5 +1,3 @@
-import type {UserspaceOtherProcessContext} from "./processes";
-
 export abstract class AbstractShellMemory {
     abstract get current_history_index(): number;
     abstract set current_history_index(index: number);

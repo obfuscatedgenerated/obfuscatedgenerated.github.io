@@ -1,4 +1,4 @@
-import { AbstractFileSystem, FSEventType, NonRecursiveDirectoryError, PathNotFoundError } from "../filesystem";
+import { AbstractFileSystem, FSEventType, NonRecursiveDirectoryError, PathNotFoundError } from "../kernel/filesystem";
 
 // TODO: may get laggy with large files and many files or dirs
 // NOTE: not using implements (TS) so the real methods can be used

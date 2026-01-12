@@ -1,6 +1,6 @@
 import {graph_query, json_convert_dep_sets_to_arrs, repo_query, triggers} from ".";
 
-import {ANSI, NEWLINE} from "../../term_ctl";
+import {ANSI, NEWLINE} from "../../kernel/term_ctl";
 import {ProgramMainData} from "../../types"
 import {remove_subcommand} from "./remove";
 

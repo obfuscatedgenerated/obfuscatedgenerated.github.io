@@ -1,4 +1,4 @@
-import {ANSI} from "../../term_ctl";
+import {ANSI} from "../../kernel/term_ctl";
 import type {Program} from "../../types";
 import {helper_completion_options} from "../core/ash/tab_completion";
 

@@ -1,4 +1,4 @@
-import { ANSI, ANSI_ESCAPE_REGEX, ANSI_UNESCAPED_REGEX } from "../term_ctl";
+import { ANSI, ANSI_ESCAPE_REGEX, ANSI_UNESCAPED_REGEX } from "../kernel/term_ctl";
 import type { Program } from "../types";
 
 export default {

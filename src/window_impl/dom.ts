@@ -1,4 +1,4 @@
-import {AbstractWindow, AbstractWindowManager, WindowEvent} from "../windowing";
+import {AbstractWindow, AbstractWindowManager, WindowEvent} from "../kernel/windowing";
 
 export class DOMWindowManager extends AbstractWindowManager {
     #top_z_index = 10;

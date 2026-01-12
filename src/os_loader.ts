@@ -2,16 +2,16 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
-import {ANSI, NEWLINE, WrappedTerminal} from "./term_ctl";
+import {ANSI, NEWLINE, WrappedTerminal} from "./kernel/term_ctl";
 
 import {Kernel} from "./kernel";
 
-import {ProgramRegistry} from "./prog_registry";
+import {ProgramRegistry} from "./kernel/prog_registry";
 import * as programs from "./programs/@ALL";
 
-import { SoundRegistry } from "./sfx_registry";
+import { SoundRegistry } from "./kernel/sfx_registry";
 
-import type {AbstractFileSystem} from "./filesystem";
+import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
 import { OPFSFileSystem } from "./fs_impl/opfs";
 import { initial_fs_setup } from "./initial_fs_setup";

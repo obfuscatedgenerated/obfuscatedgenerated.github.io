@@ -1,4 +1,4 @@
-import type {ReadLineKeyHandler} from "../../../term_ctl";
+import type {ReadLineKeyHandler} from "../../../kernel/term_ctl";
 
 import type {AshShell} from "./core";
 import type {UserspaceKernel} from "../../../kernel";

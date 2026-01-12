@@ -1,6 +1,6 @@
 import type {PrivilegedProgram} from "../../types";
 
-import {ANSI, NEWLINE} from "../../term_ctl";
+import {ANSI, NEWLINE} from "../../kernel/term_ctl";
 
 export default {
     name: "recovery",
