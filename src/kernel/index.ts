@@ -291,12 +291,12 @@ export class Kernel {
                 return false;
             } catch (e) {
                 console.error(e);
-                this.panic(`init program ${init_program} error!`, e.toString());
+                this.panic(`init program ${init_program} error!`, e.toString() + NEWLINE + e.stack);
                 return false;
             }
         } catch (e) {
             console.error(e);
-            this.panic(`Failed to start init program ${init_program}!`, e.toString());
+            this.panic(`Failed to start init program ${init_program}!`, e.toString() + NEWLINE + e.stack);
             return false;
         }
 
