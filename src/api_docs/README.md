@@ -6,27 +6,27 @@ Welcome to the OllieOS Program API documentation.
 
 This document provides an overview of the APIs available to your program and their usage.
 
-The APIs and context are exposed to the program by passing a [data object](./interfaces/ProgramMainData.html) to the program's `main` function.
+The APIs and context are exposed to the program by passing a [data object](./Program_Types/ProgramMainData.html) to the program's `main` function.
 
 ## Categories
 
-### [Userspace API](./documents/Userspace_API.html)
+### [Userspace API](./Userspace/Introduction.html)
 
 All programs have access to the Userspace API, providing limited access to the kernel but allowing interaction with the system.
 
-### [Kernel (Privileged) API](./documents/Kernel_(Privileged)_API.html)
+### [Kernel (Privileged) API](./Kernel_(Privileged)/Introduction.html)
 
-Programs that start privileged, or successfully [request elevation](./interfaces/UserspaceKernel.html#request_privilege), have access to the Kernel API, which provides full access to the system.
+Programs that start privileged, or successfully [request elevation](./Userspace/UserspaceKernel.html#request_privilege), have access to the Kernel API, which provides full access to the system.
 
 This is a responsibility, and programs should only request elevation when absolutely necessary.
 
-### [Program Types](./documents/Program_Types.html)
+### [Program Types](./Program_Types/Introduction.html)
 
 Additional information on the type assertions applied to define a program in OllieOS.
 
 ## Example Program
 
-Here is a minimal example of how programs are structured in OllieOS, according to the [Program interface](./interfaces/Program_Types.Program.html):
+Here is a minimal example of how programs are structured in OllieOS, according to the [Program interface](./Program_Types/Program.html):
 
 ```ts
 import type { Program } from "ollieos/types";

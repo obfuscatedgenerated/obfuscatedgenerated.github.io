@@ -1,7 +1,7 @@
 ---
-title: Kernel (Privileged) API
+title: Introduction
 group: Kernel (Privileged)
-category: Introduction
+category: 📖 Manual
 ---
 
 # Kernel (Privileged) API

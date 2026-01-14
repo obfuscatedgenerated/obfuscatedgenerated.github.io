@@ -1,7 +1,7 @@
 ---
-title: Userspace API
+title: Introduction
 group: Userspace
-category: Introduction
+category: 📖 Manual
 ---
 
 # Userspace API

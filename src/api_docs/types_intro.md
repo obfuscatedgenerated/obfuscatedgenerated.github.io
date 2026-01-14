@@ -1,7 +1,7 @@
 ---
-title: Program Types
+title: Introduction
 group: Program Types
-category: Introduction
+category: 📖 Manual
 ---
 
 # Program Types

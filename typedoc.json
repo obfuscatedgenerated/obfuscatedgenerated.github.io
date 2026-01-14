@@ -14,7 +14,7 @@
     "*"
   ],
   "categoryOrder": [
-    "Introduction",
+    "📖 Manual",
 
     "Kernel",
     "Terminal",
@@ -28,7 +28,6 @@
     "Completions",
     "Privileged-by-default Programs"
   ],
-  "defaultCategory": "Other",
   "readme": "src/api_docs/README.md",
   "headings": {
     "readme": false
