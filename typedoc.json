@@ -32,5 +32,6 @@
   "readme": "src/api_docs/README.md",
   "headings": {
     "readme": false
-  }
+  },
+  "router": "group"
 }
