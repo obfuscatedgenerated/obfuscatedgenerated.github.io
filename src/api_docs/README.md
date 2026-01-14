@@ -14,7 +14,7 @@ The APIs and context are exposed to the program by passing a [data object](./int
 
 All programs have access to the Userspace API, providing limited access to the kernel but allowing interaction with the system.
 
-### [Kernel (Privileged) API](./documents/Kernel_(Privileged).html)
+### [Kernel (Privileged) API](./documents/Kernel_(Privileged)_API.html)
 
 Programs that start privileged, or successfully [request elevation](./interfaces/UserspaceKernel.html#request_privilege), have access to the Kernel API, which provides full access to the system.
 
