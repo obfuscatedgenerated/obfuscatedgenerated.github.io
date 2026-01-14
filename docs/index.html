@@ -2,11 +2,11 @@
 <p><em>Please note this documentation is a work in progress and may be incomplete or subject to change.</em></p>
 <p>Welcome to the OllieOS Program API documentation.</p>
 <p>This document provides an overview of the APIs available to your program and their usage.</p>
-<p>The APIs and context are exposed to the program by passing a <a href="./interfaces/Program_Types.ProgramMainData.html">data object</a> to the program's <code>main</code> function.</p>
+<p>The APIs and context are exposed to the program by passing a <a href="./interfaces/ProgramMainData.html">data object</a> to the program's <code>main</code> function.</p>
 <h2 id="categories" class="tsd-anchor-link">Categories<a href="#categories" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <h3 id="userspace-api" class="tsd-anchor-link"><a href="./documents/Userspace_API.html">Userspace API</a><a href="#userspace-api" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <p>All programs have access to the Userspace API, providing limited access to the kernel but allowing interaction with the system.</p>
-<h3 id="kernel-privileged-api" class="tsd-anchor-link"><a href="./documents/Kernel_(Privileged).html">Kernel (Privileged) API</a><a href="#kernel-privileged-api" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h3 id="kernel-privileged-api" class="tsd-anchor-link"><a href="./documents/Kernel_(Privileged)_API.html">Kernel (Privileged) API</a><a href="#kernel-privileged-api" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <p>Programs that start privileged, or successfully <a href="./interfaces/UserspaceKernel.html#request_privilege">request elevation</a>, have access to the Kernel API, which provides full access to the system.</p>
 <p>This is a responsibility, and programs should only request elevation when absolutely necessary.</p>
 <h3 id="program-types" class="tsd-anchor-link"><a href="./documents/Program_Types.html">Program Types</a><a href="#program-types" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
