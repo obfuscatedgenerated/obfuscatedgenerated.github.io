@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OllieOS FS Recovery</title>
+
+    <script>
+        // if not opfs, disable reset boot button
+        if (!("storage" in navigator && "getDirectory" in navigator.storage)) {
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById("reset").disabled = true;
+            });
+        }
+
+        const erase = async () => {
+            if (confirm("Are you sure you want to erase the filesystem? This action cannot be undone.")) {
+                localStorage.removeItem("fs_readonly_paths");
+                localStorage.removeItem("fs");
+
+                // check if OPFS is in use and clear it
+                if ("storage" in navigator && "getDirectory" in navigator.storage) {
+                    const root = await navigator.storage.getDirectory();
+
+                    for await (const [name, handle] of root.entries()) {
+                        if (handle.kind === "file") {
+                            await root.removeEntry(name);
+                        } else if (handle.kind === "directory") {
+                            await root.removeEntry(name, { recursive: true });
+                        }
+                    }
+                }
+
+                alert("Filesystem erased. Heading back to OllieOS.");
+                window.location.href = "/";
+            }
+        };
+
+        const reset_bootloader = async () => {
+            if (!("storage" in navigator && "getDirectory" in navigator.storage)) {
+                alert("OPFS is not supported in this browser. Cannot reset bootloader.");
+                return;
+            }
+
+            if (confirm("Are you sure you want to reset the bootloader? This will clear your choice of init system, boot target, default shell, and privilege agent but retains your files.")) {
+                // delete /boot/init, /etc/boot_target and /etc/default_shell
+                const root = await navigator.storage.getDirectory();
+                try {
+                    const boot_dir = await root.getDirectoryHandle("boot");
+                    await boot_dir.removeEntry("init");
+
+                    const etc_dir = await root.getDirectoryHandle("etc");
+                    await etc_dir.removeEntry("boot_target");
+                    await etc_dir.removeEntry("default_shell");
+
+                    const sys_dir = await root.getDirectoryHandle("sys");
+                    await sys_dir.removeEntry("privilege_agent");
+
+                    alert("Bootloader reset. Heading back to OllieOS.");
+                    window.location.href = "/";
+                } catch (e) {
+                    alert("Bootloader directory /boot does not exist. Nothing to reset.");
+                }
+            }
+        };
+    </script>
+</head>
+<body>
+    <p>If this button is available, and you haven't yet tried it, press it:</p>
+    <button id="reset_boot" onclick="reset_bootloader()">Reset bootloader</button>
+
+    <p>Otherwise, press this button to completely erase the filesystem and start fresh:</p>
+    <button onclick="erase()">Erase filesystem</button>
+</body>
+</html>
