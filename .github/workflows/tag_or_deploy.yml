@@ -25,25 +25,36 @@ jobs:
       - name: Determine Release Mode
         id: mode
         run: |
-          # 1. Check if we are triggered by a TAG push
+          # CASE 1: Manual Trigger via Workflow Dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "ℹ️ Manual trigger detected. Deploying current state."
+            echo "do_deploy=true" >> $GITHUB_OUTPUT
+            echo "do_tag=false" >> $GITHUB_OUTPUT
+            echo "tag_name=manual-$(date +%s)" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # CASE 2: Pushed a Tag (Standard Manual Release)
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "Triggered by manual tag: ${{ github.ref_name }}"
+            echo "ℹ️ Triggered by tag: ${{ github.ref_name }}"
             echo "do_deploy=true" >> $GITHUB_OUTPUT
             echo "do_tag=false" >> $GITHUB_OUTPUT
             echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
             exit 0
           fi
-
-          # 2. If triggered by BRANCH push, check package.json
+          
+          # CASE 3: Pushed to Main (Check for Version Bump)
           VERSION=$(jq -r .version package.json)
           TAG="v$VERSION"
           
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists in repo. Assuming manual release triggered separately."
+            # Tag exists -> Version wasn't bumped -> DO NOT DEPLOY
+            echo "⚠️ Tag $TAG already exists. Version was not changed. Skipping."
             echo "do_deploy=false" >> $GITHUB_OUTPUT
             echo "do_tag=false" >> $GITHUB_OUTPUT
           else
-            echo "New version $VERSION detected in package.json. Starting auto-release."
+            # Tag missing -> Version was bumped -> AUTO RELEASE
+            echo "🚀 New version $VERSION detected. Starting auto-release."
             echo "do_deploy=true" >> $GITHUB_OUTPUT
             echo "do_tag=true" >> $GITHUB_OUTPUT
             echo "tag_name=$TAG" >> $GITHUB_OUTPUT
