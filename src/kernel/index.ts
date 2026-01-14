@@ -594,4 +594,4 @@ export class Kernel {
     }
 }
 
-// TODO: document the other kernel classes etc
+// TODO: document the other kernel classes etc. could use {@inheritDoc} to make it easier for filesystem as will not be overridden by userspace much
