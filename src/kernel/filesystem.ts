@@ -1,27 +1,42 @@
+/**
+ * Error thrown when a path is not found.
+ */
 export class PathNotFoundError extends Error {
     constructor(path: string) {
         super(`Path not found: ${path}`);
     }
 }
 
+/**
+ * Error thrown when attempting to delete a non-empty directory without recursive flag.
+ */
 export class NonRecursiveDirectoryError extends Error {
     constructor(path: string) {
         super(`Refusing to delete non-empty directory: ${path}`);
     }
 }
 
+/**
+ * Error thrown when attempting to move a directory into a non-empty destination.
+ */
 export class MoveDestinationDirectoryNotEmptyError extends Error {
     constructor(path: string) {
         super(`Destination directory is not empty: ${path}`);
     }
 }
 
+/**
+ * Error thrown when attempting to write to a read-only path.
+ */
 export class ReadOnlyError extends Error {
     constructor(path: string) {
         super(`Path is read-only: ${path}`);
     }
 }
 
+/**
+ * Event types emitted after filesystem operations.
+ */
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
@@ -45,10 +60,18 @@ export enum FSEventType {
     CHECKING_DIR_EXISTS,
 }
 
-// TODO: ensure all functions fire these events... or do we even need this system other than for cwd changing?
+// TODO: ensure all functions fire these events (opfs doesnt at all yet!)
 
+/**
+ * Handler type for filesystem events.
+ * @param data Various string data related to the event, but most likely a path.
+ * @param fs The filesystem instance emitting the event.
+ */
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
+/**
+ * Interface for interacting with the chosen filesystem implementation from userspace.
+ */
 export interface UserspaceFileSystem {
     get_unique_fs_type_name(): string;
     erase_all(): Promise<void>;
@@ -75,6 +98,9 @@ export interface UserspaceFileSystem {
 
 // TODO: could protect erase_all but then also need to check recursive deletion, doesnt really gain much
 
+/**
+ * Interface for interacting with a filesystem implementation.
+ */
 export abstract class AbstractFileSystem {
     //TODO: dry
 
@@ -532,3 +558,5 @@ export abstract class AbstractFileSystem {
 }
 
 // TODO: need a way to block programs from accessing the localstorage/OPFS themselves directly, maybe need a function wrapper for that to shadow it away?
+
+// TODO: doc methods in both interfaces!
