@@ -56,6 +56,7 @@ export class Kernel {
     readonly #wm: AbstractWindowManager | null = null;
 
     #panicked = false;
+    #after_panic: (message: string, debug_info?: string) => void | null = null;
 
     #env_info = {
         version: "unknown",
@@ -228,9 +229,15 @@ export class Kernel {
 
         proc_mgr.dispose_all();
         this.#term.handle_kernel_panic(message, process_info, debug_info);
+
+        if (this.#after_panic) {
+            this.#after_panic(message, debug_info);
+        }
     }
 
-    async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<boolean> {
+    async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>, after_panic?: (message: string, debug_info?: string) => void): Promise<boolean> {
+        this.#after_panic = after_panic || null;
+
         const fs = this.get_fs();
 
         // mount all programs in any subdirectory of /usr/bin
