@@ -1,3 +1,6 @@
+// note: program registry is due to be replaced with a much simpler, memory efficient, more flexible, and more secure approach
+// of traditional on demand program loading from the file system
+
 import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
 import {ANSI, WrappedTerminal} from "./term_ctl";
