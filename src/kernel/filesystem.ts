@@ -1,5 +1,8 @@
 /**
  * Error thrown when a path is not found.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export class PathNotFoundError extends Error {
     constructor(path: string) {
@@ -9,6 +12,9 @@ export class PathNotFoundError extends Error {
 
 /**
  * Error thrown when attempting to delete a non-empty directory without recursive flag.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export class NonRecursiveDirectoryError extends Error {
     constructor(path: string) {
@@ -18,6 +24,9 @@ export class NonRecursiveDirectoryError extends Error {
 
 /**
  * Error thrown when attempting to move a directory into a non-empty destination.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export class MoveDestinationDirectoryNotEmptyError extends Error {
     constructor(path: string) {
@@ -27,6 +36,9 @@ export class MoveDestinationDirectoryNotEmptyError extends Error {
 
 /**
  * Error thrown when attempting to write to a read-only path.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export class ReadOnlyError extends Error {
     constructor(path: string) {
@@ -36,6 +48,9 @@ export class ReadOnlyError extends Error {
 
 /**
  * Event types emitted after filesystem operations.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export enum FSEventType {
     READING_FILE,
@@ -66,11 +81,17 @@ export enum FSEventType {
  * Handler type for filesystem events.
  * @param data Various string data related to the event, but most likely a path.
  * @param fs The filesystem instance emitting the event.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
 /**
  * Interface for interacting with the chosen filesystem implementation from userspace.
+ *
+ * @group Userspace
+ * @category Filesystem
  */
 export interface UserspaceFileSystem {
     get_unique_fs_type_name(): string;
@@ -100,6 +121,9 @@ export interface UserspaceFileSystem {
 
 /**
  * Interface for interacting with a filesystem implementation.
+ *
+ * @group Kernel (Privileged)
+ * @category Filesystem
  */
 export abstract class AbstractFileSystem {
     //TODO: dry

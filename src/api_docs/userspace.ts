@@ -1,11 +1,36 @@
 /**
-* @module Userspace
-* @description API documentation for the userspace program API.
-*/
+ * @group Userspace
+ * @groupDescription API documentation for the userspace program API.
+ *
+ * @category Kernel
+ */
+export {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
 
-export type {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
-export type {UserspaceFileSystem, FSEventType, FSEventHandler} from "../kernel/filesystem";
-export type {
+/**
+ * @group Userspace
+ * @category Terminal
+ */
+export {WrappedTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
+
+/**
+ * @group Userspace
+ * @category Filesystem
+ */
+export {
+    UserspaceFileSystem,
+    FSEventType,
+    FSEventHandler,
+    PathNotFoundError,
+    MoveDestinationDirectoryNotEmptyError,
+    NonRecursiveDirectoryError,
+    ReadOnlyError
+} from "../kernel/filesystem";
+
+/**
+ * @group Userspace
+ * @category Processes
+ */
+export {
     UserspaceProcessManager,
     UserspaceProcessContext,
     UserspaceOtherProcessContext,
@@ -15,10 +40,27 @@ export type {
     IPCChannelListener,
     IPCServiceOnConnectionCallback,
 } from "../kernel/processes";
-export type {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent} from "../kernel/windowing";
-export type {UserspaceProgramRegistry, ProgramRegistrant} from "../kernel/prog_registry";
-export type {SoundRegistry} from "../kernel/sfx_registry";
 
-export type {WrappedTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
+/**
+ * @group Userspace
+ * @category Programs
+ */
+export {UserspaceProgramRegistry, ProgramRegistrant} from "../kernel/prog_registry";
 
-export type {AbstractShell, AbstractShellMemory} from "../abstract_shell";
+/**
+ * @group Userspace
+ * @category Windowing
+ */
+export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent} from "../kernel/windowing";
+
+/**
+ * @group Userspace
+ * @category Sound
+ */
+export {SoundRegistry} from "../kernel/sfx_registry";
+
+/**
+ * @group Userspace
+ * @category Shells
+ */
+export {AbstractShell, AbstractShellMemory} from "../abstract_shell";

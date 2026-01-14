@@ -1,5 +1,14 @@
-export * as userspace from "./userspace";
+/**
+ * @packageDocumentation
+ * @module API Documentation
+ *
+ * @document userspace_intro.md
+ * @document privileged_intro.md
+ * @document types_intro.md
+ */
 
-export * as privileged from "./privileged";
+export * from "./userspace";
 
-export * as types from "./types";
+export * from "./privileged";
+
+export * from "./types";

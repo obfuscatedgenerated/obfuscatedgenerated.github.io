@@ -1,5 +1,7 @@
 # OllieOS API Documentation
 
+*Please note this documentation is a work in progress and may be incomplete or subject to change.*
+
 Welcome to the OllieOS Program API documentation.
 
 This document provides an overview of the APIs available to your program and their usage.
@@ -8,17 +10,17 @@ The APIs and context are exposed to the program by passing a [data object](./int
 
 ## Categories
 
-### [Userspace API](./modules/Userspace.html)
+### [Userspace API](./documents/Userspace_API.html)
 
 All programs have access to the Userspace API, providing limited access to the kernel but allowing interaction with the system.
 
-### [Kernel (Privileged) API](./modules/Kernel_(Privileged).html)
+### [Kernel (Privileged) API](./documents/Kernel_(Privileged).html)
 
-Programs that start privileged, or successfully [request elevation](./interfaces/Userspace.UserspaceKernel.html#request_privilege-1), have access to the Kernel API, which provides full access to the system.
+Programs that start privileged, or successfully [request elevation](./interfaces/UserspaceKernel.html#request_privilege), have access to the Kernel API, which provides full access to the system.
 
 This is a responsibility, and programs should only request elevation when absolutely necessary.
 
-### [Program Types](./modules/Program_Types.html)
+### [Program Types](./documents/Program_Types.html)
 
 Additional information on the type assertions applied to define a program in OllieOS.
 

@@ -2,6 +2,33 @@
   "$schema": "https://typedoc.org/schema.json",
   "entryPoints": ["src/api_docs/index.ts"],
   "sort": ["required-first"],
+  "navigation": {
+    "includeGroups": true,
+    "includeCategories": true
+  },
+  "categorizeByGroup": true,
+  "groupOrder": [
+    "Userspace",
+    "Kernel (Privileged)",
+    "Program Types",
+    "*"
+  ],
+  "categoryOrder": [
+    "Introduction",
+
+    "Kernel",
+    "Terminal",
+    "Filesystem",
+    "Processes",
+    "Programs",
+    "Windowing",
+    "Sound",
+    "Shells",
+
+    "Completions",
+    "Privileged-by-default Programs"
+  ],
+  "defaultCategory": "Other",
   "readme": "src/api_docs/README.md",
   "headings": {
     "readme": false

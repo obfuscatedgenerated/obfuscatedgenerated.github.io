@@ -24,6 +24,9 @@ const CURRENT_API_COMPAT = "2.0.0";
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
  * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
+ *
+ * @group Userspace
+ * @category Kernel
  */
 export interface SpawnResult {
     process: ProcessContext;
@@ -32,6 +35,9 @@ export interface SpawnResult {
 
 /**
  * Interface for interacting with the kernel from userspace.
+ *
+ * @group Userspace
+ * @category Kernel
  */
 export interface UserspaceKernel {
     /**
@@ -103,6 +109,9 @@ export interface UserspaceKernel {
  * @property unsubbed_args The arguments to pass to the command, trimmed but without any substitutions applied.
  * @property raw_parts The raw parts of the command line, including the command and all unparsed but split arguments, without trimming or substitutions applied.
  * @property run_in_bg Whether the command is to be run in the background.
+ *
+ * @group Userspace
+ * @category Kernel
  */
 export interface ParsedCommandLine {
     command: string;
@@ -114,6 +123,9 @@ export interface ParsedCommandLine {
 
 /**
  * Interface for interacting with the kernel.
+ *
+ * @group Kernel (Privileged)
+ * @category Kernel
  */
 export class Kernel {
     readonly #term: WrappedTerminal;
