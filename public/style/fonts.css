@@ -1,0 +1,11 @@
+@font-face {
+    font-family: "Ubuntu";
+    src: url(/public/Ubuntu-Regular.ttf),
+        url("/public/Ubuntu-Regular.woff");
+}
+
+@font-face {
+    font-family: "Open Sans";
+    src: url(/public/OpenSans-Regular.ttf),
+        url("/public/OpenSans-Regular.woff");
+}
