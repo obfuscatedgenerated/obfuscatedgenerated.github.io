@@ -1,5 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
+  "name": "OllieOS API Documentation",
   "entryPoints": ["src/api_docs/index.ts"],
   "sort": ["required-first"],
   "navigation": {
@@ -32,5 +33,9 @@
   "headings": {
     "readme": false
   },
-  "router": "group"
+  "router": "group",
+
+  "plugin": ["typedoc-plugin-extras"],
+  "customTitle": "OllieOS",
+  "customDescription": "Documentation for the APIs available to OllieOS programs."
 }
