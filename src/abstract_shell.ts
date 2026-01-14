@@ -1,3 +1,5 @@
+// TODO: as these are just interfaces, where do they belong? not particularly part of the kernel but feels odd to have them loose. maybe part of a types directory with types.ts?
+
 export abstract class AbstractShellMemory {
     abstract get current_history_index(): number;
     abstract set current_history_index(index: number);
