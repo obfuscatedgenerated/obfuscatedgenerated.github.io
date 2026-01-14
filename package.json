@@ -16,7 +16,7 @@
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
     "generate-licenses": "node ./bin/generate_licenses.js",
-    "build:types": "tsc src/kernel/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020 -allowSyntheticDefaultImports",
+    "build:types": "tsc src/kernel/index.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020 -allowSyntheticDefaultImports",
     "build:docs": "typedoc --options typedoc.json"
   },
   "repository": {
