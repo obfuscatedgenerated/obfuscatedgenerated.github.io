@@ -16,7 +16,7 @@
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
     "generate-licenses": "node ./bin/generate_licenses.js",
-    "publish": "npm run clean && npm run bundle && npm run generate-licenses && gh-pages deploy -d . -s \"{index.html,fsedit.index.html,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
+    "publish": "npm run clean && npm run bundle && npm run generate-licenses && npm run build:docs && gh-pages deploy -d . -s \"{index.html,fsedit.index.html,docs/**/*,public/**/*,CNAME,_config.yml,robots.txt,LICENSE,.nojekyll}\" -m \"update page\"",
     "build:types": "tsc src/kernel/term_ctl.ts --emitDeclarationOnly --declaration --outDir types --target es2019 --moduleResolution node --module es2020 -allowSyntheticDefaultImports",
     "build:docs": "typedoc --options typedoc.json"
   },
