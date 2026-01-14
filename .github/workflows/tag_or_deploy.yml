@@ -1,0 +1,102 @@
+name: Tag or Deploy
+
+on:
+  push:
+    # a push to main updating package.json will check if a new tag is needed
+    branches: ["main"]
+    paths: ["package.json"]
+
+    # a push of a tag will trigger a deployment
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Mode
+        id: mode
+        run: |
+          # 1. Check if we are triggered by a TAG push
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "Triggered by manual tag: ${{ github.ref_name }}"
+            echo "do_deploy=true" >> $GITHUB_OUTPUT
+            echo "do_tag=false" >> $GITHUB_OUTPUT
+            echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 2. If triggered by BRANCH push, check package.json
+          VERSION=$(jq -r .version package.json)
+          TAG="v$VERSION"
+          
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists in repo. Assuming manual release triggered separately."
+            echo "do_deploy=false" >> $GITHUB_OUTPUT
+            echo "do_tag=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version $VERSION detected in package.json. Starting auto-release."
+            echo "do_deploy=true" >> $GITHUB_OUTPUT
+            echo "do_tag=true" >> $GITHUB_OUTPUT
+            echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node
+        if: steps.mode.outputs.do_deploy == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        if: steps.mode.outputs.do_deploy == 'true'
+        run: npm ci
+
+      - name: Build Project
+        if: steps.mode.outputs.do_deploy == 'true'
+        run: |
+          npm run clean
+          npm run bundle
+          npm run generate-licenses
+          npm run build:docs
+
+      - name: Prepare Artifacts
+        if: steps.mode.outputs.do_deploy == 'true'
+        run: |
+          mkdir dist
+          cp index.html dist/
+          cp fsedit/index.html dist/
+          cp recover_fs/index.html dist/
+          cp -r docs dist/
+          cp -r public dist/
+          cp CNAME dist/ || true
+          cp _config.yml dist/ || true
+          cp robots.txt dist/ || true
+          cp LICENSE dist/ || true
+          cp .nojekyll dist/ || true
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist
+          clean: true
+
+      # ONLY runs if we are in "Auto Mode" (Branch push), NOT manual tag mode
+      - name: Auto-Create Git Tag
+        if: steps.mode.outputs.do_tag == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG="${{ steps.mode.outputs.tag_name }}"
+          git tag -a "$TAG" -m "Auto-release $TAG"
+          git push origin "$TAG"
