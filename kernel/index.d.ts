@@ -188,5 +188,5 @@ export declare class Kernel {
      * @param process The process to create the proxy for.
      * @returns A {@link UserspaceKernel} proxy of this kernel.
      */
-    create_userspace_proxy(process: ProcessContext): Promise<UserspaceKernel>;
+    create_userspace_proxy(process: ProcessContext): UserspaceKernel;
 }
