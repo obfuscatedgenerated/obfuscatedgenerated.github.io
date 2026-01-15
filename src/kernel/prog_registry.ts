@@ -1,5 +1,7 @@
 // note: program registry is due to be replaced with a much simpler, memory efficient, more flexible, and more secure approach
 // of traditional on demand program loading from the file system
+// TODO: update pkgbuild to split programs into .js and .json to statically load metadata without executing code
+// TODO: then finally do away with program registry entirely and just load programs on demand from fs, indexing .json for help text
 
 import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
