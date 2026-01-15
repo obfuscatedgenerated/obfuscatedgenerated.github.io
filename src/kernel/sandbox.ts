@@ -41,7 +41,37 @@ export const sandbox = (code: string, endowments: Record<string, unknown> = {}) 
     return realm.evaluate(code);
 }
 
-export const import_sandboxed_module = async (code: string, endowments: Record<string, unknown> = {}) => {
+export const DEFAULT_PROGRAM_SANDBOX_ENDOWMENTS = {
+    // not passing setTimeout/setInterval/clearTimeout/clearInterval to force using process.create_timeout etc instead
+    // TODO: could take a process object here and redirect these to it?
+
+    console,
+
+    // TODO: network access via the OS for greater control
+    fetch,
+
+    TextEncoder,
+    TextDecoder,
+    URL,
+    URLSearchParams,
+    atob,
+    btoa,
+    structuredClone,
+
+    // TODO: make a limited document accessor to prevent xss attacks in windows. making a custom element class could help representation cross platform too (but limits what works in it)
+    document: {
+        createElement: document.createElement.bind(document),
+        createTextNode: document.createTextNode.bind(document),
+        createEvent: document.createEvent.bind(document),
+    },
+
+    performance: {
+        now: performance.now.bind(performance),
+        timeOrigin: performance.timeOrigin,
+    }
+}
+
+export const import_sandboxed_module = async (code: string, endowments: Record<string, unknown> = DEFAULT_PROGRAM_SANDBOX_ENDOWMENTS) => {
     const fake_module = { exports: {} as Record<string, unknown> };
 
     if (!__USE_SES__) {
