@@ -650,3 +650,5 @@ export class ProcessManager {
         return Object.freeze(proxy);
     }
 }
+
+// TODO: store kernel privilege state on processcontext
