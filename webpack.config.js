@@ -4,7 +4,9 @@
 const path = require("path");
 const hb = require("handlebars");
 const fs = require("fs");
+
 const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
+const { DefinePlugin } = require("webpack");
 
 // make fsedit dir
 if (!fs.existsSync("./fsedit")) {
@@ -68,7 +70,12 @@ module.exports = (env, argv) => {
             },
             new ExtraWatchWebpackPlugin({
                 files: ["./src/*.handlebars", "./src/fsedit/*.handlebars"],
-            })
+            }),
+
+            // tell the sandbox whether to use SES or not
+            new DefinePlugin({
+                "__USE_SES__": env.USE_SES !== "false",
+            }),
         ],
         entry: {
             main: "./src/index.ts",

@@ -18,9 +18,13 @@ import { initial_fs_setup } from "./initial_fs_setup";
 
 import {DOMWindowManager} from "./window_impl/dom";
 
-import "./load_global_externals";
+//import "./load_global_externals"; // TODO: what are we doing about this when we use ses? i mean, nothing ever used this right? we can strip out the default externals and update pkgbuild
+
+import {init_sandbox} from "./kernel/sandbox";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
+    await init_sandbox();
+
     // create a program registry by importing all programs
     const prog_reg = new ProgramRegistry();
     for (const prog of Object.values(programs)) {

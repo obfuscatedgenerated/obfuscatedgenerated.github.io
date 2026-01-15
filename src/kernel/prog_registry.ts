@@ -4,11 +4,7 @@
 import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
 import {ANSI, WrappedTerminal} from "./term_ctl";
-
-const encode_js_to_url = (js_code: string): string => {
-    const encoded = encodeURIComponent(js_code);
-    return `data:text/javascript;charset=utf-8,${encoded}`;
-}
+import {import_sandboxed_module} from "./sandbox";
 
 export interface ProgramRegistrant {
     program: Program<unknown>,
@@ -23,14 +19,17 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
         warn_deprecation = true;
     }
 
-    // note: the webpackIgnore bypasses webpack's import() function and uses the browser's native import() function
-    // this is because webpack's import() function does not support data urls
+    // detect esm style module
+    if (js_code.includes("export{") || js_code.includes("export default")) {
+        if (warn_deprecation) {
+            console.warn("Program has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.");
+        }
 
-    const data_url = encode_js_to_url(js_code);
-    // note: risk to user, show warning
-    // TODO: explore sandboxing via webworkers or other methods
-    const imp = await import(/* webpackIgnore: true */data_url);
-    let program = imp.default;
+        throw new Error("Program appears to be an ES module. Please update pkgbuild and rebuild the package.");
+    }
+
+    const imp = await import_sandboxed_module(js_code);
+    let program = imp.default as any;
 
     if (program === undefined) {
         if (warn_deprecation) {
@@ -48,8 +47,6 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
 
         throw new Error("Program is not an object.");
     }
-
-    program = program as object;
 
     if (typeof program.name !== "string") {
         if (warn_deprecation) {
