@@ -9,6 +9,10 @@ import {Kernel} from "./kernel";
 import {ProgramRegistry} from "./kernel/prog_registry";
 import * as programs from "./programs/@ALL";
 
+// we'll import a couple programs as raw and load them with ses too as a test
+//@ts-ignore
+import sestest from "!!raw-loader!./programs/sestest";
+
 import { SoundRegistry } from "./kernel/sfx_registry";
 
 import type {AbstractFileSystem} from "./kernel/filesystem";
@@ -33,6 +37,8 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
             built_in: true,
         });
     }
+
+    await prog_reg.registerProgram(await prog_reg.build_registrant_from_js(sestest));
 
 
     // create a sound registry

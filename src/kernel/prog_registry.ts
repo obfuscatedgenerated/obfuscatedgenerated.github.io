@@ -20,12 +20,13 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     }
 
     // detect esm style module
-    if (js_code.includes("export{") || js_code.includes("export default")) {
+    // TODO: this is flimsy. maybe use program or package compat flag instead?
+    if (!js_code.startsWith("//skip_esm_check") && (js_code.includes("export{") || js_code.includes("export default"))) {
         if (warn_deprecation) {
             console.warn("Program has JS code starts with 'import'. Please update the package to use the new global externals system. This will be removed in the future.");
         }
 
-        throw new Error("Program appears to be an ES module. Please update pkgbuild and rebuild the package.");
+        throw new Error("Program appears to be an ES module (contained either export{ or export default). Please update pkgbuild and rebuild the package. If this detection is an error, add the comment //skip_esm_check to the very start of the JS code.");
     }
 
     const imp = await import_sandboxed_module(js_code);
