@@ -12,6 +12,7 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import type {AbstractShell} from "../abstract_shell";
+import {ProgramMainData} from "../types";
 
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
@@ -293,7 +294,7 @@ export class Kernel {
         const process = this.#process_manager.create_process(parsed_line, shell);
 
         // protect from pollution
-        const data = Object.create(null);
+        const data = Object.create(null) as ProgramMainData<unknown>;
 
         // provide either privileged or userspace kernel access
         if (start_privileged) {
@@ -314,7 +315,7 @@ export class Kernel {
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;
         if ("main" in program) {
-            result_promise = Promise.resolve(program.main(data));
+            result_promise = Promise.resolve(program.main(data as ProgramMainData));
         } else {
             throw new Error("Invalid program type");
         }
@@ -552,7 +553,7 @@ export class Kernel {
      * @param process The process to create the proxy for.
      * @returns A {@link UserspaceKernel} proxy of this kernel.
      */
-    create_userspace_proxy(process: ProcessContext): Promise<UserspaceKernel> {
+    create_userspace_proxy(process: ProcessContext): UserspaceKernel {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
         const proxy = Object.create(null);
