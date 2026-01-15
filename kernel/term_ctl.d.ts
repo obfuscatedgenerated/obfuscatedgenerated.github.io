@@ -142,10 +142,6 @@ export declare class WrappedTerminal extends Terminal {
     read_line: (custom_key_handlers?: {
         [key_string: string]: ReadLineKeyHandler;
     }, custom_printable_handler?: ReadLineKeyHandler) => Promise<string>;
-    _search_handlers: (key: string | undefined, domEventCode: string | undefined, strict?: boolean) => {
-        handler: KeyEventHandler;
-        block: boolean;
-    }[];
     /**
      * Registers a key event handler.
      * Handlers with no filter run BEFORE filtered handlers.
@@ -160,15 +156,12 @@ export declare class WrappedTerminal extends Terminal {
         block?: boolean;
         high_priority?: boolean;
     }) => () => void;
-    _handle_key_event: (e: KeyEvent) => Promise<void>;
     /**
      * Registers a handler that is called when any printable key is pressed.
      * @param handler  - The handler to register
      * @param high_priority - If true, the handler will be placed at the beginning of the handler list (cannot run before the default printable key handler)
      */
     register_on_printable_key_event_handler: (handler: KeyEventHandler, high_priority?: boolean) => void;
-    _enqueue_key_event: (e: KeyEvent) => void;
-    _handle_key_event_queue: () => Promise<void>;
     wait_for_keypress: () => Promise<KeyEvent>;
     get_text: (max_length?: number) => Promise<string>;
     word_wrap(text: string, width: number): string;
