@@ -266,7 +266,7 @@ export class WrappedTerminal extends Terminal {
         });
     }
 
-    _search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
+    #search_handlers = (key: string | undefined, domEventCode: string | undefined, strict = false): { handler: KeyEventHandler, block: boolean }[] => {
         for (const pair of this.#key_handlers.entries()) {
             const identfier = pair[0] as RegisteredKeyEventIdentifier;
 
@@ -307,7 +307,7 @@ export class WrappedTerminal extends Terminal {
         const entry = { handler, block: props.block ?? false };
 
         // if the identifier has not already been registered, create a new array for it
-        const existing_entries = this._search_handlers(props.keyString, props.domEventCode, true);
+        const existing_entries = this.#search_handlers(props.keyString, props.domEventCode, true);
         if (existing_entries.length === 0) {
             this.#key_handlers.set(identifier, [entry]);
         } else {
@@ -337,11 +337,11 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    _handle_key_event = async (e: KeyEvent): Promise<void> => {
+    #handle_key_event = async (e: KeyEvent): Promise<void> => {
         // TODO: supress builtin key events when program is running, create ctrl+c handler
 
         // look for any handlers against all keys
-        const all_key_entries = this._search_handlers(undefined, undefined, true);
+        const all_key_entries = this.#search_handlers(undefined, undefined, true);
         if (all_key_entries) {
             for (const entry of all_key_entries) {
                 // await if the handler is async
@@ -355,7 +355,7 @@ export class WrappedTerminal extends Terminal {
         }
 
         // search the handlers for the key
-        const entries = this._search_handlers(e.key, e.domEvent.code);
+        const entries = this.#search_handlers(e.key, e.domEvent.code);
 
         // if there are any handlers, run them
         for (const entry of entries) {
@@ -390,17 +390,17 @@ export class WrappedTerminal extends Terminal {
         }
     }
 
-    _enqueue_key_event = (e: KeyEvent) => {
+    #enqueue_key_event = (e: KeyEvent) => {
         this.#key_event_queue.push(e);
 
         // if the queue is not being handled, handle it
         if (!this.#is_handling_key_events) {
             this.#is_handling_key_events = true;
-            this._handle_key_event_queue();
+            this.#handle_key_event_queue();
         }
     }
 
-    _handle_key_event_queue = async () => {
+    #handle_key_event_queue = async () => {
         // if there are no events in the queue, return
         if (this.#key_event_queue.length === 0) {
             this.#is_handling_key_events = false;
@@ -409,10 +409,10 @@ export class WrappedTerminal extends Terminal {
 
         if (this.#is_handling_key_events) {
             // handle the first event in the queue
-            await this._handle_key_event(this.#key_event_queue.shift()!);
+            await this.#handle_key_event(this.#key_event_queue.shift()!);
 
             // handle the rest of the events in the queue
-            this._handle_key_event_queue();
+            this.#handle_key_event_queue();
         }
     }
 
@@ -428,7 +428,7 @@ export class WrappedTerminal extends Terminal {
                 this.#disposable_onkey.dispose();
 
                 // re-register the original handler
-                this.#disposable_onkey = this.onKey(this._enqueue_key_event);
+                this.#disposable_onkey = this.onKey(this.#enqueue_key_event);
 
                 // resolve the promise
                 resolve(e);
@@ -538,7 +538,7 @@ export class WrappedTerminal extends Terminal {
             // if the queue is not being handled, handle it
             if (!this.#is_handling_key_events) {
                 this.#is_handling_key_events = true;
-                this._handle_key_event_queue();
+                this.#handle_key_event_queue();
             }
         });
     }
@@ -595,11 +595,13 @@ export class WrappedTerminal extends Terminal {
 
     constructor(xterm_opts?: ITerminalOptions) {
         super(xterm_opts);
-        this.#disposable_onkey = this.onKey(this._enqueue_key_event);
+        this.#disposable_onkey = this.onKey(this.#enqueue_key_event);
     }
 }
 
 // TODO: term needs hardening and possibly userspace protection to ensure programs cant dispatch keys to auto accept elevation prompts
+// TODO: have now made key dispatch methods private, but need to prevent stuff like handle_kernel_panic being called by userspace programs
+// TODO: main thing is that when writing the proxy we need to think what xterm methods we expose to userspace programs
 
 // as of 09/01/2026, the god class of WrappedTerminal is no more!
 // this used to be the kernel, shell, tty, and bootstrap all in one
