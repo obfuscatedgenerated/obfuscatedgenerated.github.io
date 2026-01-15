@@ -1,6 +1,8 @@
 import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
 import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
+import type {ProgramMainData} from "../types";
+
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
 import {
@@ -12,6 +14,8 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import type {AbstractShell} from "../abstract_shell";
+
+import {harden_data} from "./sandbox";
 
 import {NEWLINE, type WrappedTerminal} from "./term_ctl";
 
@@ -297,7 +301,7 @@ export class Kernel {
 
         // provide either privileged or userspace kernel access
         if (start_privileged) {
-            data.kernel = this;
+            data.kernel = this as Kernel;
         } else {
             data.kernel = this.create_userspace_proxy(process);
         }
@@ -309,12 +313,14 @@ export class Kernel {
         data.raw_parts = parsed_line.raw_parts;
         data.process = process;
 
-        Object.freeze(data);
+        //const hardened_data = harden_data(data);
+        // TODO: use SES hardening (harden_data) properly so it doesnt break the kernel
+        const hardened_data = Object.freeze(data);
 
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;
         if ("main" in program) {
-            result_promise = Promise.resolve(program.main(data));
+            result_promise = Promise.resolve(program.main(hardened_data as ProgramMainData));
         } else {
             throw new Error("Invalid program type");
         }
@@ -552,7 +558,7 @@ export class Kernel {
      * @param process The process to create the proxy for.
      * @returns A {@link UserspaceKernel} proxy of this kernel.
      */
-    create_userspace_proxy(process: ProcessContext): Promise<UserspaceKernel> {
+    create_userspace_proxy(process: ProcessContext): UserspaceKernel {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
         const proxy = Object.create(null);

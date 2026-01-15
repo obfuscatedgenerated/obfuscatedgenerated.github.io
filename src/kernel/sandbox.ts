@@ -96,5 +96,18 @@ export const import_sandboxed_module = async (code: string, endowments: Record<s
     return fake_module.exports;
 }
 
+export const harden_data = <T>(data: T): T => {
+    if (!__USE_SES__) {
+        console.warn("SES is disabled. Data will only be object frozen, not hardened.");
+        return Object.freeze(data);
+    }
+
+    if (!sandbox_ready) {
+        throw new Error("Sandbox is not initialised. Call init_sandbox() before using harden_data().");
+    }
+
+    return harden(data);
+}
+
 // TODO: run program code in these sandboxes too! restrict access to raw browser apis
 // TODO: new privilege ring (or separate system) that runs code outside of the sandbox (i.e. drivers that run in kernel space to do js browser api stuff)
