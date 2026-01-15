@@ -95,3 +95,6 @@ export const import_sandboxed_module = async (code: string, endowments: Record<s
 
     return fake_module.exports;
 }
+
+// TODO: run program code in these sandboxes too! restrict access to raw browser apis
+// TODO: new privilege ring (or separate system) that runs code outside of the sandbox (i.e. drivers that run in kernel space to do js browser api stuff)
