@@ -44,6 +44,7 @@ export { default as ipc_fg_test } from "./ipc_fg_test";
 
 // shhhhh!
 export { default as tb_test } from "./taskbar_test";
+export { default as vm_test } from "./vm_test";
 
 export { default as trigger_create_trigger } from "./pkg/triggers/create_trigger";
 export { default as trigger_remove_trigger } from "./pkg/triggers/remove_trigger";
