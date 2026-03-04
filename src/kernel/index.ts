@@ -3,6 +3,7 @@ import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
+import {AbstractNetworkManager, UserspaceNetworkManager} from "./network";
 import {
     IPCManager,
     KERNEL_FAKE_PID,
@@ -72,6 +73,16 @@ export interface UserspaceKernel {
     has_window_manager(): boolean;
 
     /**
+     * Access the chosen {@link UserspaceNetworkManager} for this kernel, if any.
+     */
+    get_network_manager(): UserspaceNetworkManager | null;
+
+    /**
+     * Determine if a network manager is present.
+     */
+    has_network_manager(): boolean;
+
+    /**
      * Access the {@link UserspaceProcessManager} for this kernel.
      */
     get_process_manager(): UserspaceProcessManager;
@@ -135,6 +146,7 @@ export class Kernel {
     readonly #sfx_registry: SoundRegistry;
     readonly #fs: AbstractFileSystem;
     readonly #wm: AbstractWindowManager | null = null;
+    readonly #net_manager: AbstractNetworkManager | null = null;
 
     #panicked = false;
     #after_panic: (message: string, debug_info?: string) => void | null = null;
@@ -193,6 +205,20 @@ export class Kernel {
      */
     has_window_manager(): boolean {
         return this.#wm !== null;
+    }
+
+    /**
+     * Access the chosen {@link AbstractNetworkManager} implementation for this kernel, if any.
+     */
+    get_network_manager(): AbstractNetworkManager | null {
+        return this.#net_manager;
+    }
+
+    /**
+     * Determine if a network manager is present.
+     */
+    has_network_manager(): boolean {
+        return this.#net_manager !== null;
     }
 
     /**
@@ -539,13 +565,14 @@ export class Kernel {
         }
     }
 
-    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager) {
+    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
         this.#term = term;
         this.#fs = fs;
         this.#prog_registry = prog_registry || new ProgramRegistry();
         this.#sfx_registry = sound_registry || new SoundRegistry();
         this.#wm = wm || null;
         this.#process_manager = new ProcessManager(this.#wm);
+        this.#net_manager = net_manager || null;
     }
 
     /**
@@ -577,6 +604,14 @@ export class Kernel {
                 enumerable: true
             },
             has_window_manager: { value: () => self.has_window_manager(), enumerable: true },
+            get_network_manager: {
+                value: () => {
+                    const net_mgr = self.get_network_manager();
+                    return net_mgr ? net_mgr.create_userspace_proxy() : null;
+                },
+                enumerable: true
+            },
+            has_network_manager: { value: () => self.has_network_manager(), enumerable: true },
             get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },

@@ -297,3 +297,7 @@ export abstract class AbstractNetworkManager {
         return Object.freeze(proxy);
     }
 }
+
+// TODO: track ownership per pid, either here or in process manager
+// TODO: create porter impl
+// TODO: create test program
