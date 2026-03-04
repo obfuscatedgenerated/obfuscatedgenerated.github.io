@@ -19,6 +19,7 @@ import { initial_fs_setup } from "./initial_fs_setup";
 import {DOMWindowManager} from "./window_impl/dom";
 
 import "./load_global_externals";
+import {PorterBridgeNetworkManager} from "./network_impl/porter";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a program registry by importing all programs
@@ -64,6 +65,9 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
 
     // create a dom window manager
     const wm = new DOMWindowManager();
+
+    // create network manager
+    const net_manager = new PorterBridgeNetworkManager();
 
     // create a terminal using the registry and filesystem
     const term = new WrappedTerminal({
@@ -114,7 +118,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm);
+    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm, net_manager);
     kernel.set_env_info(document.body.dataset.version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
