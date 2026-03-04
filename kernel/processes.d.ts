@@ -54,8 +54,11 @@ export interface UserspaceOtherProcessContext {
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
+    add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
     create_timeout(callback: () => void, delay: number): number;
     cancel_timeout(id: number): void;
+    wait_for_timeout(id: number): Promise<boolean>;
+    has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
