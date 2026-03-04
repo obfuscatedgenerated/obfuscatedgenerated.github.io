@@ -1,6 +1,7 @@
 import type { AbstractWindow, AbstractWindowManager } from "./windowing";
 import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
+import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, UserspaceClientSocket, UserspaceServerSocket } from "./network";
 export interface IPCMessage {
     from: number;
     to: number;
@@ -58,6 +59,9 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
+    network_listen(port: number): Promise<UserspaceServerSocket>;
+    network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
+    get bound_ports(): number[];
 }
 export declare class ProcessContext {
     #private;
@@ -83,6 +87,9 @@ export declare class ProcessContext {
     clear_interval(id: number): void;
     wait_for_timeout(id: number): Promise<boolean>;
     create_window(): AbstractWindow | null;
+    network_listen(port: number): Promise<AbstractServerSocket>;
+    network_connect(host: string, port: number): Promise<AbstractClientSocket>;
+    get bound_ports(): number[];
     create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext;
     create_userspace_proxy(): UserspaceProcessContext;
 }
@@ -94,9 +101,10 @@ export interface UserspaceProcessManager {
 }
 export declare class ProcessManager {
     #private;
-    constructor(wm?: AbstractWindowManager | null);
+    constructor(wm?: AbstractWindowManager | null, net_manager?: AbstractNetworkManager | null);
     get window_manager(): AbstractWindowManager | null;
     get ipc_manager(): IPCManager;
+    get network_manager(): AbstractNetworkManager | null;
     dispose_all(): void;
     create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;

@@ -2,6 +2,7 @@ import { ProgramRegistry, UserspaceProgramRegistry } from "./prog_registry";
 import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
+import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager } from "./processes";
 import type { AbstractShell } from "../abstract_shell";
 import { type WrappedTerminal } from "./term_ctl";
@@ -48,6 +49,14 @@ export interface UserspaceKernel {
      * Determine if a window manager is present.
      */
     has_window_manager(): boolean;
+    /**
+     * Access the chosen {@link UserspaceNetworkManager} for this kernel, if any.
+     */
+    get_network_manager(): UserspaceNetworkManager | null;
+    /**
+     * Determine if a network manager is present.
+     */
+    has_network_manager(): boolean;
     /**
      * Access the {@link UserspaceProcessManager} for this kernel.
      */
@@ -133,6 +142,14 @@ export declare class Kernel {
      */
     has_window_manager(): boolean;
     /**
+     * Access the chosen {@link AbstractNetworkManager} implementation for this kernel, if any.
+     */
+    get_network_manager(): AbstractNetworkManager | null;
+    /**
+     * Determine if a network manager is present.
+     */
+    has_network_manager(): boolean;
+    /**
      * Access the {@link ProcessManager} for this kernel.
      */
     get_process_manager(): ProcessManager;
@@ -182,7 +199,7 @@ export declare class Kernel {
      * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
      */
     request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false>;
-    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager);
+    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager);
     /**
      * Create a userspace proxy of this kernel for use in a userspace process.
      * @param process The process to create the proxy for.
