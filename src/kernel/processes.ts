@@ -1,7 +1,7 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 import type {AbstractShell} from "../abstract_shell";
 import type {ParsedCommandLine} from "./index";
-import {AbstractNetworkManager, AbstractServerSocket, UserspaceServerSocket} from "./network";
+import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, UserspaceServerSocket} from "./network";
 
 export interface IPCMessage {
     from: number;
@@ -309,6 +309,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
     network_listen(port: number): UserspaceServerSocket;
+    network_connect(host: string, port: number): Promise<UserspaceServerSocket>;
     get bound_ports(): number[];
 }
 
@@ -334,6 +335,7 @@ export class ProcessContext {
     readonly #windows: Set<AbstractWindow> = new Set();
 
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
+    readonly #network_clients: Set<AbstractClientSocket> = new Set();
 
     constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
@@ -411,7 +413,12 @@ export class ProcessContext {
                 socket.close();
             });
 
+            this.#network_clients.forEach((socket) => {
+                socket.close();
+            });
+
             this.#port_map.clear();
+            this.#network_clients.clear();
         }
     }
 
@@ -550,6 +557,23 @@ export class ProcessContext {
         return socket;
     }
 
+    async network_connect(host: string, port: number): Promise<AbstractClientSocket> {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        const socket = await net_manager.connect(host, port);
+        this.#network_clients.add(socket);
+
+        // clean up on close
+        socket.add_event_listener("close", () => {
+            this.#network_clients.delete(socket);
+        });
+
+        return socket;
+    }
+
     get bound_ports(): number[] {
         return Array.from(this.#port_map.keys());
     }
@@ -594,6 +618,10 @@ export class ProcessContext {
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
             create_window: { value: () => self.create_window(),  enumerable: true },
             network_listen: { value: (port: number) => self.network_listen(port).create_userspace_proxy(), enumerable: true },
+            network_connect: { value: async (host: string, port: number) => {
+                const socket = await self.network_connect(host, port);
+                return socket.create_userspace_proxy();
+            }, enumerable: true },
             bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
