@@ -42,16 +42,19 @@ export interface UserspaceClientSocket {
     remove_event_listener(event: "data", callback: SocketDataListener): void;
     remove_event_listener(event: "close", callback: SocketCloseListener): void;
 
-    send(data: Uint8Array | string): void;
-    close(): void;
+    send(data: Uint8Array | string): Promise<void>;
+    close(): Promise<void>;
 }
 
 export abstract class AbstractClientSocket {
     readonly id: string;
     ready_state: SocketReadyState = SocketReadyState.CONNECTING;
 
+    // the implementation needs to invoke these when data is received
     protected readonly _data_listeners: Set<SocketDataListener> = new Set();
-    protected readonly _close_listeners: Set<SocketCloseListener> = new Set();
+
+    // the implementation doesnt need to bother with close listeners, it's handled here
+    readonly #close_listeners: Set<SocketCloseListener> = new Set();
 
     protected constructor(id: string) {
         this.id = id;
@@ -63,7 +66,7 @@ export abstract class AbstractClientSocket {
                 this._data_listeners.add(callback as SocketDataListener);
                 break;
             case "close":
-                this._close_listeners.add(callback as SocketCloseListener);
+                this.#close_listeners.add(callback as SocketCloseListener);
                 break;
         }
     }
@@ -74,34 +77,34 @@ export abstract class AbstractClientSocket {
                 this._data_listeners.delete(callback as SocketDataListener);
                 break;
             case "close":
-                this._close_listeners.delete(callback as SocketCloseListener);
+                this.#close_listeners.delete(callback as SocketCloseListener);
                 break;
         }
     }
 
-    protected abstract _handle_send_internal(data: Uint8Array): void;
+    protected abstract _handle_send_internal(data: Uint8Array): Promise<void>;
 
-    send(data: Uint8Array | string): void {
+    async send(data: Uint8Array | string): Promise<void> {
         if (this.ready_state !== SocketReadyState.OPEN) {
             throw new Error("Cannot send data on a socket that is not open");
         }
 
         const uint8_data = typeof data === "string" ? new TextEncoder().encode(data) : data;
-        this._handle_send_internal(uint8_data);
+        await this._handle_send_internal(uint8_data);
     }
 
-    protected abstract _handle_close_internal(): void;
+    protected abstract _handle_close_internal(): Promise<void>;
 
-    close(): void {
+    async close(): Promise<void> {
         if (this.ready_state === SocketReadyState.CLOSING || this.ready_state === SocketReadyState.CLOSED) {
             return;
         }
 
         this.ready_state = SocketReadyState.CLOSING;
-        this._handle_close_internal();
+        await this._handle_close_internal();
 
         // invoke close listeners
-        for (const listener of this._close_listeners) {
+        for (const listener of this.#close_listeners) {
             try {
                 listener();
             } catch (err) {
@@ -126,13 +129,13 @@ export abstract class AbstractClientSocket {
             this.remove_event_listener(event, callback);
         };
 
-        proxy.send = (data: Uint8Array | string) => {
-            this.send(data);
+        proxy.send = async (data: Uint8Array | string) => {
+            return this.send(data);
         };
 
-        proxy.close = () => {
-            this.close();
-        };
+        proxy.close = async () => {
+            return this.close();
+        }
 
         return Object.freeze(proxy);
     }
@@ -147,14 +150,17 @@ export interface UserspaceServerSocket {
     remove_event_listener(event: "connection", callback: UserspaceSocketConnectionListener): void;
     remove_event_listener(event: "close", callback: SocketCloseListener): void;
 
-    close(): void;
+    close(): Promise<void>;
 }
 
 export abstract class AbstractServerSocket {
     readonly port: number;
 
+    // the implementation needs to invoke these when a new client connects
     protected readonly _connection_listeners: Set<SocketConnectionListener> = new Set();
-    protected readonly _close_listeners: Set<SocketCloseListener> = new Set();
+
+    // the implementation doesnt need to bother with close listeners, it's handled here
+    readonly #close_listeners: Set<SocketCloseListener> = new Set();
 
     protected constructor(port: number) {
         this.port = port;
@@ -166,7 +172,7 @@ export abstract class AbstractServerSocket {
                 this._connection_listeners.add(callback as SocketConnectionListener);
                 break;
             case "close":
-                this._close_listeners.add(callback as SocketCloseListener);
+                this.#close_listeners.add(callback as SocketCloseListener);
                 break;
         }
     }
@@ -177,18 +183,18 @@ export abstract class AbstractServerSocket {
                 this._connection_listeners.delete(callback as SocketConnectionListener);
                 break;
             case "close":
-                this._close_listeners.delete(callback as SocketCloseListener);
+                this.#close_listeners.delete(callback as SocketCloseListener);
                 break;
         }
     }
 
-    protected abstract _handle_close_internal(): void;
+    protected abstract _handle_close_internal(): Promise<void>;
 
-    close(): void {
-        this._handle_close_internal();
+    async close(): Promise<void> {
+        await this._handle_close_internal();
 
         // invoke close listeners
-        for (const listener of this._close_listeners) {
+        for (const listener of this.#close_listeners) {
             try {
                 listener();
             } catch (err) {
@@ -244,7 +250,7 @@ export abstract class AbstractServerSocket {
         }
 
         proxy.close = () => {
-            this.close();
+            return this.close();
         };
 
         return Object.freeze(proxy);
@@ -267,16 +273,16 @@ export abstract class AbstractNetworkManager {
 
     abstract get_unique_manager_type_name(): string;
 
-    protected abstract _handle_listen_internal(port: number): AbstractServerSocket;
+    protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
 
     // listen covers both binding and listening
-    listen(port: number): AbstractServerSocket {
+    async listen(port: number): Promise<AbstractServerSocket> {
         if (this.#port_map.has(port)) {
             throw new PortInUseError(port);
         }
 
         // invoke implementation class to create the server socket, then store it in the port map
-        const server_socket = this._handle_listen_internal(port);
+        const server_socket = await this._handle_listen_internal(port);
         this.#port_map.set(port, server_socket);
 
         // remove once the server socket is closed
@@ -299,5 +305,4 @@ export abstract class AbstractNetworkManager {
     }
 }
 
-// TODO: create porter impl
 // TODO: create test program

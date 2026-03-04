@@ -1,7 +1,13 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 import type {AbstractShell} from "../abstract_shell";
 import type {ParsedCommandLine} from "./index";
-import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, UserspaceServerSocket} from "./network";
+import {
+    AbstractClientSocket,
+    AbstractNetworkManager,
+    AbstractServerSocket,
+    UserspaceClientSocket,
+    UserspaceServerSocket
+} from "./network";
 
 export interface IPCMessage {
     from: number;
@@ -308,8 +314,8 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
-    network_listen(port: number): UserspaceServerSocket;
-    network_connect(host: string, port: number): Promise<UserspaceServerSocket>;
+    network_listen(port: number): Promise<UserspaceServerSocket>;
+    network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     get bound_ports(): number[];
 }
 
@@ -540,13 +546,13 @@ export class ProcessContext {
         return win;
     }
 
-    network_listen(port: number): AbstractServerSocket {
+    async network_listen(port: number): Promise<AbstractServerSocket> {
         const net_manager = this.#manager.network_manager;
         if (!net_manager) {
             throw new Error("No network manager available");
         }
 
-        const socket = net_manager.listen(port);
+        const socket = await net_manager.listen(port);
         this.#port_map.set(port, socket);
 
         // clean up on close
@@ -617,7 +623,10 @@ export class ProcessContext {
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
             create_window: { value: () => self.create_window(),  enumerable: true },
-            network_listen: { value: (port: number) => self.network_listen(port).create_userspace_proxy(), enumerable: true },
+            network_listen: { value: async (port: number) => {
+                const socket = await self.network_listen(port);
+                return socket.create_userspace_proxy();
+            }, enumerable: true },
             network_connect: { value: async (host: string, port: number) => {
                 const socket = await self.network_connect(host, port);
                 return socket.create_userspace_proxy();
