@@ -79,7 +79,16 @@ export abstract class AbstractClientSocket {
         }
     }
 
-    abstract send(data: Uint8Array | string): void;
+    protected abstract _handle_send_internal(data: Uint8Array): void;
+
+    send(data: Uint8Array | string): void {
+        if (this.ready_state !== SocketReadyState.OPEN) {
+            throw new Error("Cannot send data on a socket that is not open");
+        }
+
+        const uint8_data = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        this._handle_send_internal(uint8_data);
+    }
 
     protected abstract _handle_close_internal(): void;
 
@@ -251,7 +260,7 @@ export interface UserspaceNetworkManager {
 export abstract class AbstractNetworkManager {
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
 
-    protected abstract _listen_internal(port: number): AbstractServerSocket;
+    protected abstract _handle_listen_internal(port: number): AbstractServerSocket;
 
     listen(port: number): AbstractServerSocket {
         if (this.#port_map.has(port)) {
@@ -259,7 +268,7 @@ export abstract class AbstractNetworkManager {
         }
 
         // invoke implementation class to create the server socket, then store it in the port map
-        const server_socket = this._listen_internal(port);
+        const server_socket = this._handle_listen_internal(port);
         this.#port_map.set(port, server_socket);
 
         // remove once the server socket is closed
