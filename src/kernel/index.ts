@@ -325,8 +325,10 @@ export class Kernel {
         // provide either privileged or userspace kernel access
         if (start_privileged) {
             data.kernel = this;
+            data.process = process;
         } else {
             data.kernel = this.create_userspace_proxy(process);
+            data.process = process.create_userspace_proxy();
         }
 
         data.term = this.#term;
@@ -334,7 +336,6 @@ export class Kernel {
         data.shell = shell;
         data.unsubbed_args = parsed_line.unsubbed_args;
         data.raw_parts = parsed_line.raw_parts;
-        data.process = process;
 
         Object.freeze(data);
 

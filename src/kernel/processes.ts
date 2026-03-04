@@ -309,8 +309,11 @@ export interface UserspaceOtherProcessContext {
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
+    add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
     create_timeout(callback: () => void, delay: number): number;
     cancel_timeout(id: number): void;
+    wait_for_timeout(id: number): Promise<boolean>;
+    has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
@@ -434,7 +437,11 @@ export class ProcessContext {
         this.#manager.mark_terminated(this.#pid);
 
         for (const listener of this.#exit_listeners) {
-            listener(exit_code);
+            try {
+                listener(exit_code);
+            } catch (err) {
+                console.error("Process exit listener error:", err);
+            }
         }
     }
 
@@ -615,11 +622,13 @@ export class ProcessContext {
             is_foreground: { get: () => self.is_foreground, enumerable: true },
             attachment: { get: () => self.attachment, enumerable: true },
             source_command: { get: () => self.source_command, enumerable: true },
-
             detach: { value: (silently = false) => { self.detach(silently); }, enumerable: true },
             kill: { value: (exit_code = 0) => { self.kill(exit_code); }, enumerable: true },
+            add_exit_listener: { value: (listener: (exit_code: number) => Promise<void> | void) => { self.add_exit_listener(listener); }, enumerable: true },
             create_timeout: { value: (callback: () => void, delay: number) => self.create_timeout(callback, delay), enumerable: true },
             cancel_timeout: { value: (id: number) => { self.cancel_timeout(id); }, enumerable: true },
+            wait_for_timeout: { value: (id: number) => self.wait_for_timeout(id), enumerable: true },
+            has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
             create_window: { value: () => self.create_window(),  enumerable: true },

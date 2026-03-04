@@ -1,6 +1,6 @@
 import type {Kernel, UserspaceKernel} from "./kernel";
 import type {WrappedTerminal} from "./kernel/term_ctl";
-import type {ProcessContext} from "./kernel/processes";
+import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
 import type {AbstractShell} from "./abstract_shell";
 
 export interface ProgramMainData<K = UserspaceKernel> {
@@ -19,7 +19,7 @@ export interface ProgramMainData<K = UserspaceKernel> {
     shell?: AbstractShell;
 
     // process info for the currently running program
-    process: ProcessContext,
+    process: K extends Kernel ? ProcessContext : UserspaceProcessContext;
 
     // args after variable substitution
     args: string[],
