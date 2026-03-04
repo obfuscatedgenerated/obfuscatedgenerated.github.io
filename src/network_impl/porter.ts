@@ -1,5 +1,7 @@
 import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, SocketReadyState} from "../kernel/network";
 
+// TODO: retry websocket if closed, they might not start porter before loading the os
+
 interface BaseMessage {
     type: string;
 }
