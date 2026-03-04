@@ -571,8 +571,8 @@ export class Kernel {
         this.#prog_registry = prog_registry || new ProgramRegistry();
         this.#sfx_registry = sound_registry || new SoundRegistry();
         this.#wm = wm || null;
-        this.#process_manager = new ProcessManager(this.#wm);
         this.#net_manager = net_manager || null;
+        this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
     }
 
     /**

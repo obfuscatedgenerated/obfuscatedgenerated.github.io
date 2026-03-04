@@ -299,6 +299,5 @@ export abstract class AbstractNetworkManager {
     }
 }
 
-// TODO: track ownership per pid, either here or in process manager
 // TODO: create porter impl
 // TODO: create test program

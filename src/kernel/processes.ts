@@ -1,6 +1,7 @@
 import type {AbstractWindow, AbstractWindowManager} from "./windowing";
 import type {AbstractShell} from "../abstract_shell";
 import type {ParsedCommandLine} from "./index";
+import {AbstractNetworkManager, AbstractServerSocket, UserspaceServerSocket} from "./network";
 
 export interface IPCMessage {
     from: number;
@@ -307,6 +308,8 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
     create_window(): AbstractWindow | null;
+    network_listen(port: number): UserspaceServerSocket;
+    get bound_ports(): number[];
 }
 
 export class ProcessContext {
@@ -329,6 +332,8 @@ export class ProcessContext {
     readonly #intervals: Set<number> = new Set();
 
     readonly #windows: Set<AbstractWindow> = new Set();
+
+    readonly #port_map: Map<number, AbstractServerSocket> = new Map();
 
     constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
@@ -399,6 +404,15 @@ export class ProcessContext {
         this.#windows.forEach((win) => {
             win.dispose();
         });
+
+        const net_manager = this.#manager.network_manager;
+        if (net_manager) {
+            this.#port_map.forEach((socket) => {
+                socket.close();
+            });
+
+            this.#port_map.clear();
+        }
     }
 
     kill(exit_code = 0): void {
@@ -519,6 +533,26 @@ export class ProcessContext {
         return win;
     }
 
+    network_listen(port: number): AbstractServerSocket {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        const socket = net_manager.listen(port);
+        this.#port_map.set(port, socket);
+
+        // clean up on close
+        socket.add_event_listener("close", () => {
+            this.#port_map.delete(port);
+        });
+
+        return socket;
+    }
+
+    get bound_ports(): number[] {
+        return Array.from(this.#port_map.keys());
+    }
 
     create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -559,6 +593,8 @@ export class ProcessContext {
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
             create_window: { value: () => self.create_window(),  enumerable: true },
+            network_listen: { value: (port: number) => self.network_listen(port).create_userspace_proxy(), enumerable: true },
+            bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
         return Object.freeze(proxy);
@@ -578,9 +614,11 @@ export class ProcessManager {
 
     readonly #wm: AbstractWindowManager | null;
     readonly #ipc_manager: IPCManager = new IPCManager(this);
+    readonly #net_manager: AbstractNetworkManager | null = null;
 
-    constructor(wm: AbstractWindowManager | null = null) {
+    constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
+        this.#net_manager = net_manager;
     }
 
     get window_manager(): AbstractWindowManager | null {
@@ -589,6 +627,10 @@ export class ProcessManager {
 
     get ipc_manager(): IPCManager {
         return this.#ipc_manager;
+    }
+
+    get network_manager(): AbstractNetworkManager | null {
+        return this.#net_manager;
     }
 
     dispose_all(): void {
