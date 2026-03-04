@@ -1,4 +1,4 @@
-import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket} from "../kernel/network";
+import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, SocketReadyState} from "../kernel/network";
 
 interface BaseMessage {
     type: string;
@@ -70,12 +70,40 @@ const uint8_to_base64 = (data: Uint8Array): string => {
     return btoa(binary);
 }
 
+const wait_for_ws_ready = async (ws: WebSocket): Promise<void> => {
+    if (ws.readyState === WebSocket.OPEN) {
+        return;
+    }
+
+    if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        throw new Error("WebSocket is closed");
+    }
+
+    await new Promise<void>((resolve, reject) => {
+        const on_open = () => {
+            ws.removeEventListener("open", on_open);
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            ws.removeEventListener("error", on_error);
+            resolve();
+        };
+        const on_error = (err: Event) => {
+            ws.removeEventListener("open", on_open);
+            ws.removeEventListener("error", on_error);
+            reject(new Error(`WebSocket error: ${err}`));
+        };
+
+        ws.addEventListener("open", on_open);
+        ws.addEventListener("error", on_error);
+    });
+}
+
 export class PorterBridgeClientSocket extends AbstractClientSocket {
     #ws: WebSocket;
 
     constructor(id: string, ws: WebSocket) {
         super(id);
         this.#ws = ws;
+        this.ready_state = SocketReadyState.OPEN;
     }
 
     protected async _handle_close_internal(): Promise<void> {
@@ -83,6 +111,8 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
             type: "close_connection",
             sock_id: this.id,
         };
+
+        await wait_for_ws_ready(this.#ws);
         this.#ws.send(JSON.stringify(msg));
 
         // wait for ack
@@ -110,6 +140,8 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
             sock_id: this.id,
             data: uint8_to_base64(data),
         };
+
+        await wait_for_ws_ready(this.#ws);
         this.#ws.send(JSON.stringify(msg));
     }
 
@@ -138,6 +170,8 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
             type: "unbind_req",
             port: this.port,
         };
+
+        await wait_for_ws_ready(this.#ws);
         this.#ws.send(JSON.stringify(msg));
 
         // wait for ack
@@ -211,7 +245,9 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                 case "connection_closing": {
                     const client = this.#client_map.get(data.sock_id);
                     if (client) {
-                        client.close();
+                        client.close().catch(err => {
+                            console.error(`Error closing client socket ${data.sock_id}:`, err);
+                        });
                     } else {
                         console.warn(`Received connection closing for unknown socket ID ${data.sock_id}`);
                     }
@@ -239,29 +275,42 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
         const socket = new PorterBridgeServerSocket(port, this.#ws);
         this.#port_map.set(port, socket);
 
+        // add close listener to remove from port map on close
+        socket.add_event_listener("close", () => {
+            this.#port_map.delete(port);
+        });
+
         const msg: BindMessage = {
             type: "bind_req",
             port,
         };
+
+        await wait_for_ws_ready(this.#ws);
         this.#ws.send(JSON.stringify(msg));
 
         // wait for ack
         // TODO: move this to the routing instead for more efficiency
-        await new Promise<void>((resolve, reject) => {
-            const handler = (event: MessageEvent) => {
-                const data = JSON.parse(event.data) as InboundMessage;
-                if (data.type === "ack_bind" && data.port === port) {
-                    this.#ws.removeEventListener("message", handler);
-                    if (data.success) {
-                        resolve();
-                    } else {
-                        reject(new Error(data.error || "Unknown error binding port"));
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const handler = (event: MessageEvent) => {
+                    const data = JSON.parse(event.data) as InboundMessage;
+                    if (data.type === "ack_bind" && data.port === port) {
+                        this.#ws.removeEventListener("message", handler);
+                        if (data.success) {
+                            resolve();
+                        } else {
+                            reject(new Error(data.error || "Unknown error binding port"));
+                        }
                     }
-                }
-            };
+                };
 
-            this.#ws.addEventListener("message", handler);
-        });
+                this.#ws.addEventListener("message", handler);
+            });
+        } catch (err) {
+            // cleanup on failure
+            this.#port_map.delete(port);
+            throw err;
+        }
 
         return socket;
     }

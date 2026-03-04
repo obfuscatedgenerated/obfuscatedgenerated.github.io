@@ -162,6 +162,8 @@ export abstract class AbstractServerSocket {
     // the implementation doesnt need to bother with close listeners, it's handled here
     readonly #close_listeners: Set<SocketCloseListener> = new Set();
 
+    #is_closed = false;
+
     protected constructor(port: number) {
         this.port = port;
     }
@@ -191,6 +193,11 @@ export abstract class AbstractServerSocket {
     protected abstract _handle_close_internal(): Promise<void>;
 
     async close(): Promise<void> {
+        if (this.#is_closed) {
+            return;
+        }
+        this.#is_closed = true;
+
         await this._handle_close_internal();
 
         // invoke close listeners
@@ -281,16 +288,25 @@ export abstract class AbstractNetworkManager {
             throw new PortInUseError(port);
         }
 
-        // invoke implementation class to create the server socket, then store it in the port map
-        const server_socket = await this._handle_listen_internal(port);
-        this.#port_map.set(port, server_socket);
+        // forcibly claim the port to avoid race condition
+        this.#port_map.set(port, null as unknown as AbstractServerSocket);
 
-        // remove once the server socket is closed
-        server_socket.add_event_listener("close", () => {
+        try {
+            // invoke implementation class to create the server socket, then store it in the port map
+            const server_socket = await this._handle_listen_internal(port);
+            this.#port_map.set(port, server_socket);
+
+            // remove once the server socket is closed
+            server_socket.add_event_listener("close", () => {
+                this.#port_map.delete(port);
+            });
+
+            return server_socket;
+        } catch (err) {
+            // if there was an error, remove the port from the map so it can be retried
             this.#port_map.delete(port);
-        });
-
-        return server_socket;
+            throw err;
+        }
     }
 
     abstract connect(host: string, port: number): Promise<AbstractClientSocket>;
