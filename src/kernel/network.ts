@@ -252,16 +252,24 @@ export abstract class AbstractServerSocket {
 }
 
 export interface UserspaceNetworkManager {
-    // listen covers both binding and listening
-    listen(port: number): UserspaceServerSocket;
-    connect(host: string, port: number): Promise<UserspaceClientSocket>;
+    get bound_ports(): number[];
+    get_unique_manager_type_name(): string;
+
+    // listen and connect must be done via the pcb in userspace to track ownership
 }
 
 export abstract class AbstractNetworkManager {
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
 
+    get bound_ports(): number[] {
+        return Array.from(this.#port_map.keys());
+    }
+
+    abstract get_unique_manager_type_name(): string;
+
     protected abstract _handle_listen_internal(port: number): AbstractServerSocket;
 
+    // listen covers both binding and listening
     listen(port: number): AbstractServerSocket {
         if (this.#port_map.has(port)) {
             throw new PortInUseError(port);
@@ -284,15 +292,8 @@ export abstract class AbstractNetworkManager {
     create_userspace_proxy(): UserspaceNetworkManager {
         const proxy = {} as UserspaceNetworkManager;
 
-        proxy.listen = (port: number) => {
-            const server_socket = this.listen(port);
-            return server_socket.create_userspace_proxy();
-        };
-
-        proxy.connect = async (host: string, port: number) => {
-            const client_socket = await this.connect(host, port);
-            return client_socket.create_userspace_proxy();
-        };
+        Object.defineProperty(proxy, "bound_ports", { get: () => this.bound_ports });
+        Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
 
         return Object.freeze(proxy);
     }
