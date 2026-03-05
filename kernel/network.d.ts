@@ -10,12 +10,18 @@ export type SocketEventListener = ClientSocketEventListener | ServerSocketEventL
 export type UserspaceClientSocketEventListener = SocketDataListener | SocketCloseListener;
 export type UserspaceServerSocketEventListener = UserspaceSocketConnectionListener | SocketCloseListener;
 export type UserspaceSocketEventListener = UserspaceClientSocketEventListener | UserspaceServerSocketEventListener;
+/**
+ * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
+ */
 export declare enum SocketReadyState {
     CONNECTING = 0,
     OPEN = 1,
     CLOSING = 2,
     CLOSED = 3
 }
+/**
+ * Error thrown when trying to listen on a port that is already in use.
+ */
 export declare class PortInUseError extends Error {
     constructor(port: number);
 }
