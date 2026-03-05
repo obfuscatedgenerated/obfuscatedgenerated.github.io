@@ -1,9 +1,11 @@
 import type { Program } from "../types";
-import { ANSI, NEWLINE, WrappedTerminal, NON_PRINTABLE_REGEX } from "../kernel/term_ctl";
+import { ANSI, NEWLINE, AbstractTerminal, NON_PRINTABLE_REGEX } from "../kernel/term_ctl";
 
 const HEADER = 2;
 
-const setup = (term: WrappedTerminal, content: string, path: string, readonly: boolean) => {
+// TODO: explore alternate mode buffer rather than clearing
+
+const setup = (term: AbstractTerminal, content: string, path: string, readonly: boolean) => {
     // extract from ANSI to make code less verbose
     const { STYLE, BG, FG } = ANSI;
 
@@ -140,7 +142,7 @@ export default {
                     break;
                 case "ArrowUp": {
                     // determine the current cursor position
-                    const cursor_y = term.buffer.normal.cursorY;
+                    const cursor_y = term.cursor_y;
 
                     if (cursor_y === 2) {
                         // TODO: scroll file
@@ -155,7 +157,7 @@ export default {
                     const line_length = split_content[cursor_y - HEADER - 1].length;
 
                     // determine the cursor's x position
-                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_x = term.cursor_x;
 
                     // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
                     if (cursor_x >= line_length) {
@@ -167,7 +169,7 @@ export default {
                     break;
                 case "ArrowDown": {
                     // determine the current cursor position
-                    const cursor_y = term.buffer.normal.cursorY;
+                    const cursor_y = term.cursor_y;
 
                     if (cursor_y === term.rows - 4) {
                         // TODO: scroll file
@@ -187,7 +189,7 @@ export default {
                     const line_length = split_content[cursor_y - HEADER + 1].length;
 
                     // determine the cursor's x position
-                    const cursor_x = term.buffer.normal.cursorX;
+                    const cursor_x = term.cursor_x;
 
                     // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
                     if (cursor_x >= line_length) {
@@ -203,8 +205,8 @@ export default {
                     break;
                 case "ArrowRight": {
                     // determine cursor position
-                    const cursor_x = term.buffer.normal.cursorX;
-                    const cursor_y = term.buffer.normal.cursorY;
+                    const cursor_x = term.cursor_x;
+                    const cursor_y = term.cursor_y;
 
                     // determine the current line's length (sub 2 for header)
                     const line_length = split_content[cursor_y - HEADER].length;
@@ -224,8 +226,8 @@ export default {
 
 
                     // determine cursor position
-                    const cursor_x = term.buffer.normal.cursorX;
-                    let cursor_y = term.buffer.normal.cursorY;
+                    const cursor_x = term.cursor_x;
+                    let cursor_y = term.cursor_y;
 
                     // split the current line at the cursor position
                     const line = split_content[cursor_y - HEADER];
@@ -292,8 +294,8 @@ export default {
                     }
 
                     // get the current cursor position
-                    const cursor_x = term.buffer.normal.cursorX;
-                    const cursor_y = term.buffer.normal.cursorY;
+                    const cursor_x = term.cursor_x;
+                    const cursor_y = term.cursor_y;
 
                     // do nothing at the start of the file
                     if (cursor_x === 0 && cursor_y === 2) {
@@ -374,8 +376,8 @@ export default {
                     }
 
                     // get the current cursor position
-                    const cursor_x = term.buffer.normal.cursorX;
-                    const cursor_y = term.buffer.normal.cursorY;
+                    const cursor_x = term.cursor_x;
+                    const cursor_y = term.cursor_y;
 
                     // if the key is a printable character, write it in
                     if (!NON_PRINTABLE_REGEX.test(key.key)) {

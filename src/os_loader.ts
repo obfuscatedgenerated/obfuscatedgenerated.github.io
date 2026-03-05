@@ -2,7 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
-import {ANSI, NEWLINE, WrappedTerminal} from "./kernel/term_ctl";
+import {ANSI, NEWLINE} from "./kernel/term_ctl";
 
 import {Kernel} from "./kernel";
 
@@ -20,6 +20,7 @@ import {DOMWindowManager} from "./window_impl/dom";
 
 import "./load_global_externals";
 import {PorterBridgeNetworkManager} from "./network_impl/porter";
+import {XTermTerminal} from "./term_impl/xterm";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a program registry by importing all programs
@@ -70,7 +71,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     const net_manager = new PorterBridgeNetworkManager();
 
     // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal({
+    const term = new XTermTerminal({
         screenReaderMode: false,
         cursorBlink: true,
     });

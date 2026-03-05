@@ -1,7 +1,7 @@
 import type {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, SpawnResult} from "../../../kernel";
 
-import {ANSI, NEWLINE, type WrappedTerminal} from "../../../kernel/term_ctl";
+import {ANSI, NEWLINE, type AbstractTerminal} from "../../../kernel/term_ctl";
 
 import {AshMemory} from "./memory";
 import {parse_line} from "./parser";
@@ -10,7 +10,7 @@ const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
     readonly #kernel: UserspaceKernel;
-    readonly #term: WrappedTerminal;
+    readonly #term: AbstractTerminal;
     readonly #memory = new AshMemory();
 
     #prompt_suffix = "$ ";
@@ -18,7 +18,7 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: WrappedTerminal, kernel: UserspaceKernel) {
+    constructor(term: AbstractTerminal, kernel: UserspaceKernel) {
         this.#term = term;
         this.#kernel = kernel;
     }

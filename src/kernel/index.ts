@@ -15,7 +15,7 @@ import {
 import type {AbstractShell} from "../abstract_shell";
 import {ProgramMainData} from "../types";
 
-import {NEWLINE, type WrappedTerminal} from "./term_ctl";
+import {NEWLINE, type AbstractTerminal} from "./term_ctl";
 
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
@@ -140,7 +140,7 @@ export interface ParsedCommandLine {
  * @category Kernel
  */
 export class Kernel {
-    readonly #term: WrappedTerminal;
+    readonly #term: AbstractTerminal;
     readonly #process_manager: ProcessManager;
     readonly #prog_registry: ProgramRegistry;
     readonly #sfx_registry: SoundRegistry;
@@ -566,7 +566,7 @@ export class Kernel {
         }
     }
 
-    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
+    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
         this.#term = term;
         this.#fs = fs;
         this.#prog_registry = prog_registry || new ProgramRegistry();

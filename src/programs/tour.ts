@@ -1,8 +1,8 @@
 import type {Program, ProgramMainData} from "../types";
-import { ANSI, NEWLINE, type WrappedTerminal } from "../kernel/term_ctl";
+import { ANSI, NEWLINE, type AbstractTerminal } from "../kernel/term_ctl";
 
 
-const wait_block = (term: WrappedTerminal) => {
+const wait_block = (term: AbstractTerminal) => {
     term.write(NEWLINE);
     term.writeln(`${ANSI.STYLE.italic}Press any key to continue...${ANSI.STYLE.reset_all}`)
     return term.wait_for_keypress();

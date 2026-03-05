@@ -1,5 +1,5 @@
 import type {Kernel, UserspaceKernel} from "./kernel";
-import type {WrappedTerminal} from "./kernel/term_ctl";
+import type {AbstractTerminal} from "./kernel/term_ctl";
 import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
 import type {AbstractShell} from "./abstract_shell";
 
@@ -13,7 +13,7 @@ export interface ProgramMainData<K = UserspaceKernel> {
     kernel: K,
 
     // terminal to interact with
-    term: WrappedTerminal,
+    term: AbstractTerminal,
 
     // shell that invoked the program, if any
     shell?: AbstractShell;
@@ -70,7 +70,7 @@ export interface Program<K = UserspaceKernel> {
 export type PrivilegedProgram = Program<Kernel>;
 
 export interface CompletionData {
-    term: WrappedTerminal,
+    term: AbstractTerminal,
     kernel: UserspaceKernel,
     shell?: AbstractShell,
 

@@ -5,7 +5,7 @@
 
 import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
-import {ANSI, WrappedTerminal} from "./term_ctl";
+import {ANSI, AbstractTerminal} from "./term_ctl";
 
 const encode_js_to_url = (js_code: string): string => {
     const encoded = encodeURIComponent(js_code);
@@ -131,7 +131,7 @@ export const determine_program_name_from_js = async (js_code: string): Promise<s
 
 
 // mounts and registers a program and outputs errors to the terminal
-export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry | UserspaceProgramRegistry, term: WrappedTerminal, output_success = false) => {
+export const mount_and_register_with_output = async (filename: string, content: string, prog_reg: ProgramRegistry | UserspaceProgramRegistry, term: AbstractTerminal, output_success = false) => {
     const { PREFABS, FG, STYLE } = ANSI;
 
     let reg: ProgramRegistrant;
@@ -165,7 +165,7 @@ export const mount_and_register_with_output = async (filename: string, content: 
 }
 
 // recurses through a directory and mounts and registers all programs in it as well as its subdirectories
-export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry | UserspaceProgramRegistry, term: WrappedTerminal) => {
+export const recurse_mount_and_register_with_output = async (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry | UserspaceProgramRegistry, term: AbstractTerminal) => {
     const entries = await fs.list_dir(dir_path);
 
     for (const entry of entries) {
@@ -194,8 +194,8 @@ export interface UserspaceProgramRegistry {
     forceUnregister(name: string): Promise<void>;
     build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
     determine_program_name_from_js(js_code: string): Promise<string>;
-    mount_and_register_with_output(filename: string, content: string, term: WrappedTerminal, output_success?: boolean): Promise<void>;
-    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal): Promise<void>;
+    mount_and_register_with_output(filename: string, content: string, term: AbstractTerminal, output_success?: boolean): Promise<void>;
+    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: AbstractTerminal): Promise<void>;
 }
 
 export class ProgramRegistry {
@@ -292,11 +292,11 @@ export class ProgramRegistry {
         return determine_program_name_from_js(js_code);
     }
 
-    async mount_and_register_with_output(filename: string, content: string, term: WrappedTerminal, output_success = false) {
+    async mount_and_register_with_output(filename: string, content: string, term: AbstractTerminal, output_success = false) {
         return mount_and_register_with_output(filename, content, this, term, output_success);
     }
 
-    async recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: WrappedTerminal) {
+    async recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: AbstractTerminal) {
         return recurse_mount_and_register_with_output(fs, dir_path, this, term);
     }
 
@@ -387,12 +387,12 @@ export class ProgramRegistry {
 
             // ensure the proxy is used for these methods to enforce protections
             mount_and_register_with_output: {
-                value: async (filename: string, content: string, term: WrappedTerminal, output_success = false) =>
+                value: async (filename: string, content: string, term: AbstractTerminal, output_success = false) =>
                     mount_and_register_with_output(filename, content, proxy, term, output_success),
                 enumerable: true
             },
             recurse_mount_and_register_with_output: {
-                value: async (dir_path: string, term: WrappedTerminal) =>
+                value: async (dir_path: string, term: AbstractTerminal) =>
                     recurse_mount_and_register_with_output(fs, dir_path, proxy, term),
                 enumerable: true
             },

@@ -33,6 +33,11 @@ export default {
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
+        if (!term.supports_custom_flag("reader_support")) {
+            term.writeln(`${PREFABS.error}Your terminal does not support configuring screen reader mode. Either it supports it by default, or it does not support it at all.${STYLE.reset_all}`);
+            return 1;
+        }
+
         // get sound registry
         const sfx_reg = kernel.get_sound_registry();
 
@@ -41,16 +46,16 @@ export default {
                 return await kernel.spawn("help", ["clear"], shell).completion;
             case "-q":
                 // query screen reader mode
-                term.writeln(`Screen reader mode is currently ${term.options.screenReaderMode ? "on" : "off"}.`);
+                term.writeln(`Screen reader mode is currently ${term.get_custom_flag("reader_support") ? "on" : "off"}.`);
                 return 0;
             case "-s":
                 // set screen reader mode
                 switch (args[1]) {
                     case "on":
-                        term.options.screenReaderMode = true;
+                        term.set_custom_flag("reader_support", true);
                         break;
                     case "off":
-                        term.options.screenReaderMode = false;
+                        term.set_custom_flag("reader_support", false);
                         break;
                     default:
                         term.writeln("Invalid argument. Expected \"on\" or \"off\".");
@@ -59,10 +64,10 @@ export default {
                 break;
             default:
                 // toggle screen reader mode
-                term.options.screenReaderMode = !term.options.screenReaderMode;
+                term.set_custom_flag("reader_support", !term.get_custom_flag("reader_support"));
         }
 
-        const state = term.options.screenReaderMode ? "on" : "off";
+        const state = term.get_custom_flag("reader_support") ? "on" : "off";
 
         // play sound
         const sound_name = `reader_${state}`;
@@ -72,7 +77,7 @@ export default {
         term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
 
         // remove hint element if screen reader mode is on
-        if (term.options.screenReaderMode) {
+        if (state === "on") {
             const hint = document.querySelector("#screenreader_hint");
 
             if (hint) {
@@ -81,7 +86,7 @@ export default {
         }
 
         // save into local storage
-        localStorage.setItem("reader", term.options.screenReaderMode.toString());
+        localStorage.setItem("reader", term.get_custom_flag("reader_support").toString());
 
         return 0;
     }

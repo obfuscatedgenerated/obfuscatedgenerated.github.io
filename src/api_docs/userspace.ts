@@ -10,7 +10,7 @@ export {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
  * @group Userspace
  * @category Terminal
  */
-export {WrappedTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
+export {AbstractTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
 
 /**
  * @group Userspace
