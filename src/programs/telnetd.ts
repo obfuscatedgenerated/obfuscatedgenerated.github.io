@@ -199,6 +199,7 @@ export default {
                 spawn_result.process.kill();
             } catch (e) {
                 session_term.writeln(`${session_term.ansi.PREFABS.error}Failed to spawn shell: ${e.message}${session_term.ansi.STYLE.reset_all}`);
+            } finally {
                 session_term.dispose();
             }
         });
