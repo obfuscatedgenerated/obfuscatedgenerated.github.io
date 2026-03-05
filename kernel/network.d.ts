@@ -65,11 +65,13 @@ export declare abstract class AbstractServerSocket {
 export interface UserspaceNetworkManager {
     get bound_ports(): number[];
     get_unique_manager_type_name(): string;
+    is_up(try_waiting?: boolean): Promise<boolean>;
 }
 export declare abstract class AbstractNetworkManager {
     #private;
     get bound_ports(): number[];
     abstract get_unique_manager_type_name(): string;
+    abstract is_up(try_waiting?: boolean): Promise<boolean>;
     protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
     listen(port: number): Promise<AbstractServerSocket>;
     abstract connect(host: string, port: number): Promise<AbstractClientSocket>;
