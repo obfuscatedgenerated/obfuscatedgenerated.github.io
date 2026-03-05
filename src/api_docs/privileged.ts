@@ -30,4 +30,10 @@ export { ProgramRegistry } from "../kernel/prog_registry";
  */
 export { AbstractWindow, AbstractWindowManager } from "../kernel/windowing";
 
+/**
+ * @group Kernel (Privileged)
+ * @category Networking
+ */
+export { AbstractNetworkManager, AbstractServerSocket, AbstractClientSocket, ServerSocketEvent, ServerSocketEventListener, ClientSocketEvent, ClientSocketEventListener, SocketConnectionListener } from "../kernel/network";
+
 // TODO: figure out why groups/categories dont always descend properly (manually defined groups on kernel etc) or just define it everywhere on each interface

@@ -64,3 +64,9 @@ export {SoundRegistry} from "../kernel/sfx_registry";
  * @category Shells
  */
 export {AbstractShell, AbstractShellMemory} from "../abstract_shell";
+
+/**
+ * @group Userspace
+ * @category Networking
+ */
+export {UserspaceNetworkManager, UserspaceClientSocket, UserspaceServerSocket, PortInUseError, SocketReadyState, SocketCloseListener, SocketDataListener, UserspaceSocketConnectionListener} from "../kernel/network";
