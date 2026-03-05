@@ -599,6 +599,7 @@ export class WrappedTerminal extends Terminal {
     }
 }
 
+// TODO: separate the terminal interface from xterm, such that virtual terminals can be defined without mocking all of xterm
 // TODO: term needs hardening and possibly userspace protection to ensure programs cant dispatch keys to auto accept elevation prompts
 // TODO: have now made key dispatch methods private, but need to prevent stuff like handle_kernel_panic being called by userspace programs
 // TODO: main thing is that when writing the proxy we need to think what xterm methods we expose to userspace programs
