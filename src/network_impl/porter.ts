@@ -1,7 +1,5 @@
 import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, SocketReadyState} from "../kernel/network";
 
-// TODO: retry websocket if closed, they might not start porter before loading the os
-
 interface BaseMessage {
     type: string;
 }
@@ -72,39 +70,12 @@ const uint8_to_base64 = (data: Uint8Array): string => {
     return btoa(binary);
 }
 
-const wait_for_ws_ready = async (ws: WebSocket): Promise<void> => {
-    if (ws.readyState === WebSocket.OPEN) {
-        return;
-    }
-
-    if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-        throw new Error("WebSocket is closed");
-    }
-
-    await new Promise<void>((resolve, reject) => {
-        const on_open = () => {
-            ws.removeEventListener("open", on_open);
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            ws.removeEventListener("error", on_error);
-            resolve();
-        };
-        const on_error = (err: Event) => {
-            ws.removeEventListener("open", on_open);
-            ws.removeEventListener("error", on_error);
-            reject(new Error(`WebSocket error: ${err}`));
-        };
-
-        ws.addEventListener("open", on_open);
-        ws.addEventListener("error", on_error);
-    });
-}
-
 export class PorterBridgeClientSocket extends AbstractClientSocket {
-    #ws: WebSocket;
+    #manager: PorterBridgeNetworkManager;
 
-    constructor(id: string, ws: WebSocket) {
+    constructor(id: string, manager: PorterBridgeNetworkManager) {
         super(id);
-        this.#ws = ws;
+        this.#manager = manager;
         this.ready_state = SocketReadyState.OPEN;
     }
 
@@ -114,8 +85,8 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
             sock_id: this.id,
         };
 
-        await wait_for_ws_ready(this.#ws);
-        this.#ws.send(JSON.stringify(msg));
+        await this.#manager.wait_for_ws_ready();
+        this.#manager.ws.send(JSON.stringify(msg));
 
         // wait for ack
         // TODO: move this to the manager's routing instead for more efficiency
@@ -123,7 +94,7 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
             const handler = (event: MessageEvent) => {
                 const data = JSON.parse(event.data) as InboundMessage;
                 if (data.type === "ack_close_connection" && data.sock_id === this.id) {
-                    this.#ws.removeEventListener("message", handler);
+                    this.#manager.ws.removeEventListener("message", handler);
                     if (data.success) {
                         resolve();
                     } else {
@@ -132,7 +103,7 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
                 }
             };
 
-            this.#ws.addEventListener("message", handler);
+            this.#manager.ws.addEventListener("message", handler);
         });
     }
 
@@ -143,8 +114,8 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
             data: uint8_to_base64(data),
         };
 
-        await wait_for_ws_ready(this.#ws);
-        this.#ws.send(JSON.stringify(msg));
+        await this.#manager.wait_for_ws_ready();
+        this.#manager.ws.send(JSON.stringify(msg));
     }
 
     async _handle_incoming_data(data: Uint8Array): Promise<void> {
@@ -160,11 +131,11 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
 }
 
 export class PorterBridgeServerSocket extends AbstractServerSocket {
-    readonly #ws: WebSocket;
+    readonly #manager: PorterBridgeNetworkManager;
 
-    constructor(port: number, ws: WebSocket) {
+    constructor(port: number, manager: PorterBridgeNetworkManager) {
         super(port);
-        this.#ws = ws;
+        this.#manager = manager;
     }
 
     protected async _handle_close_internal(): Promise<void> {
@@ -173,8 +144,8 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
             port: this.port,
         };
 
-        await wait_for_ws_ready(this.#ws);
-        this.#ws.send(JSON.stringify(msg));
+        await this.#manager.wait_for_ws_ready();
+        this.#manager.ws.send(JSON.stringify(msg));
 
         // wait for ack
         // TODO: move this to the manager's routing instead for more efficiency
@@ -182,7 +153,7 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
             const handler = (event: MessageEvent) => {
                 const data = JSON.parse(event.data) as InboundMessage;
                 if (data.type === "ack_unbind" && data.port === this.port) {
-                    this.#ws.removeEventListener("message", handler);
+                    this.#manager.ws.removeEventListener("message", handler);
                     if (data.success) {
                         resolve();
                     } else {
@@ -191,7 +162,7 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
                 }
             };
 
-            this.#ws.addEventListener("message", handler);
+            this.#manager.ws.addEventListener("message", handler);
         });
     }
 
@@ -208,8 +179,6 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
 }
 
 export class PorterBridgeNetworkManager extends AbstractNetworkManager {
-    readonly #ws: WebSocket;
-
     // port -> server
     readonly #port_map = new Map<number, PorterBridgeServerSocket>();
 
@@ -218,7 +187,61 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
     constructor() {
         super();
+        this.#connect();
+    }
 
+    #ws: WebSocket;
+    #reconnect_attempts = 0;
+
+    get ws(): WebSocket {
+        return this.#ws;
+    }
+
+    wait_for_ws_ready = async (): Promise<void> => {
+        if (this.#ws.readyState === WebSocket.OPEN) {
+            return;
+        }
+
+        if (this.#ws.readyState === WebSocket.CLOSED || this.#ws.readyState === WebSocket.CLOSING) {
+            throw new Error("WebSocket is closed");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+            let timeout_id: NodeJS.Timeout | null = null;
+
+            const on_open = () => {
+                if (timeout_id) {
+                    clearTimeout(timeout_id);
+                }
+
+                this.#ws.removeEventListener("open", on_open);
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                this.#ws.removeEventListener("error", on_error);
+                resolve();
+            };
+            const on_error = (err: Event) => {
+                if (timeout_id) {
+                    clearTimeout(timeout_id);
+                }
+
+                this.#ws.removeEventListener("open", on_open);
+                this.#ws.removeEventListener("error", on_error);
+                reject(new Error(`WebSocket error: ${err}`));
+            };
+
+            this.#ws.addEventListener("open", on_open);
+            this.#ws.addEventListener("error", on_error);
+
+            // timeout after 5 seconds
+            timeout_id = setTimeout(() => {
+                this.#ws.removeEventListener("open", on_open);
+                this.#ws.removeEventListener("error", on_error);
+                reject(new Error("WebSocket connection timed out"));
+            }, 5000);
+        });
+    }
+
+    #connect() {
         // open websocket connection on port 9000, handling all routing (rather than making a separate listener/connection for each socket)
         this.#ws = new WebSocket("ws://127.0.0.1:9000");
 
@@ -230,7 +253,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                     const socket = this.#port_map.get(data.port);
                     if (socket) {
                         // create the client
-                        const client = new PorterBridgeClientSocket(data.sock_id, this.#ws);
+                        const client = new PorterBridgeClientSocket(data.sock_id, this);
                         this.#client_map.set(data.sock_id, client);
 
                         // on close, delete the client from the map
@@ -267,6 +290,34 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                 }
             }
         });
+
+        this.#ws.addEventListener("open", () => {
+            console.log("WebSocket connection established");
+            this.#reconnect_attempts = 0;
+
+            // try to rebind all ports on reconnect
+            for (const port of this.#port_map.keys()) {
+                const msg: BindMessage = {
+                    type: "bind_req",
+                    port,
+                };
+                this.#ws.send(JSON.stringify(msg));
+            }
+        });
+
+        this.#ws.addEventListener("close", () => {
+            console.warn("WebSocket connection closed, attempting to reconnect...");
+
+            // attempt to reconnect with exponential backoff
+            setTimeout(() => {
+                this.#connect();
+            }, Math.min(50 * 2 ** this.#reconnect_attempts, 3000));
+            this.#reconnect_attempts++;
+        });
+
+        this.#ws.addEventListener("error", (err) => {
+            console.error("WebSocket error:", err);
+        });
     }
 
     get_unique_manager_type_name(): string {
@@ -274,7 +325,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
     }
 
     protected async _handle_listen_internal(port: number): Promise<AbstractServerSocket> {
-        const socket = new PorterBridgeServerSocket(port, this.#ws);
+        const socket = new PorterBridgeServerSocket(port, this);
         this.#port_map.set(port, socket);
 
         // add close listener to remove from port map on close
@@ -287,7 +338,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
             port,
         };
 
-        await wait_for_ws_ready(this.#ws);
+        await this.wait_for_ws_ready();
         this.#ws.send(JSON.stringify(msg));
 
         // wait for ack
