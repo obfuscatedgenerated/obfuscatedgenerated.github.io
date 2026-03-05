@@ -325,4 +325,5 @@ export abstract class AbstractNetworkManager {
     }
 }
 
-// TODO: create test program
+// TODO: network utility to show type name, whether up, number of bound ports, and maybe number of clients (need a getter)
+// TODO: network up/down event listener on manager

@@ -41,5 +41,3 @@ export default {
         return 0;
     }
 } as Program;
-
-// TODO: network utility to show type name, whether up, number of bound ports, and maybe number of clients (need a getter)
