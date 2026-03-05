@@ -5,7 +5,7 @@ import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager } from "./processes";
 import type { AbstractShell } from "../abstract_shell";
-import { type WrappedTerminal } from "./term_ctl";
+import { type AbstractTerminal } from "./term_ctl";
 /**
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
@@ -199,7 +199,7 @@ export declare class Kernel {
      * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
      */
     request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false>;
-    constructor(term: WrappedTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager);
+    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager);
     /**
      * Create a userspace proxy of this kernel for use in a userspace process.
      * @param process The process to create the proxy for.

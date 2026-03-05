@@ -1,4 +1,3 @@
-import { ITerminalOptions, Terminal } from "@xterm/xterm";
 export declare const NEWLINE = "\r\n";
 export declare const NON_PRINTABLE_REGEX: RegExp;
 export declare const ANSI_ESCAPE_REGEX: RegExp;
@@ -64,7 +63,7 @@ export interface KeyEvent {
     key: string;
     domEvent: KeyboardEvent;
 }
-export type KeyEventHandler = (event: KeyEvent, term: WrappedTerminal) => void | Promise<void>;
+export type KeyEventHandler = (event: KeyEvent, term: AbstractTerminal) => void | Promise<void>;
 export interface RegisteredKeyEventIdentifier {
     key?: string;
     domEventCode?: string;
@@ -75,9 +74,10 @@ export interface ReadLineBuffer {
     set_current_line: (new_line: string) => void;
     set_current_index: (new_index: number) => void;
 }
-export type ReadLineKeyHandler = (event: KeyEvent, term: WrappedTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
-export declare class WrappedTerminal extends Terminal {
+export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
+export declare abstract class AbstractTerminal {
     #private;
+    protected _kernel_has_panicked: boolean;
     get ansi(): {
         FG: {
             reset: string;
@@ -139,6 +139,29 @@ export declare class WrappedTerminal extends Terminal {
     get non_printable_regex(): RegExp;
     get ansi_escape_regex(): RegExp;
     get ansi_unescaped_regex(): RegExp;
+    abstract write(text: string | Uint8Array, callback?: () => void): void;
+    abstract writeln(text: string | Uint8Array, callback?: () => void): void;
+    abstract clear(): void;
+    abstract reset(): void;
+    abstract get_selection(): string;
+    abstract clear_selection(): void;
+    abstract has_selection(): boolean;
+    abstract copy(): void;
+    abstract paste(): void;
+    abstract focus(): void;
+    abstract dispose(): void;
+    abstract get input_enabled(): boolean;
+    abstract set input_enabled(value: boolean);
+    abstract pause_input_processing(): void;
+    abstract resume_input_processing(): void;
+    protected abstract _read_raw_key(): Promise<KeyEvent>;
+    abstract get cols(): number;
+    abstract get rows(): number;
+    abstract get cursor_x(): number;
+    abstract get cursor_y(): number;
+    abstract get_custom_flag(flag: string): any;
+    abstract set_custom_flag(flag: string, value: any): void;
+    abstract supports_custom_flag(flag: string): boolean;
     read_line: (custom_key_handlers?: {
         [key_string: string]: ReadLineKeyHandler;
     }, custom_printable_handler?: ReadLineKeyHandler) => Promise<string>;
@@ -162,12 +185,11 @@ export declare class WrappedTerminal extends Terminal {
      * @param high_priority - If true, the handler will be placed at the beginning of the handler list (cannot run before the default printable key handler)
      */
     register_on_printable_key_event_handler: (handler: KeyEventHandler, high_priority?: boolean) => void;
+    protected _enqueue_key_event: (e: KeyEvent) => void;
+    protected _simulate_typing(text: string): void;
     wait_for_keypress: () => Promise<KeyEvent>;
     get_text: (max_length?: number) => Promise<string>;
     word_wrap(text: string, width: number): string;
-    copy(): void;
-    paste(): void;
     copy_or_paste(): void;
     handle_kernel_panic: (message: string, process_info: string, debug_info?: string) => void;
-    constructor(xterm_opts?: ITerminalOptions);
 }
