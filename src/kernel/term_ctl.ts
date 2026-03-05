@@ -131,8 +131,8 @@ export abstract class AbstractTerminal {
         return ANSI_UNESCAPED_REGEX;
     }
 
-    abstract write(text: string | Uint8Array, callback?: () => void): void;
-    abstract writeln(text: string | Uint8Array, callback?: () => void): void;
+    abstract write(data: string | Uint8Array, callback?: () => void): void;
+    abstract writeln(data: string | Uint8Array, callback?: () => void): void;
 
     abstract clear(): void;
     abstract reset(): void;

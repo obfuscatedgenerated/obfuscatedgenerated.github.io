@@ -8,6 +8,7 @@ import {
     UserspaceClientSocket,
     UserspaceServerSocket
 } from "./network";
+import {AbstractTerminal} from "./term_ctl";
 
 export interface IPCMessage {
     from: number;
@@ -307,6 +308,7 @@ export interface UserspaceOtherProcessContext {
 }
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    readonly terminal: AbstractTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
@@ -326,6 +328,7 @@ export class ProcessContext {
     readonly #pid: number;
     readonly #manager: ProcessManager;
 
+    readonly #terminal: AbstractTerminal;
     readonly #source_command: ParsedCommandLine;
     readonly #created_at: Date = new Date();
     readonly #shell: AbstractShell | undefined;
@@ -346,8 +349,9 @@ export class ProcessContext {
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
     readonly #network_clients: Set<AbstractClientSocket> = new Set();
 
-    constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
+        this.#terminal = terminal;
         this.#source_command = source_command;
         this.#manager = registry;
 
@@ -363,6 +367,11 @@ export class ProcessContext {
     get pid(): number {
         return this.#pid;
     }
+
+    get terminal(): AbstractTerminal {
+        return this.#terminal;
+    }
+
     get source_command(): ParsedCommandLine {
         return this.#source_command;
     }
@@ -616,6 +625,7 @@ export class ProcessContext {
 
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
+            terminal: { get: () => self.terminal, enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
             is_background: { get: () => self.is_background, enumerable: true },
@@ -689,9 +699,9 @@ export class ProcessManager {
         this.#processes.clear();
     }
 
-    create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext {
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext {
         const pid = this.#next_pid++;
-        const context = new ProcessContext(pid, source_command, this, shell);
+        const context = new ProcessContext(pid, terminal, source_command, this, shell);
         this.#processes.set(pid, context);
         return context;
     }

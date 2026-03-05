@@ -260,9 +260,10 @@ export class Kernel {
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
      * @param start_privileged Whether to start the process with privileged kernel access. The process will not need to use {@link request_privilege} if this is true!!!
+     * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn = (cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean): SpawnResult => {
+    spawn = (cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): SpawnResult => {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
 
@@ -316,8 +317,11 @@ export class Kernel {
             throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
 
+        // select the terminal to assign to the process
+        const term = term_override || this.#term;
+
         // create new process context
-        const process = this.#process_manager.create_process(parsed_line, shell);
+        const process = this.#process_manager.create_process(term, parsed_line, shell);
 
         // protect from pollution
         const data = Object.create(null) as ProgramMainData<unknown>;
@@ -331,7 +335,7 @@ export class Kernel {
             data.process = process.create_userspace_proxy();
         }
 
-        data.term = this.#term;
+        data.term = term;
         data.args = args;
         data.shell = shell;
         data.unsubbed_args = parsed_line.unsubbed_args;
@@ -384,8 +388,21 @@ export class Kernel {
         // remove last NEWLINE
         process_info = process_info.trimEnd();
 
+        // collect all terminals in use
+        const terminals = new Set<AbstractTerminal>();
+        terminals.add(this.#term);
+
+        for (const pid of pids) {
+            const proc = proc_mgr.get_process(pid);
+            terminals.add(proc.terminal);
+        }
+
+        // tell all terminals to panic
+        for (const term of terminals) {
+            term.handle_kernel_panic(message, process_info, debug_info);
+        }
+
         proc_mgr.dispose_all();
-        this.#term.handle_kernel_panic(message, process_info, debug_info);
 
         if (this.#after_panic) {
             this.#after_panic(message, debug_info);
@@ -617,8 +634,9 @@ export class Kernel {
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
+                // force the process to pass its own terminal as the one to use
                 value: (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell) =>
-                    self.spawn(command, args, shell, false),
+                    self.spawn(command, args, shell, false, process.terminal),
                 enumerable: true
             },
             request_privilege: {

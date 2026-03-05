@@ -9,8 +9,8 @@ export class XTermTerminal extends AbstractTerminal {
         this.#xterm.write(data, callback);
     }
 
-    writeln(text: string | Uint8Array, callback?: () => void) {
-        this.#xterm.writeln(text, callback);
+    writeln(data: string | Uint8Array, callback?: () => void) {
+        this.#xterm.writeln(data, callback);
     }
 
     reset() {
