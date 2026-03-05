@@ -55,13 +55,10 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     compat: "2.0.0",
-    hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
         const { term, process, kernel } = data;
-
-        kernel.get_env_info()
 
         if (!kernel.has_network_manager()) {
             term.writeln(`${term.ansi.PREFABS.error}No network manager found. This program requires a network manager to function.${term.ansi.STYLE.reset_all}`);
