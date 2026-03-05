@@ -2,6 +2,7 @@ import type { AbstractWindow, AbstractWindowManager } from "./windowing";
 import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
 import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, UserspaceClientSocket, UserspaceServerSocket } from "./network";
+import { AbstractTerminal } from "./term_ctl";
 export interface IPCMessage {
     from: number;
     to: number;
@@ -52,6 +53,7 @@ export interface UserspaceOtherProcessContext {
     readonly source_command: ParsedCommandLine;
 }
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    readonly terminal: AbstractTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
@@ -68,8 +70,9 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
 }
 export declare class ProcessContext {
     #private;
-    constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell);
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell);
     get pid(): number;
+    get terminal(): AbstractTerminal;
     get source_command(): ParsedCommandLine;
     get created_at(): Date;
     get shell(): AbstractShell | undefined;
@@ -109,7 +112,7 @@ export declare class ProcessManager {
     get ipc_manager(): IPCManager;
     get network_manager(): AbstractNetworkManager | null;
     dispose_all(): void;
-    create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext;
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
     mark_terminated(pid: number): void;
