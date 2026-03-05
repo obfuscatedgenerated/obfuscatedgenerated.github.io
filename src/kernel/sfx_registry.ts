@@ -1,5 +1,7 @@
 import { Howl } from "howler";
 
+// TODO: this can probably be retired, and remove howler. its only used for reader program but theres prob a lighter weight solution there
+
 export class SoundRegistry {
     readonly #registry: Map<string, { ready: boolean, howl: Howl }> = new Map();
 
