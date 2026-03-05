@@ -20,6 +20,9 @@ export type UserspaceSocketEventListener = UserspaceClientSocketEventListener | 
 
 /**
  * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
+ *
+ * @group Userspace
+ * @category Networking
  */
 export enum SocketReadyState {
     CONNECTING,
@@ -30,6 +33,9 @@ export enum SocketReadyState {
 
 /**
  * Error thrown when trying to listen on a port that is already in use.
+ *
+ * @group Userspace
+ * @category Networking
  */
 export class PortInUseError extends Error {
     constructor(port: number) {

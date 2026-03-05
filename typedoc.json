@@ -25,6 +25,7 @@
     "Windowing",
     "Sound",
     "Shells",
+    "Networking",
 
     "Completions",
     "Privileged-by-default Programs"
