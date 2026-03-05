@@ -20,6 +20,7 @@ export default {
         const net_manager = kernel.get_network_manager();
         if (!await net_manager.is_up(true)) {
             term.writeln(`${term.ansi.PREFABS.error}Network is down!${term.ansi.STYLE.reset_all}`);
+            return 1;
         }
 
         const server = await process.network_listen(8080);
