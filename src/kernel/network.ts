@@ -267,7 +267,7 @@ export abstract class AbstractServerSocket {
 export interface UserspaceNetworkManager {
     get bound_ports(): number[];
     get_unique_manager_type_name(): string;
-    is_up(): Promise<boolean>;
+    is_up(try_waiting?: boolean): Promise<boolean>;
 
     // listen and connect must be done via the pcb in userspace to track ownership
 }
@@ -281,7 +281,7 @@ export abstract class AbstractNetworkManager {
 
     abstract get_unique_manager_type_name(): string;
 
-    abstract is_up(): Promise<boolean>;
+    abstract is_up(try_waiting?: boolean): Promise<boolean>;
 
     protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
 
@@ -319,7 +319,7 @@ export abstract class AbstractNetworkManager {
 
         Object.defineProperty(proxy, "bound_ports", { get: () => this.bound_ports });
         Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
-        Object.defineProperty(proxy, "is_up", { value: () => this.is_up(), enumerable: true });
+        Object.defineProperty(proxy, "is_up", { value: (try_waiting = false) => this.is_up(try_waiting), enumerable: true });
 
         return Object.freeze(proxy);
     }

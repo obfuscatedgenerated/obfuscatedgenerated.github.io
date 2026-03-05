@@ -197,8 +197,19 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
         return this.#ws;
     }
 
-    async is_up(): Promise<boolean> {
-        return this.#ws.readyState === WebSocket.OPEN;
+    async is_up(try_waiting = false): Promise<boolean> {
+        if (this.#ws.readyState === WebSocket.OPEN) {
+            return true;
+        }
+
+        if (try_waiting) {
+            try {
+                await this.wait_for_ws_ready();
+                return true;
+            } catch {
+                return false;
+            }
+        }
     }
 
     wait_for_ws_ready = async (): Promise<void> => {
