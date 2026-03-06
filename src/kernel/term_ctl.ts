@@ -449,7 +449,9 @@ export abstract class AbstractTerminal {
 
     protected _simulate_typing(text: string) {
         // simulate key events for each character (lazy but it works great, no need to rewrite the key handler)
-        for (const char of text) {
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+
             let dom_event_code = `Key${char.toUpperCase()}`;
             let key = char;
 
@@ -465,6 +467,35 @@ export abstract class AbstractTerminal {
 
             if (char === " ") {
                 dom_event_code = "Space";
+            }
+
+            // check for escape sequences e.g. arrow keys
+            if (char === "\x1b") {
+                if (i + 2 < text.length && text[i + 1] === "[") {
+                    const code = text[i + 2];
+                    let key_name = "";
+
+                    switch (code) {
+                        case "A":
+                            key_name = "ArrowUp";
+                            break;
+                        case "B":
+                            key_name = "ArrowDown";
+                            break;
+                        case "C":
+                            key_name = "ArrowRight";
+                            break;
+                        case "D":
+                            key_name = "ArrowLeft";
+                            break;
+                    }
+
+                    if (key_name) {
+                        dom_event_code = key_name;
+                        key = `\x1b[${code}`;
+                        i += 2; // skip the next two characters as they are part of the escape sequence
+                    }
+                }
             }
 
             this.#key_event_queue.push(({ key, domEvent: { code: dom_event_code } } as KeyEvent));
@@ -604,6 +635,7 @@ export abstract class AbstractTerminal {
 // TODO: term needs hardening and possibly userspace protection to ensure programs cant dispatch keys to auto accept elevation prompts
 // TODO: have now made key dispatch methods private, but need to prevent stuff like handle_kernel_panic being called by userspace programs
 // TODO: main thing is that when writing the proxy we need to think what xterm methods we expose to userspace programs
+// TODO: emit resize events
 
 // as of 09/01/2026, the god class of WrappedTerminal is no more!
 // this used to be the kernel, shell, tty, and bootstrap all in one

@@ -6,6 +6,9 @@ class TelnetTerminal extends AbstractTerminal {
     #x = 0;
     #y = 0;
 
+    #cols = 80;
+    #rows = 24;
+
     #socket: UserspaceClientSocket;
 
     input_enabled = true;
@@ -19,13 +22,11 @@ class TelnetTerminal extends AbstractTerminal {
     }
 
     get rows() {
-        // TODO: negotiate using telnet messages
-        return 24;
+        return this.#rows;
     }
 
     get cols() {
-        // TODO: negotiate using telnet messages
-        return 80;
+        return this.#cols;
     }
 
     constructor(socket: UserspaceClientSocket) {
@@ -54,20 +55,52 @@ class TelnetTerminal extends AbstractTerminal {
     }
 
     #on_socket_data = (data: Uint8Array) => {
-        if (!this.input_enabled) {
-            return;
-        }
-
-        // filter out telnet commands (starting with 0xFF) for now
+        // parse telnet commands and filter them out
         const filtered_data = new Uint8Array(data.length);
         let j = 0;
         for (let i = 0; i < data.length; i++) {
+            // interpret as command (IAC)
             if (data[i] === 0xFF) {
-                i += 2; // skip the command and its option
+                const command = data[i + 1];
+
+                // subnegotiation (SB)
+                if (command === 0xFA) {
+                    const option = data[i + 2];
+
+                    // negotiate about window size (NAWS)
+                    if (option === 0x1F) {
+                        const cols = (data[i + 3] << 8) | data[i + 4];
+                        const rows = (data[i + 5] << 8) | data[i + 6];
+
+                        this.#cols = cols;
+                        this.#rows = rows;
+                    }
+
+                    // consume until subnegotiation end (SE)
+                    while (i < data.length) {
+                        if (data[i] === 0xFF && data[i + 1] === 0xF0) {
+                            i += 1;
+                            break;
+                        }
+                        i++;
+                    }
+                } else if (command === 0xFF) {
+                    // escaped iac, the actual data is 0xFF
+                    filtered_data[j++] = 0xFF;
+                    i++;
+                } else {
+                    // skip standard 3 byte commands (not implemented)
+                    i += 2;
+                }
             } else {
                 filtered_data[j++] = data[i];
             }
         }
+
+        if (!this.input_enabled) {
+            return;
+        }
+
         const final_data = filtered_data.slice(0, j);
 
         const text = new TextDecoder().decode(final_data);
@@ -180,6 +213,9 @@ export default {
 
                 // dont linemode
                 255, 252, 34,
+
+                // do naws
+                255, 253, 31
             ]));
 
             await socket.send("\r\nWelcome to the OllieOS Telnet service!\r\n\r\n");
