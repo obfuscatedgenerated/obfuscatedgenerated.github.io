@@ -47,6 +47,50 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     if (!(await fs.exists(absolute_privilege_agent))) {
         await fs.write_file(absolute_privilege_agent, privilege_agent_content);
     }
+
+    // create /etc/services directory if it doesn't exist
+    const absolute_services = fs.absolute("/etc/services");
+    if (!(await fs.dir_exists(absolute_services))) {
+        await fs.make_dir(absolute_services);
+    }
+
+    // create /etc/services/privileged directory if it doesn't exist
+    const absolute_privileged_services = fs.absolute("/etc/services/privileged");
+    if (!(await fs.dir_exists(absolute_privileged_services))) {
+        await fs.make_dir(absolute_privileged_services);
+    }
+
+    // create /etc/enable_services file if it doesn't exist
+    const enable_services_content = `# List service IDs in this file to explicitly enable them at boot. Services not set to auto-start and aren't listed in this file won't be started at boot. This file overrides disabled_services, but is overridden by auto-start services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
+    const absolute_enable_services = fs.absolute("/etc/enable_services");
+    if (!(await fs.exists(absolute_enable_services))) {
+        await fs.write_file(absolute_enable_services, enable_services_content);
+    }
+
+    // create /etc/disabled_services file if it doesn't exist
+    const disabled_services_content = `# List service IDs of auto-starting services in this file to explicitly disable them at boot. Services set to auto-start that are listed in this file won't be started at boot. This file is overridden by enable_services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
+    const absolute_disabled_services = fs.absolute("/etc/disabled_services");
+    if (!(await fs.exists(absolute_disabled_services))) {
+        await fs.write_file(absolute_disabled_services, disabled_services_content);
+    }
+
+    // create /etc/services/privileged/telnetd.service.json file if it doesn't exist
+    const telnetd_service_content = `{
+  "name": "Telnet Server",
+  "dependencies": [],
+  "exec": "telnetd",
+  "auto_start": false,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_telnetd_service = fs.absolute("/etc/services/privileged/telnetd.service.json");
+    if (!(await fs.exists(absolute_telnetd_service))) {
+        await fs.write_file(absolute_telnetd_service, telnetd_service_content);
+    }
 }
 
 const setup_motd = async (fs: AbstractFileSystem) => {

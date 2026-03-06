@@ -209,7 +209,8 @@ export default {
         });
 
         // start initial services
-        svc_mgr.start_initial_services();
+        // TODO: should it be awaited or not
+        await svc_mgr.start_initial_services();
 
         let window_start: number | null = null;
         let deaths_in_window = 0;

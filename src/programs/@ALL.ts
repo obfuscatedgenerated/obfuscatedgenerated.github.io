@@ -40,7 +40,7 @@ export { default as kill } from "./kill";
 export { default as spark } from "./spark";
 
 export { default as hello_http } from "./hello_http";
-export { default as telnetd } from "./telnetd";
+export { default as telnetd } from "./services/telnetd";
 
 // shhhhh!
 export { default as ipc_bg_test } from "./ipc_bg_test";

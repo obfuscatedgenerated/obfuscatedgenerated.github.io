@@ -3,6 +3,12 @@ import type {Kernel, SpawnResult} from "../../../kernel";
 const SERVICES_DIR = "/etc/services/";
 const PRIVILEGED_SERVICES_DIR = "/etc/services/privileged/";
 
+// enables services with auto_start: false (applies to startup only, overrides disable file)
+const ENABLE_FILE = "/etc/enable_services";
+
+// forcibly disables services with auto_start: true (applies to startup only)
+const DISABLE_FILE = "/etc/disable_services";
+
 interface ServiceRestartPolicyBase {
     on: "failure" | "always" | "never";
 }
@@ -22,6 +28,7 @@ interface ServiceFile {
     args?: string[];
     oneshot?: boolean;
     restart?: ServiceRestartPolicy;
+    auto_start?: boolean;
 }
 
 // TODO: support oneshot
@@ -146,7 +153,7 @@ export class ServiceManager {
         }
     }
 
-    private _calculate_service_start_order(): string[] {
+    #calculate_service_start_order(service_ids: Iterable<string> = this.#service_files.keys()): string[] {
         const visited: Set<string> = new Set();
         const temp_mark: Set<string> = new Set();
         const result: string[] = [];
@@ -175,22 +182,81 @@ export class ServiceManager {
             result.push(service_id);
         };
 
-        for (const service_id of this.#service_files.keys()) {
+        for (const service_id of service_ids) {
             visit(service_id);
         }
 
         return result;
     }
 
-    start_initial_services() {
-        const start_order = this._calculate_service_start_order();
+    async start_initial_services() {
+        // read enable and disable file
+        const fs = this.#kernel.get_fs();
+
+        const enabled_services = new Set<string>();
+        const disabled_services = new Set<string>();
+
+        // TODO: dry
+
+        if (await fs.exists(ENABLE_FILE)) {
+            const enable_content = await fs.read_file(ENABLE_FILE) as string;
+
+            for (const line of enable_content.split("\n")) {
+                const trimmed = line.trim();
+
+                // ignore empty lines and comments
+                if (trimmed && !trimmed.startsWith("#")) {
+                    // check service id exists before adding to enabled services
+                    if (!this.#service_files.has(trimmed)) {
+                        console.warn(`Service ${trimmed} in ${ENABLE_FILE} does not exist. Ignoring.`);
+                        continue;
+                    }
+
+                    enabled_services.add(trimmed);
+                }
+            }
+        }
+
+        if (await fs.exists(DISABLE_FILE)) {
+            const disable_content = await fs.read_file(DISABLE_FILE) as string;
+
+            for (const line of disable_content.split("\n")) {
+                const trimmed = line.trim();
+
+                // ignore empty lines and comments
+                if (trimmed && !trimmed.startsWith("#")) {
+                    // check service id exists before adding to disabled services
+                    if (!this.#service_files.has(trimmed)) {
+                        console.warn(`Service ${trimmed} in ${DISABLE_FILE} does not exist. Ignoring.`);
+                        continue;
+                    }
+
+                    disabled_services.add(trimmed);
+                }
+            }
+        }
+
+        // collect autostart services
+        for (const [service_id, service] of this.#service_files.entries()) {
+            // if the service is forcibly disabled, skip it
+            if (disabled_services.has(service_id)) {
+                continue;
+            }
+
+            if (service.auto_start) {
+                enabled_services.add(service_id);
+            }
+        }
+
+        // calc start order for enabled services and their dependencies, then start them in that order
+        const start_order = this.#calculate_service_start_order(enabled_services);
         for (const service_id of start_order) {
             this.start_service(service_id);
         }
     }
 
     start_service(service_id: string) {
-        // TODO: check dependencies are running
+        // TODO: check dependencies are running, start them if not (be careful of circular deps, could use calculate_service_start_order for this with a subset of 1)
 
         if (this.#running_services.has(service_id)) {
             console.warn(`Service ${service_id} is already running.`);
@@ -227,13 +293,13 @@ export class ServiceManager {
             console.error(`Service ${service_id} encountered an error:`, e);
             this.#running_services.delete(service_id);
             this.#failed_services.add(service_id);
-            this._handle_service_exit(service_id, -1);
+            this.#handle_service_exit(service_id, -1);
         });
 
         // handle normal exit
         process.add_exit_listener((exit_code) => {
             this.#running_services.delete(service_id);
-            this._handle_service_exit(service_id, exit_code);
+            this.#handle_service_exit(service_id, exit_code);
         });
     }
 
@@ -291,7 +357,7 @@ export class ServiceManager {
         }
     }
 
-    private _handle_service_exit(service_id: string, exit_code: number) {
+    #handle_service_exit(service_id: string, exit_code: number) {
         console.warn(`Service ${service_id} exited with code ${exit_code}.`);
 
         if (!this.#should_be_running_services.has(service_id)) {
