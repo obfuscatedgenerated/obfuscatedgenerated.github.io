@@ -503,7 +503,9 @@ export abstract class AbstractFileSystem {
                 absolute_path === "/sys" ||
                 absolute_path.startsWith("/sys/") ||
                 absolute_path === "/boot" ||
-                absolute_path.startsWith("/boot/");
+                absolute_path.startsWith("/boot/") ||
+                absolute_path === "/etc/services/privileged/" ||
+                absolute_path.startsWith("/etc/services/privileged/");
 
             if (is_protected) {
                 throw new ReadOnlyError(absolute_path);

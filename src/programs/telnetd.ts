@@ -1,4 +1,4 @@
-import type { Program } from "../types";
+import type {PrivilegedProgram} from "../types";
 import {AbstractTerminal, KeyEvent} from "../kernel/term_ctl";
 import {UserspaceClientSocket} from "../kernel/network";
 
@@ -182,22 +182,16 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, process, kernel: userspace_kernel } = data;
+        const { term, process, kernel } = data;
 
-        if (!userspace_kernel.has_network_manager()) {
+        if (!kernel.has_network_manager()) {
             term.writeln(`${term.ansi.PREFABS.error}No network manager found. This program requires a network manager to function.${term.ansi.STYLE.reset_all}`);
             return 1;
         }
 
-        const net_manager = userspace_kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager();
         if (!await net_manager.is_up(true)) {
             term.writeln(`${term.ansi.PREFABS.error}Network is down!${term.ansi.STYLE.reset_all}`);
-            return 1;
-        }
-
-        // TODO: this will just run as an optional privileged service so wont be needed (once i figure out what privileged services will be) for now just running by hand
-        const kernel = await userspace_kernel.request_privilege("To establish a virtual terminal for Telnet.");
-        if (!kernel) {
             return 1;
         }
 
@@ -243,4 +237,4 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} as PrivilegedProgram;

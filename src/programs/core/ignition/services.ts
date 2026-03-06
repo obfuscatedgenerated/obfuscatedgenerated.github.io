@@ -1,6 +1,7 @@
 import type {Kernel, SpawnResult} from "../../../kernel";
 
 const SERVICES_DIR = "/etc/services/";
+const PRIVILEGED_SERVICES_DIR = "/etc/services/privileged/";
 
 interface ServiceRestartPolicyBase {
     on: "failure" | "always" | "never";
@@ -27,8 +28,9 @@ interface ServiceFile {
 // TODO: do something with name
 // TODO: do something with max_retries
 
-interface ServiceFileWithId extends ServiceFile {
+interface ServiceFileWithExtra extends ServiceFile {
     id: string;
+    privileged: boolean;
 }
 
 const CLEAN_EXIT_CODES = new Set([0, 143]); // 0 = success, 143 = SIGTERM
@@ -54,7 +56,7 @@ export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
 export class ServiceManager {
     readonly #kernel: Kernel;
 
-    readonly #service_files: Map<string, ServiceFileWithId> = new Map();
+    readonly #service_files: Map<string, ServiceFileWithExtra> = new Map();
     readonly #running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
     readonly #should_be_running_services: Set<string> = new Set();
     readonly #failed_services: Set<string> = new Set();
@@ -73,6 +75,38 @@ export class ServiceManager {
 
         const service_files = await fs.list_dir(SERVICES_DIR);
 
+        // TODO: DRY
+
+        let privileged_service_files: string[] | null = null;
+        if(await fs.exists(PRIVILEGED_SERVICES_DIR)) {
+            privileged_service_files = await fs.list_dir(PRIVILEGED_SERVICES_DIR);
+
+            for (const file_name of privileged_service_files) {
+                if (file_name.endsWith(".service.json")) {
+                    const file_path = fs.join(PRIVILEGED_SERVICES_DIR, file_name);
+                    const file_content = await fs.read_file(file_path) as string;
+
+                    try {
+                        const service_data = JSON.parse(file_content) as ServiceFile;
+                        const service_id = file_name.substring(0, file_name.length - ".service.json".length);
+
+                        // TODO: validate service_data here
+
+                        const service: ServiceFileWithExtra = {
+                            id: service_id,
+                            ...service_data,
+                            privileged: true
+                        };
+
+                        // add or update service file
+                        this.#service_files.set(service_id, service);
+                    } catch (e) {
+                        console.error(`Failed to parse service file ${file_name}:`, e);
+                    }
+                }
+            }
+        }
+
         // load each service file
         for (const file_name of service_files) {
             if (file_name.endsWith(".service.json")) {
@@ -83,11 +117,17 @@ export class ServiceManager {
                     const service_data = JSON.parse(file_content) as ServiceFile;
                     const service_id = file_name.substring(0, file_name.length - ".service.json".length);
 
+                    if ("privileged" in service_data) {
+                        // dont let them try to bypass it by putting privileged in the service file
+                        delete service_data.privileged;
+                    }
+
                     // TODO: validate service_data here
 
-                    const service: ServiceFileWithId = {
+                    const service: ServiceFileWithExtra = {
                         id: service_id,
-                        ...service_data
+                        ...service_data,
+                        privileged: false
                     };
 
                     // add or update service file
@@ -100,7 +140,7 @@ export class ServiceManager {
 
         // remove any services that no longer exist
         for (const existing_service_id of this.#service_files.keys()) {
-            if (!service_files.includes(existing_service_id + ".service.json")) {
+            if (!service_files.includes(existing_service_id + ".service.json") && !(privileged_service_files && privileged_service_files.includes(existing_service_id + ".service.json"))) {
                 this.#service_files.delete(existing_service_id);
             }
         }
@@ -110,6 +150,8 @@ export class ServiceManager {
         const visited: Set<string> = new Set();
         const temp_mark: Set<string> = new Set();
         const result: string[] = [];
+
+        // TODO: should privileged have priority?
 
         const visit = (service_id: string) => {
             if (visited.has(service_id)) {
@@ -166,7 +208,7 @@ export class ServiceManager {
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this.#kernel.spawn(service.exec, service.args || []);
+            spawn_result = this.#kernel.spawn(service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
             return;
