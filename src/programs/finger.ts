@@ -57,3 +57,5 @@ export default {
         return 0;
     }
 } as Program;
+
+// TODO: finger foo = finger foo@localhost
