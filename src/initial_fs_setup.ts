@@ -61,15 +61,15 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     }
 
     // create /etc/enable_services file if it doesn't exist
-    const enable_services_content = `# List service IDs in this file to explicitly enable them at boot. Services not set to auto-start and aren't listed in this file won't be started at boot. This file overrides disabled_services, but is overridden by auto-start services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
+    const enable_services_content = `# List service IDs in this file to explicitly enable them at boot. Services not set to auto-start and aren't listed in this file won't be started at boot. This file overrides disable_services, but is overridden by auto-start services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
     const absolute_enable_services = fs.absolute("/etc/enable_services");
     if (!(await fs.exists(absolute_enable_services))) {
         await fs.write_file(absolute_enable_services, enable_services_content);
     }
 
-    // create /etc/disabled_services file if it doesn't exist
+    // create /etc/disable_services file if it doesn't exist
     const disabled_services_content = `# List service IDs of auto-starting services in this file to explicitly disable them at boot. Services set to auto-start that are listed in this file won't be started at boot. This file is overridden by enable_services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
-    const absolute_disabled_services = fs.absolute("/etc/disabled_services");
+    const absolute_disabled_services = fs.absolute("/etc/disable_services");
     if (!(await fs.exists(absolute_disabled_services))) {
         await fs.write_file(absolute_disabled_services, disabled_services_content);
     }
