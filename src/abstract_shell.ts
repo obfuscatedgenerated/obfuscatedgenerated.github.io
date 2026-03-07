@@ -32,6 +32,8 @@ export abstract class AbstractShellMemory {
 }
 
 export abstract class AbstractShell {
+    abstract name: string;
+
     abstract get memory(): AbstractShellMemory;
 
     // edit_doc_title should default to true in implementations

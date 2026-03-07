@@ -91,6 +91,31 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     if (!(await fs.exists(absolute_telnetd_service))) {
         await fs.write_file(absolute_telnetd_service, telnetd_service_content);
     }
+
+    // create /etc/services/fingerd.service.json file if it doesn't exist
+    const fingerd_service_content = `{
+  "name": "Finger Server",
+  "dependencies": [],
+  "exec": "fingerd",
+  "auto_start": false,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_fingerd_service = fs.absolute("/etc/services/fingerd.service.json");
+    if (!(await fs.exists(absolute_fingerd_service))) {
+        await fs.write_file(absolute_fingerd_service, fingerd_service_content);
+    }
+
+    // create /home/.plan file if it doesn't exist
+    const plan_content = "Hello! I am using OllieOS!";
+    const absolute_plan = fs.absolute("/home/.plan");
+    if (!(await fs.exists(absolute_plan))) {
+        await fs.write_file(absolute_plan, plan_content);
+    }
 }
 
 const setup_motd = async (fs: AbstractFileSystem) => {

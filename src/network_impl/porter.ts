@@ -466,3 +466,4 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 }
 
 // TODO: make the close/open recovery less up to the impl and more enforced by the abstract
+// TODO: fall back to at least making local servers visible locally if websocket not available

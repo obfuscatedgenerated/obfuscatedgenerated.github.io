@@ -23,6 +23,10 @@ export class AshShell implements AbstractShell {
         this.#kernel = kernel;
     }
 
+    get name(): string {
+        return "ash";
+    }
+
     get memory(): AshMemory {
         return this.#memory;
     }

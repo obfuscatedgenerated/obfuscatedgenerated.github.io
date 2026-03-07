@@ -1,11 +1,12 @@
 import type {Program} from "../types";
+import {NEWLINE} from "../kernel/term_ctl";
 
 export default {
     name: "finger",
     description: "Displays information about a user on a remote system.",
-    usage_suffix: "<username>@<hostname>",
+    usage_suffix: "[username]@<hostname>",
     arg_descriptions: {
-        "<username>@<hostname>": "The username and hostname of the user to query. For example, ollieg@happynetbox.com"
+        "[username]@<hostname>": "The username and hostname of the user to query. For example, ollieg@happynetbox.com"
     },
     compat: "2.0.0",
     completion: async () => [],
@@ -14,13 +15,13 @@ export default {
         const {term, process, kernel, args} = data;
 
         if (args.length !== 1) {
-            term.writeln(`${term.ansi.PREFABS.error}Invalid number of arguments. Usage: finger <username>@<hostname>${term.ansi.STYLE.reset_all}`);
+            term.writeln(`${term.ansi.PREFABS.error}Invalid number of arguments. Usage: finger [username]@<hostname>${term.ansi.STYLE.reset_all}`);
             return 1;
         }
 
         const [user, host] = args[0].split("@");
-        if (!user || !host) {
-            term.writeln(`${term.ansi.PREFABS.error}Invalid argument format. Usage: finger <username>@<hostname>${term.ansi.STYLE.reset_all}`);
+        if (!host) {
+            term.writeln(`${term.ansi.PREFABS.error}Invalid argument format. Usage: finger [username]@<hostname>${term.ansi.STYLE.reset_all}`);
             return 1;
         }
 
@@ -35,19 +36,23 @@ export default {
             return 1;
         }
 
-        const socket = await process.network_connect(host, 79);
-        if (!socket) {
-            term.writeln(`${term.ansi.PREFABS.error}Failed to connect to ${host}:79${term.ansi.STYLE.reset_all}`);
-            return 1;
+        try {
+            const socket = await process.network_connect(host, 79);
+            if (!socket) {
+                term.writeln(`${term.ansi.PREFABS.error}Failed to connect to ${host}:79${term.ansi.STYLE.reset_all}`);
+                return 1;
+            }
+
+            socket.add_event_listener("data", term.write.bind(term));
+            socket.send(`${user}\r\n`);
+
+            // wait until connection is closed
+            await new Promise<void>((resolve) => {
+                socket.add_event_listener("close", resolve);
+            });
+        } catch (err) {
+            term.writeln(`${term.ansi.PREFABS.error}Failed to connect to ${host}:79.${NEWLINE}${err}${term.ansi.STYLE.reset_all}`);
         }
-
-        socket.add_event_listener("data", term.write.bind(term));
-        socket.send(`${user}\r\n`);
-
-        // wait until connection is closed
-        await new Promise<void>((resolve) => {
-            socket.add_event_listener("close", resolve);
-        });
 
         return 0;
     }

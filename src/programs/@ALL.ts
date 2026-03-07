@@ -42,6 +42,7 @@ export { default as hello_http } from "./hello_http";
 export { default as finger } from "./finger";
 
 export { default as telnetd } from "./services/telnetd";
+export { default as fingerd } from "./services/fingerd";
 
 // shhhhh!
 export { default as ipc_bg_test } from "./ipc_bg_test";
