@@ -15,6 +15,7 @@ export declare abstract class AbstractShellMemory {
     abstract unset_alias(name: string): boolean;
 }
 export declare abstract class AbstractShell {
+    abstract name: string;
     abstract get memory(): AbstractShellMemory;
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
