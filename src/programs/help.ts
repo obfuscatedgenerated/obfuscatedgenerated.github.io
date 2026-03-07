@@ -133,8 +133,12 @@ export default {
                     if (includes_builtin) {
                         new_args.push("-a");
                     }
-                    
-                    return await kernel.spawn("help", new_args, shell).completion;
+
+                    // TODO: dont spawn, just change the logic
+                    const shell_result = kernel.spawn("help", new_args, shell);
+                    const exit_code = await shell_result.completion;
+                    shell_result.process.kill(exit_code);
+                    return exit_code;
                 }
 
 
