@@ -51,8 +51,8 @@ export declare abstract class AbstractClientSocket {
     remove_event_listener(event: ClientSocketEvent, callback: ClientSocketEventListener): void;
     protected abstract _handle_send_internal(data: Uint8Array): Promise<void>;
     send(data: Uint8Array | string): Promise<void>;
-    protected abstract _handle_close_internal(): Promise<void>;
-    close(): Promise<void>;
+    protected abstract _handle_close_internal(passive: boolean): Promise<void>;
+    close(passive?: boolean): Promise<void>;
     create_userspace_proxy(): UserspaceClientSocket;
 }
 export interface UserspaceServerSocket {
