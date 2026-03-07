@@ -1,7 +1,9 @@
+export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
 export type SocketCloseListener = () => void | Promise<void>;
 export type UserspaceSocketConnectionListener = (client: UserspaceClientSocket) => void | Promise<void>;
 export type SocketConnectionListener = (client: AbstractClientSocket) => void | Promise<void>;
+export type NetworkManagerEvent = "state_change";
 export type ClientSocketEvent = "data" | "close";
 export type ServerSocketEvent = "connection" | "close";
 export type ClientSocketEventListener = SocketDataListener | SocketCloseListener;
@@ -10,6 +12,7 @@ export type SocketEventListener = ClientSocketEventListener | ServerSocketEventL
 export type UserspaceClientSocketEventListener = SocketDataListener | SocketCloseListener;
 export type UserspaceServerSocketEventListener = UserspaceSocketConnectionListener | SocketCloseListener;
 export type UserspaceSocketEventListener = UserspaceClientSocketEventListener | UserspaceServerSocketEventListener;
+export type NetworkManagerEventListener = NetworkStateChangeListener;
 /**
  * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
  *
@@ -80,10 +83,13 @@ export interface UserspaceNetworkManager {
     is_up(try_waiting?: boolean): Promise<boolean>;
 }
 export declare abstract class AbstractNetworkManager {
-    #private;
+    protected _port_map: Map<number, AbstractServerSocket>;
     get bound_ports(): number[];
     abstract get_unique_manager_type_name(): string;
     abstract is_up(try_waiting?: boolean): Promise<boolean>;
+    protected _state_change_listeners: Set<NetworkStateChangeListener>;
+    add_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void;
+    remove_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void;
     protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
     listen(port: number): Promise<AbstractServerSocket>;
     abstract connect(host: string, port: number): Promise<AbstractClientSocket>;

@@ -1,7 +1,7 @@
 import type { AbstractWindow, AbstractWindowManager } from "./windowing";
 import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
-import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, UserspaceClientSocket, UserspaceServerSocket } from "./network";
+import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener, UserspaceClientSocket, UserspaceServerSocket } from "./network";
 import { AbstractTerminal } from "./term_ctl";
 export interface IPCMessage {
     from: number;
@@ -66,6 +66,8 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     create_window(): AbstractWindow | null;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     get bound_ports(): number[];
 }
 export declare class ProcessContext {
@@ -95,6 +97,8 @@ export declare class ProcessContext {
     create_window(): AbstractWindow | null;
     network_listen(port: number): Promise<AbstractServerSocket>;
     network_connect(host: string, port: number): Promise<AbstractClientSocket>;
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     get bound_ports(): number[];
     create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext;
     create_userspace_proxy(): UserspaceProcessContext;
