@@ -609,7 +609,10 @@ export default {
         }
 
         if (args.includes("-h")) {
-            return await kernel.spawn("help", ["pkg"], shell).completion;
+            const spawn_result = kernel.spawn("help", ["pkg"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         // create /var/lib/pkg if it doesn't exist so subcommands don't have to check

@@ -39,7 +39,10 @@ export default {
         const fs = kernel.get_fs();
 
         if (args[0] === "-h") {
-            return await kernel.spawn("help", ["webget"], shell).completion;
+            const spawn_result = kernel.spawn("help", ["webget"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         // check if the user provided a URL

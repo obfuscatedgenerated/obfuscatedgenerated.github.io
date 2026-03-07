@@ -42,8 +42,12 @@ export default {
         const sfx_reg = kernel.get_sound_registry();
 
         switch (args[0]) {
-            case "-h":
-                return await kernel.spawn("help", ["clear"], shell).completion;
+            case "-h": {
+                const spawn_result = kernel.spawn("help", ["reader"], shell);
+                const exit_code = await spawn_result.completion;
+                spawn_result.process.kill(exit_code);
+                return exit_code;
+            }
             case "-q":
                 // query screen reader mode
                 term.writeln(`Screen reader mode is currently ${term.get_custom_flag("reader_support") ? "on" : "off"}.`);

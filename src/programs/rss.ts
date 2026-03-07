@@ -102,7 +102,10 @@ export default {
         const { PREFABS, STYLE, FG } = ANSI;
 
         if (args.includes("-h")) {
-            return await kernel.spawn("help", ["rss"], shell).completion;
+            const spawn_result = kernel.spawn("help", ["rss"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         let max_items: number | undefined = undefined;

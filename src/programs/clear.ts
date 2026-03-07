@@ -46,8 +46,12 @@ export default {
                 shell.memory.clear_history();
                 term.writeln(`${STYLE.bold + FG.gray}Scrollback cleared.${STYLE.reset_all}`);
                 break;
-            case "-h":
-                return await kernel.spawn("help", ["clear"], shell).completion;
+            case "-h": {
+                const spawn_result = kernel.spawn("help", ["clear"], shell);
+                const exit_code = await spawn_result.completion;
+                spawn_result.process.kill(exit_code);
+                return exit_code;
+            }
             default:
                 term.writeln(`${FG.red}Invalid argument: ${args[0]}${STYLE.reset_all}`);
                 return 1;

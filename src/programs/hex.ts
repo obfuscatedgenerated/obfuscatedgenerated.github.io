@@ -50,8 +50,9 @@ export default {
 
         if (args[0] === "-h") {
             const spawn_result = kernel.spawn("help", ["hex"], shell);
-            spawn_result.process.kill(await spawn_result.completion);
-            return 0;
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         // get filepath

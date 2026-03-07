@@ -34,8 +34,12 @@ export default {
                 case "-a":
                     show_hidden = true;
                     break;
-                case "-h":
-                    return await kernel.spawn("help", ["ls"], shell).completion;
+                case "-h": {
+                    const spawn_result = kernel.spawn("help", ["ls"], shell);
+                    const exit_code = await spawn_result.completion;
+                    spawn_result.process.kill(exit_code);
+                    return exit_code;
+                }
                 default:
                     path = fs.absolute(arg);
             }

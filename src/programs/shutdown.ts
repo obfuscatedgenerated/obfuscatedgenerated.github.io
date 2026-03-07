@@ -26,8 +26,12 @@ export default {
 
         for (const arg of args) {
             switch (arg) {
-                case "-h":
-                    return await kernel.spawn("help", ["shutdown"], shell).completion;
+                case "-h": {
+                    const spawn_result = kernel.spawn("help", ["shutdown"], shell);
+                    const exit_code = await spawn_result.completion;
+                    spawn_result.process.kill(exit_code);
+                    return exit_code;
+                }
                 case "-r":
                     restart = true;
                     break;
