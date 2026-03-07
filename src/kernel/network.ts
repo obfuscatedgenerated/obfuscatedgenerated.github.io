@@ -1,9 +1,12 @@
+export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
+
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
 export type SocketCloseListener = () => void | Promise<void>;
 
 export type UserspaceSocketConnectionListener = (client: UserspaceClientSocket) => void | Promise<void>;
 export type SocketConnectionListener = (client: AbstractClientSocket) => void | Promise<void>;
 
+export type NetworkManagerEvent = "state_change";
 export type ClientSocketEvent = "data" | "close";
 export type ServerSocketEvent = "connection" | "close";
 
@@ -14,6 +17,8 @@ export type SocketEventListener = ClientSocketEventListener | ServerSocketEventL
 export type UserspaceClientSocketEventListener = SocketDataListener | SocketCloseListener;
 export type UserspaceServerSocketEventListener = UserspaceSocketConnectionListener | SocketCloseListener;
 export type UserspaceSocketEventListener = UserspaceClientSocketEventListener | UserspaceServerSocketEventListener;
+
+export type NetworkManagerEventListener = NetworkStateChangeListener;
 
 // TODO: doc this
 // in short impls need to care about data flow and ensuring that errors in listeners dont crash anything
@@ -282,44 +287,64 @@ export interface UserspaceNetworkManager {
     is_up(try_waiting?: boolean): Promise<boolean>;
 
     // listen and connect must be done via the pcb in userspace to track ownership
+    // same for adding event listeners to the manager, as we want the listeners to die at the end of the process
+    // doesn't apply to listeners on the socket because the whole socket is killed at the end of the process, so no risk of leaking listeners there
 }
 
 export abstract class AbstractNetworkManager {
-    readonly #port_map: Map<number, AbstractServerSocket> = new Map();
+    protected _port_map: Map<number, AbstractServerSocket> = new Map();
 
     get bound_ports(): number[] {
-        return Array.from(this.#port_map.keys());
+        return Array.from(this._port_map.keys());
     }
 
     abstract get_unique_manager_type_name(): string;
 
     abstract is_up(try_waiting?: boolean): Promise<boolean>;
 
+    protected _state_change_listeners: Set<NetworkStateChangeListener> = new Set();
+
+    add_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void {
+        switch (event) {
+            case "state_change":
+                this._state_change_listeners.add(callback);
+                break;
+        }
+    }
+
+    remove_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void {
+        switch (event) {
+            case "state_change":
+                this._state_change_listeners.delete(callback);
+                break;
+        }
+    }
+
     protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
 
     // listen covers both binding and listening
     async listen(port: number): Promise<AbstractServerSocket> {
-        if (this.#port_map.has(port)) {
+        if (this._port_map.has(port)) {
             throw new PortInUseError(port);
         }
 
         // forcibly claim the port to avoid race condition
-        this.#port_map.set(port, null as unknown as AbstractServerSocket);
+        this._port_map.set(port, null as unknown as AbstractServerSocket);
 
         try {
             // invoke implementation class to create the server socket, then store it in the port map
             const server_socket = await this._handle_listen_internal(port);
-            this.#port_map.set(port, server_socket);
+            this._port_map.set(port, server_socket);
 
             // remove once the server socket is closed
             server_socket.add_event_listener("close", () => {
-                this.#port_map.delete(port);
+                this._port_map.delete(port);
             });
 
             return server_socket;
         } catch (err) {
             // if there was an error, remove the port from the map so it can be retried
-            this.#port_map.delete(port);
+            this._port_map.delete(port);
             throw err;
         }
     }

@@ -71,7 +71,14 @@ interface AckConnectMessage extends AckMessage {
     sock_id: string;
 }
 
-type InboundMessage = IncomingConnectionMessage | ConnectionClosingMessage | AckBindMessage | AckUnbindMessage | DataMessage | AckCloseConnectionMessage | AckConnectMessage;
+type InboundMessage =
+    IncomingConnectionMessage
+    | ConnectionClosingMessage
+    | AckBindMessage
+    | AckUnbindMessage
+    | DataMessage
+    | AckCloseConnectionMessage
+    | AckConnectMessage;
 
 const uint8_to_base64 = (data: Uint8Array): string => {
     let binary = "";
@@ -195,9 +202,6 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
 }
 
 export class PorterBridgeNetworkManager extends AbstractNetworkManager {
-    // port -> server
-    readonly #port_map = new Map<number, PorterBridgeServerSocket>();
-
     // sock_id -> client
     readonly #client_map = new Map<string, PorterBridgeClientSocket>();
 
@@ -281,7 +285,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
             switch (data.type) {
                 case "incoming_connection": {
-                    const socket = this.#port_map.get(data.port);
+                    const socket = this._port_map.get(data.port) as PorterBridgeServerSocket | undefined;
                     if (socket) {
                         // create the client
                         const client = new PorterBridgeClientSocket(data.sock_id, this);
@@ -327,18 +331,47 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
             console.log("WebSocket connection established");
             this.#reconnect_attempts = 0;
 
-            // try to rebind all ports on reconnect
-            for (const port of this.#port_map.keys()) {
-                const msg: BindMessage = {
-                    type: "bind_req",
-                    port,
-                };
-                this.#ws.send(JSON.stringify(msg));
-            }
+            // disabled as may be unexpected given we inform programs of network state change
+            // // try to rebind all ports on reconnect
+            // for (const port of this.#port_map.keys()) {
+            //     const msg: BindMessage = {
+            //         type: "bind_req",
+            //         port,
+            //     };
+            //     this.#ws.send(JSON.stringify(msg));
+            // }
+
+            // inform event listeners of state change
+            this._state_change_listeners.forEach(listener => {
+                try {
+                    listener(true);
+                } catch (err) {
+                    console.error("Error in state change listener:", err);
+                }
+            });
         });
 
-        this.#ws.addEventListener("close", () => {
+        this.#ws.addEventListener("close", async () => {
             console.warn("WebSocket connection closed, attempting to reconnect...");
+
+            // inform event listeners of state change
+            this._state_change_listeners.forEach(listener => {
+                try {
+                    listener(false);
+                } catch (err) {
+                    console.error("Error in state change listener:", err);
+                }
+            });
+
+            // passively close all clients and clear maps
+            const client_close_promises = Array.from(this.#client_map.values()).map(client => client.close(true));
+            await Promise.allSettled(client_close_promises);
+            this.#client_map.clear();
+
+            // close all servers and clear map
+            const server_close_promises = Array.from(this._port_map.values()).map(server => server.close());
+            await Promise.allSettled(server_close_promises);
+            this._port_map.clear();
 
             // attempt to reconnect with exponential backoff
             setTimeout(() => {
@@ -358,12 +391,6 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
     protected async _handle_listen_internal(port: number): Promise<AbstractServerSocket> {
         const socket = new PorterBridgeServerSocket(port, this);
-        this.#port_map.set(port, socket);
-
-        // add close listener to remove from port map on close
-        socket.add_event_listener("close", () => {
-            this.#port_map.delete(port);
-        });
 
         const msg: BindMessage = {
             type: "bind_req",
@@ -375,27 +402,21 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
         // wait for ack
         // TODO: move this to the routing instead for more efficiency
-        try {
-            await new Promise<void>((resolve, reject) => {
-                const handler = (event: MessageEvent) => {
-                    const data = JSON.parse(event.data) as InboundMessage;
-                    if (data.type === "ack_bind" && data.port === port) {
-                        this.#ws.removeEventListener("message", handler);
-                        if (data.success) {
-                            resolve();
-                        } else {
-                            reject(new Error(data.error || "Unknown error binding port"));
-                        }
+        await new Promise<void>((resolve, reject) => {
+            const handler = (event: MessageEvent) => {
+                const data = JSON.parse(event.data) as InboundMessage;
+                if (data.type === "ack_bind" && data.port === port) {
+                    this.#ws.removeEventListener("message", handler);
+                    if (data.success) {
+                        resolve();
+                    } else {
+                        reject(new Error(data.error || "Unknown error binding port"));
                     }
-                };
+                }
+            };
 
-                this.#ws.addEventListener("message", handler);
-            });
-        } catch (err) {
-            // cleanup on failure
-            this.#port_map.delete(port);
-            throw err;
-        }
+            this.#ws.addEventListener("message", handler);
+        });
 
         return socket;
     }
@@ -443,3 +464,5 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
         });
     }
 }
+
+// TODO: make the close/open recovery less up to the impl and more enforced by the abstract

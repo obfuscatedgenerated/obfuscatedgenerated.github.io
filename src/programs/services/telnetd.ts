@@ -189,49 +189,58 @@ export default {
             return 1;
         }
 
+        const start_server = async () => {
+            const server = await process.network_listen(2323);
+            server.add_event_listener("connection", async (socket) => {
+                const session_term = new TelnetTerminal(socket);
+                await socket.send(new Uint8Array([
+                    // i will echo
+                    255, 251, 1,
+
+                    // suppress go ahead
+                    255, 251, 3,
+
+                    // dont linemode
+                    255, 252, 34,
+
+                    // do naws
+                    255, 253, 31
+                ]));
+
+                await socket.send("\r\nWelcome to the OllieOS Telnet service!\r\n\r\n");
+
+                // spawn ash shell running with our virtual terminal
+                try {
+                    const spawn_result = kernel.spawn(
+                        "ash",
+                        ["--login"],
+                        // TODO: should prob change this to object args but will be annoying to change
+                        undefined,
+                        false,
+                        session_term
+                    );
+
+                    await spawn_result.completion;
+                    spawn_result.process.kill();
+                } catch (e) {
+                    session_term.writeln(`${session_term.ansi.PREFABS.error}Failed to spawn shell: ${e.message}${session_term.ansi.STYLE.reset_all}`);
+                } finally {
+                    session_term.dispose();
+                }
+            });
+        };
+
         const net_manager = kernel.get_network_manager();
-        if (!await net_manager.is_up(true)) {
-            // TODO: try again
-            term.writeln(`${term.ansi.PREFABS.error}Network is down!${term.ansi.STYLE.reset_all}`);
-            return 1;
+
+        // start immediately if network already up
+        if (await net_manager.is_up()) {
+            await start_server();
         }
 
-        const server = await process.network_listen(2323);
-        server.add_event_listener("connection", async (socket) => {
-            const session_term = new TelnetTerminal(socket);
-            await socket.send(new Uint8Array([
-                // i will echo
-                255, 251, 1,
-
-                // suppress go ahead
-                255, 251, 3,
-
-                // dont linemode
-                255, 252, 34,
-
-                // do naws
-                255, 253, 31
-            ]));
-
-            await socket.send("\r\nWelcome to the OllieOS Telnet service!\r\n\r\n");
-
-            // spawn ash shell running with our virtual terminal
-            try {
-                const spawn_result = kernel.spawn(
-                    "ash",
-                    ["--login"],
-                    // TODO: should prob change this to object args but will be annoying to change
-                    undefined,
-                    false,
-                    session_term
-                );
-
-                await spawn_result.completion;
-                spawn_result.process.kill();
-            } catch (e) {
-                session_term.writeln(`${session_term.ansi.PREFABS.error}Failed to spawn shell: ${e.message}${session_term.ansi.STYLE.reset_all}`);
-            } finally {
-                session_term.dispose();
+        // react to networking coming up (initially or after a later failure)
+        process.network_add_manager_listener("state_change", (is_up) => {
+            if (is_up) {
+                start_server();
             }
         });
 

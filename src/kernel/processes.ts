@@ -4,7 +4,7 @@ import type {ParsedCommandLine} from "./index";
 import {
     AbstractClientSocket,
     AbstractNetworkManager,
-    AbstractServerSocket,
+    AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener,
     UserspaceClientSocket,
     UserspaceServerSocket
 } from "./network";
@@ -321,6 +321,8 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     create_window(): AbstractWindow | null;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     get bound_ports(): number[];
 }
 
@@ -348,6 +350,7 @@ export class ProcessContext {
 
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
     readonly #network_clients: Set<AbstractClientSocket> = new Set();
+    readonly #network_manager_listeners: Map<NetworkManagerEvent, Set<NetworkManagerEventListener>> = new Map();
 
     constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
         this.#pid = pid;
@@ -435,8 +438,15 @@ export class ProcessContext {
                 socket.close();
             });
 
+            this.#network_manager_listeners.forEach((listeners, event) => {
+                listeners.forEach((listener) => {
+                    net_manager.remove_event_listener(event, listener);
+                });
+            });
+
             this.#port_map.clear();
             this.#network_clients.clear();
+            this.#network_manager_listeners.clear();
         }
     }
 
@@ -596,6 +606,34 @@ export class ProcessContext {
         return socket;
     }
 
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener) {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        if (!this.#network_manager_listeners.has(event)) {
+            this.#network_manager_listeners.set(event, new Set());
+        }
+
+        this.#network_manager_listeners.get(event)!.add(listener);
+
+        net_manager.add_event_listener(event, listener);
+    }
+
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener) {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        if (this.#network_manager_listeners.has(event)) {
+            this.#network_manager_listeners.get(event)!.delete(listener);
+        }
+
+        net_manager.remove_event_listener(event, listener);
+    }
+
     get bound_ports(): number[] {
         return Array.from(this.#port_map.keys());
     }
@@ -649,6 +687,12 @@ export class ProcessContext {
             network_connect: { value: async (host: string, port: number) => {
                 const socket = await self.network_connect(host, port);
                 return socket.create_userspace_proxy();
+            }, enumerable: true },
+            network_add_manager_listener: { value: (event: NetworkManagerEvent, listener: NetworkManagerEventListener) => {
+                self.network_add_manager_listener(event, listener);
+            }, enumerable: true },
+            network_remove_manager_listener: { value: (event: NetworkManagerEvent, listener: NetworkManagerEventListener) => {
+                self.network_remove_manager_listener(event, listener);
             }, enumerable: true },
             bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
