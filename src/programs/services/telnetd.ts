@@ -220,8 +220,7 @@ export default {
                         session_term
                     );
 
-                    await spawn_result.completion;
-                    spawn_result.process.kill();
+                    spawn_result.process.kill(await spawn_result.completion);
                 } catch (e) {
                     session_term.writeln(`${session_term.ansi.PREFABS.error}Failed to spawn shell: ${e.message}${session_term.ansi.STYLE.reset_all}`);
                 } finally {
