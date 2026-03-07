@@ -351,6 +351,8 @@ export class Kernel {
             throw new Error("Invalid program type");
         }
 
+        // TODO: expose function equivalent to process.kill(await result_promise) as a shorthand for programs calling others
+
         return {
             process,
             completion: result_promise
