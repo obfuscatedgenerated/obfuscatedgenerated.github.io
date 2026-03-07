@@ -105,15 +105,15 @@ export abstract class AbstractClientSocket {
         await this._handle_send_internal(uint8_data);
     }
 
-    protected abstract _handle_close_internal(): Promise<void>;
+    protected abstract _handle_close_internal(passive: boolean): Promise<void>;
 
-    async close(): Promise<void> {
+    async close(passive = false): Promise<void> {
         if (this.ready_state === SocketReadyState.CLOSING || this.ready_state === SocketReadyState.CLOSED) {
             return;
         }
 
         this.ready_state = SocketReadyState.CLOSING;
-        await this._handle_close_internal();
+        await this._handle_close_internal(passive);
 
         // invoke close listeners
         for (const listener of this.#close_listeners) {

@@ -25,7 +25,14 @@ interface CloseConnectionMessage extends BaseMessage {
     sock_id: string;
 }
 
-type OutboundMessage = BindMessage | UnbindMessage | DataMessage | CloseConnectionMessage;
+interface ConnectMessage extends BaseMessage {
+    type: "connect_req";
+    host: string;
+    port: number;
+    force_sock_id?: string;
+}
+
+type OutboundMessage = BindMessage | UnbindMessage | DataMessage | CloseConnectionMessage | ConnectMessage;
 
 interface IncomingConnectionMessage extends BaseMessage {
     type: "incoming_connection";
@@ -35,32 +42,36 @@ interface IncomingConnectionMessage extends BaseMessage {
 
 interface ConnectionClosingMessage extends BaseMessage {
     type: "connection_closing";
-    port: number;
+    port?: number;
     sock_id: string;
 }
 
-interface AckBindMessage extends BaseMessage {
+interface AckMessage extends BaseMessage {
+    success: boolean;
+    error?: string;
+}
+
+interface AckBindMessage extends AckMessage {
     type: "ack_bind";
     port: number;
-    success: boolean;
-    error?: string;
 }
 
-interface AckUnbindMessage extends BaseMessage {
+interface AckUnbindMessage extends AckMessage {
     type: "ack_unbind";
     port: number;
-    success: boolean;
-    error?: string;
 }
 
-interface AckCloseConnectionMessage extends BaseMessage {
+interface AckCloseConnectionMessage extends AckMessage {
     type: "ack_close_connection";
     sock_id: string;
-    success: boolean;
-    error?: string;
 }
 
-type InboundMessage = IncomingConnectionMessage | ConnectionClosingMessage | AckBindMessage | AckUnbindMessage | DataMessage | AckCloseConnectionMessage;
+interface AckConnectMessage extends AckMessage {
+    type: "ack_connect";
+    sock_id: string;
+}
+
+type InboundMessage = IncomingConnectionMessage | ConnectionClosingMessage | AckBindMessage | AckUnbindMessage | DataMessage | AckCloseConnectionMessage | AckConnectMessage;
 
 const uint8_to_base64 = (data: Uint8Array): string => {
     let binary = "";
@@ -79,7 +90,12 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
         this.ready_state = SocketReadyState.OPEN;
     }
 
-    protected async _handle_close_internal(): Promise<void> {
+    protected async _handle_close_internal(passive: boolean): Promise<void> {
+        if (passive) {
+            // nothing to do
+            return;
+        }
+
         const msg: CloseConnectionMessage = {
             type: "close_connection",
             sock_id: this.id,
@@ -187,7 +203,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
     constructor() {
         super();
-        this.#connect();
+        this.#connect_to_ws();
     }
 
     #ws: WebSocket;
@@ -256,7 +272,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
         });
     }
 
-    #connect() {
+    #connect_to_ws() {
         // open websocket connection on port 9000, handling all routing (rather than making a separate listener/connection for each socket)
         this.#ws = new WebSocket("ws://127.0.0.1:9000");
 
@@ -285,7 +301,8 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                 case "connection_closing": {
                     const client = this.#client_map.get(data.sock_id);
                     if (client) {
-                        client.close().catch(err => {
+                        // emit passive close event
+                        client.close(true).catch(err => {
                             console.error(`Error closing client socket ${data.sock_id}:`, err);
                         });
                     } else {
@@ -325,7 +342,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
 
             // attempt to reconnect with exponential backoff
             setTimeout(() => {
-                this.#connect();
+                this.#connect_to_ws();
             }, Math.min(50 * 2 ** this.#reconnect_attempts, 3000));
             this.#reconnect_attempts++;
         });
@@ -384,6 +401,45 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
     }
 
     async connect(host: string, port: number): Promise<AbstractClientSocket> {
-        throw new Error("Outbound connections are not supported in porter networking yet");
+        // generate a sock id that we will provide to immediately reserve in the map without waiting for a reply
+        const sock_id = crypto.randomUUID();
+
+        const msg: ConnectMessage = {
+            type: "connect_req",
+            host,
+            port,
+            force_sock_id: sock_id,
+        };
+
+        await this.wait_for_ws_ready();
+        this.#ws.send(JSON.stringify(msg));
+
+        return new Promise<PorterBridgeClientSocket>((resolve, reject) => {
+            const handler = (event: MessageEvent) => {
+                const data = JSON.parse(event.data) as InboundMessage;
+
+                // TODO: move this routing logic to the manager instead of having each connect call add its own listener for efficiency
+                if (data.type === "ack_connect" && data.sock_id === sock_id) {
+                    this.#ws.removeEventListener("message", handler);
+
+                    if (data.success) {
+                        // create the client and add to map
+                        const client = new PorterBridgeClientSocket(sock_id, this);
+                        this.#client_map.set(sock_id, client);
+
+                        // cleanup on close
+                        client.add_event_listener("close", () => {
+                            this.#client_map.delete(sock_id);
+                        });
+
+                        resolve(client);
+                    } else {
+                        reject(new Error(data.error || `Failed to connect to ${host}:${port}`));
+                    }
+                }
+            };
+
+            this.#ws.addEventListener("message", handler);
+        });
     }
 }

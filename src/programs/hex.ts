@@ -49,7 +49,9 @@ export default {
         }
 
         if (args[0] === "-h") {
-            await kernel.spawn("help", ["hex"], shell).completion;
+            const spawn_result = kernel.spawn("help", ["hex"], shell);
+            spawn_result.process.kill(await spawn_result.completion);
+            return 0;
         }
 
         // get filepath

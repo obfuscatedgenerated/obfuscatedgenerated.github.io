@@ -38,8 +38,9 @@ export { default as unalias } from "./unalias";
 export { default as ps } from "./ps";
 export { default as kill } from "./kill";
 export { default as spark } from "./spark";
-
 export { default as hello_http } from "./hello_http";
+export { default as finger } from "./finger";
+
 export { default as telnetd } from "./services/telnetd";
 
 // shhhhh!
