@@ -68,6 +68,7 @@ export default {
             if (restart) {
                 window.location.reload();
             } else {
+                // TODO: need to dispose ALL terminals. def easier to manage in igntion but could make a kernel.dispose() method
                 term.dispose();
             }
         }, time);
