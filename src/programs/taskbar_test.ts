@@ -29,6 +29,14 @@ export default {
         wind.height = "7.5vh";
         wind.width = "100vw";
 
+        const root = document.createElement("div");
+        root.style.display = "flex";
+        root.style.height = "100%";
+        root.style.width = "100%";
+        root.style.justifyContent = "space-between";
+
+        wind.dom.appendChild(root);
+
         const buttons = document.createElement("div");
         buttons.style.display = "flex";
         buttons.style.height = "100%";
@@ -36,7 +44,15 @@ export default {
         buttons.style.gap = "1vh";
         buttons.style.padding = "0 1vh";
 
-        wind.dom.appendChild(buttons);
+        const icons = document.createElement("div");
+        icons.style.display = "flex";
+        icons.style.height = "100%";
+        icons.style.alignItems = "center";
+        icons.style.gap = "1vh";
+        icons.style.padding = "0 1vh";
+
+        root.appendChild(buttons);
+        root.appendChild(icons);
 
         const fsedit_button = document.createElement("button");
         fsedit_button.innerText = "FSEdit";
@@ -68,6 +84,30 @@ export default {
 
             buttons.appendChild(mc_button);
         }
+
+        // add icon to reflect network status
+        const net_manager = kernel.get_network_manager();
+        const net_icon = document.createElement("span");
+        net_icon.style.height = "3vh";
+        net_icon.style.width = "3vh";
+        net_icon.style.fontSize = "3vh";
+        net_icon.style.display = "flex";
+        net_icon.style.justifyContent = "center";
+        net_icon.style.alignItems = "center";
+
+        const is_up = await net_manager.is_up();
+        net_icon.style.color = is_up ? "green" : "red";
+        net_icon.innerText = is_up ? "🌐︎" : "🔌︎";
+        net_icon.title = is_up ? "Online" : "Offline";
+
+        // update when status changes
+        process.network_add_manager_listener("state_change", (now_up) => {
+            net_icon.style.color = now_up ? "green" : "red";
+            net_icon.innerText = now_up ? "🌐︎" : "🔌︎";
+            net_icon.title = now_up ? "Online" : "Offline";
+        });
+
+        icons.appendChild(net_icon);
 
         wind.show();
 
