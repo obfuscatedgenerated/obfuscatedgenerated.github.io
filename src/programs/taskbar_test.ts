@@ -85,29 +85,31 @@ export default {
             buttons.appendChild(mc_button);
         }
 
-        // add icon to reflect network status
-        const net_manager = kernel.get_network_manager();
-        const net_icon = document.createElement("span");
-        net_icon.style.height = "3vh";
-        net_icon.style.width = "3vh";
-        net_icon.style.fontSize = "3vh";
-        net_icon.style.display = "flex";
-        net_icon.style.justifyContent = "center";
-        net_icon.style.alignItems = "center";
+        if (kernel.has_network_manager()) {
+            // add icon to reflect network status
+            const net_manager = kernel.get_network_manager();
+            const net_icon = document.createElement("span");
+            net_icon.style.height = "3vh";
+            net_icon.style.width = "3vh";
+            net_icon.style.fontSize = "3vh";
+            net_icon.style.display = "flex";
+            net_icon.style.justifyContent = "center";
+            net_icon.style.alignItems = "center";
 
-        const is_up = await net_manager.is_up();
-        net_icon.style.color = is_up ? "green" : "red";
-        net_icon.innerText = is_up ? "🌐︎" : "🔌︎";
-        net_icon.title = is_up ? "Online" : "Offline";
+            const is_up = await net_manager.is_up();
+            net_icon.style.color = is_up ? "green" : "red";
+            net_icon.innerText = is_up ? "🌐︎" : "🔌︎";
+            net_icon.title = is_up ? "Online" : "Offline";
 
-        // update when status changes
-        process.network_add_manager_listener("state_change", (now_up) => {
-            net_icon.style.color = now_up ? "green" : "red";
-            net_icon.innerText = now_up ? "🌐︎" : "🔌︎";
-            net_icon.title = now_up ? "Online" : "Offline";
-        });
+            // update when status changes
+            process.network_add_manager_listener("state_change", (now_up) => {
+                net_icon.style.color = now_up ? "green" : "red";
+                net_icon.innerText = now_up ? "🌐︎" : "🔌︎";
+                net_icon.title = now_up ? "Online" : "Offline";
+            });
 
-        icons.appendChild(net_icon);
+            icons.appendChild(net_icon);
+        }
 
         wind.show();
 
