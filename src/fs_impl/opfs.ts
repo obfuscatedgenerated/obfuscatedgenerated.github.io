@@ -24,6 +24,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
         navigator.storage.getDirectory().then((handle) => {
             console.log("Filesystem acquired. Checking...");
 
+            // TODO: does this actually help
             this.#clear_locks(handle).then(() => {
                 console.log("Finished initial filesystem check.");
 
@@ -292,8 +293,16 @@ export class OPFSFileSystem extends AbstractFileSystem {
 
         // perform move, first check if the browser supports handle.move, and if not recursively copy and delete
         if ("move" in src_handle) {
-            // @ts-ignore - not part of spec yet
-            await src_handle.move(final_dest_parent_handle, final_dest_name);
+            try {
+                // @ts-ignore - not part of spec yet
+                await src_handle.move(final_dest_parent_handle, final_dest_name);
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    console.warn("Atomic move failed! Possibly locked! Falling back to copy and delete.");
+                    await this.#copy_directory_recursive(src_handle, await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true }));
+                    await src_parent_handle.removeEntry(src_basename, { recursive: true });
+                }
+            }
         } else {
             // copy recursively
             const new_dest_handle = await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true });
