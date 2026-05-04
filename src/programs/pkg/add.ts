@@ -159,7 +159,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         }
 
         // get each file in contents and load it into memory
-        const file_map = new Map<string, string>();
+        const file_map = new Map<string, Uint8Array>();
 
         for (const file of content_list) {
             if (file === "") {
@@ -177,14 +177,15 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 continue;
             }
 
-            file_map.set(file, file_contents);
+            file_map.set(file, new Uint8Array(file_contents));
         }
 
         // add pkg.json and meta.json to file map
-        file_map.set("pkg.json", JSON.stringify(pkg_json));
+        const encoder = new TextEncoder();
+        file_map.set("pkg.json", encoder.encode(JSON.stringify(pkg_json)));
         // TODO: adding this might be redundant, we could just move build timestamp to the graph. could also use file array to help mounting? prob not needed.
         // TODO: build timestamp isnt actually used anywhere yet so not a big deal until implemented. might be quicker to just open this file rather than access the graph anyway!
-        file_map.set("meta.json", JSON.stringify(meta, json_convert_dep_sets_to_arrs));
+        file_map.set("meta.json", encoder.encode(JSON.stringify(meta, json_convert_dep_sets_to_arrs)));
 
         // not actually executing the file map yet, as we need to ensure the graph is valid
 
@@ -238,12 +239,14 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         // it doesn't matter if mounting fails, the graph is fine and the files are downloaded properly, so no rollback needed
 
         // mount each program
+        const decoder = new TextDecoder();
         for (const [filename, value] of file_map) {
             if (!filename.endsWith(".js")) {
                 continue;
             }
 
-            await prog_reg.mount_and_register_with_output(filename, value, term, true);
+            // TODO: accept uint8 directly
+            await prog_reg.mount_and_register_with_output(filename, decoder.decode(value), term, true);
         }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);

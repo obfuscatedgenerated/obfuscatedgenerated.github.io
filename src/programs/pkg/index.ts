@@ -143,7 +143,7 @@ export const repo_query = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        return await response.text();
+        return await response.arrayBuffer();
     },
 
     get_provided_list: async () => {
