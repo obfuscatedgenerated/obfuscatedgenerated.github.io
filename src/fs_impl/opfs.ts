@@ -301,6 +301,8 @@ export class OPFSFileSystem extends AbstractFileSystem {
                     console.warn("Atomic move failed! Possibly locked! Falling back to copy and delete.");
                     await this.#copy_directory_recursive(src_handle, await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true }));
                     await src_parent_handle.removeEntry(src_basename, { recursive: true });
+                } else {
+                    throw err;
                 }
             }
         } else {
