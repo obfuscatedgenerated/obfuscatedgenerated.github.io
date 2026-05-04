@@ -20,12 +20,44 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
 
         // get the root directory handle
+        // TODO: would be way better to have an async init, we probably can now!
         navigator.storage.getDirectory().then((handle) => {
-            this._opfs_handle = handle;
-            this._initialised = true;
+            console.log("Filesystem acquired. Checking...");
+
+            this.#clear_locks(handle).then(() => {
+                console.log("Finished initial filesystem check.");
+
+                this._opfs_handle = handle;
+                this._initialised = true;
+            });
         }).catch((err) => {
             console.error("Failed to get OPFS directory handle:", err);
         });
+    }
+
+    async #clear_locks(directory: FileSystemDirectoryHandle | null) {
+        // files can remain locked in opfs if not closed, so navigating away can break the os!
+        // so lets unlock all files on init to be safe
+        // TODO: how performant is this? is there a safer way?
+        if (!directory) {
+            return;
+        }
+
+        for await (const [name, handle] of directory.entries()) {
+            if (handle.kind === "file") {
+                try {
+                    // force the browser to check the lock, without erasing the data!
+                    const poke = await (handle as FileSystemFileHandle).createWritable({keepExistingData: true});
+                    await poke.close();
+                } catch (err) {
+                    if (err.name === "AbortError" || err.name === "NoModificationAllowedError") {
+                        console.warn(`Recovering locked file: ${name}. Internal lock cleared.`);
+                    }
+                }
+            } else if (handle.kind === "directory") {
+                await this.#clear_locks(handle as FileSystemDirectoryHandle);
+            }
+        }
     }
 
     async is_ready() {
