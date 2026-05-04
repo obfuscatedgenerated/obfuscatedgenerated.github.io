@@ -152,22 +152,23 @@ export default {
 
         // check if the file already exists
         const abs_path = fs.absolute(file_path);
+        const exists = await fs.exists(abs_path);
 
-        if (await fs.exists(abs_path) && !overwrite) {
+        if (exists && !overwrite) {
             term.writeln(`${PREFABS.error}File already exists.${STYLE.reset_all}`);
             return 1;
         }
 
         // if overwriting, run initial check of readonly status
         if (overwrite) {
-            if (await fs.is_readonly(abs_path)) {
+            if (exists && await fs.is_readonly(abs_path)) {
                 term.writeln(`${PREFABS.error}File is readonly.${STYLE.reset_all}`);
                 return 1;
             }
         }
 
         // lock the file, creating it if it does not exist
-        if (!(await fs.exists(abs_path))) {
+        if (!exists) {
             await fs.write_file(abs_path, "");
         }
         await fs.set_readonly(abs_path, true);
