@@ -211,6 +211,9 @@ const message_deserialisers: Record<number, (reader: SSHReader) => SSHMessage> =
         const client_public_key = reader.read_bytes(key_length);
         return { type: "KEXECDH_INIT", client_public_key };
     },
+    [MESSAGE_IDS.NEWKEYS]: (reader) => {
+        return { type: "NEWKEYS" };
+    }
 };
 
 const BLOCK_SIZE = 8;
@@ -233,7 +236,7 @@ const pad_ssh_message = (payload: Uint8Array): Uint8Array => {
     return final_packet;
 }
 
-const wrap_ssh_message = (message: SSHMessage): Uint8Array => {
+const serialise_ssh_message = (message: SSHMessage): Uint8Array => {
     const writer = new SSHWriter();
     const serialiser = message_serialisers[message.type];
 
@@ -242,9 +245,11 @@ const wrap_ssh_message = (message: SSHMessage): Uint8Array => {
     }
 
     serialiser(writer, message);
-    const payload = writer.to_uint8_array();
+    return writer.to_uint8_array();
+}
 
-    return pad_ssh_message(payload);
+const wrap_ssh_message = (message: SSHMessage): Uint8Array => {
+    return pad_ssh_message(serialise_ssh_message(message));
 }
 
 const unpad_ssh_message = (data: Uint8Array): { payload: Uint8Array, remaining: Uint8Array } | null => {
@@ -266,6 +271,18 @@ const unpad_ssh_message = (data: Uint8Array): { payload: Uint8Array, remaining: 
     return {payload, remaining};
 }
 
+const deserialise_ssh_message = (payload: Uint8Array): SSHMessage => {
+    const message_type = payload[0];
+    const deserialiser = message_deserialisers[message_type];
+
+    if (!deserialiser) {
+        throw new Error(`No deserialiser for message type ${message_type}`);
+    }
+
+    const reader = new SSHReader(payload.slice(1)); // skip message type byte
+    return deserialiser(reader);
+}
+
 const unwrap_ssh_message = (data: Uint8Array): { message: SSHMessage, remaining: Uint8Array } | null => {
     if (data.length < 5) {
         return null; // not enough data for packet length and padding length
@@ -276,18 +293,11 @@ const unwrap_ssh_message = (data: Uint8Array): { message: SSHMessage, remaining:
         return null; // not enough data for full packet
     }
 
-    const message_type = payload[0];
-    const deserialiser = message_deserialisers[message_type];
-
-    if (!deserialiser) {
-        throw new Error(`No deserialiser for message type ${message_type}`);
-    }
-
-    const reader = new SSHReader(payload.slice(1)); // skip message type byte
-    const message = deserialiser(reader);
-
+    const message = deserialise_ssh_message(payload);
     return { message, remaining };
 }
+
+// TODO: add bufferring to these wait funcs (local to each socket ofc)
 
 const wait_for_next_data = (socket: UserspaceClientSocket): Promise<Uint8Array> => {
     return new Promise((resolve) => {
@@ -441,8 +451,143 @@ export default {
                 const kex_reply_raw = wrap_ssh_message(kex_reply_message);
                 await socket.send(kex_reply_raw);
 
+                // derive nonces and keys (A - D)
+                const derive_key = async (letter: string, length: number) => {
+                    const key_data = new SSHWriter();
+                    key_data.write_mpint(shared_secret);
+                    key_data.write_bytes(exchange_hash);
+                    key_data.write_byte(letter.charCodeAt(0));
+                    key_data.write_bytes(exchange_hash);
+
+                    const full_key = new Uint8Array(await crypto.subtle.digest("SHA-256", key_data.to_uint8_array() as Uint8Array<ArrayBuffer>));
+
+                    if (full_key.length >= length) {
+                        return full_key.slice(0, length);
+                    }
+
+                    // if the hash isn't long enough, we need to hash again with the previous hash as extra data until we have enough key material
+                    let result = full_key;
+                    while (result.length < length) {
+                        const extra_data = new SSHWriter();
+                        extra_data.write_mpint(shared_secret);
+                        extra_data.write_bytes(exchange_hash);
+                        extra_data.write_byte(letter.charCodeAt(0));
+                        extra_data.write_bytes(result);
+
+                        const next_hash = new Uint8Array(await crypto.subtle.digest("SHA-256", extra_data.to_uint8_array() as Uint8Array<ArrayBuffer>));
+                        result = new Uint8Array([...result, ...next_hash]);
+                    }
+
+                    return result.slice(0, length);
+                };
+
+                const cryptographic_keys = {
+                    client_to_server_iv: await derive_key("A", 12),
+                    server_to_client_iv: await derive_key("B", 12),
+                    client_to_server_key: await derive_key("C", 16),
+                    server_to_client_key: await derive_key("D", 16),
+                };
+
+                const client_to_server = await crypto.subtle.importKey(
+                    "raw",
+                    cryptographic_keys.client_to_server_key,
+                    { name: "AES-GCM" },
+                    false,
+                    ["decrypt"]
+                );
+
+                const server_to_client = await crypto.subtle.importKey(
+                    "raw",
+                    cryptographic_keys.server_to_client_key,
+                    { name: "AES-GCM" },
+                    false,
+                    ["encrypt"]
+                );
+
+                let client_sequence_number = 0n;
+                let server_sequence_number = 0n;
+
+                const decrypt_message = async (msg_data: Uint8Array): Promise<SSHMessage> => {
+                    // 4 byte length in plaintext aad
+                    const aad = msg_data.slice(0, 4);
+                    const packet_length = new DataView(aad.buffer, aad.byteOffset, 4).getUint32(0, false);
+
+                    // build 12 byte nonce from iv and sequence number (xor last 8 bytes)
+                    const nonce = new Uint8Array(cryptographic_keys.client_to_server_iv);
+                    const nonce_view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
+                    const nonce_suffix = nonce_view.getBigUint64(4, false) ^ client_sequence_number;
+                    nonce_view.setBigUint64(4, nonce_suffix, false);
+
+                    // decrypt the packet
+                    const decrypted = new Uint8Array(await crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv: nonce, additionalData: aad, tagLength: 128 },
+                        client_to_server,
+                        msg_data.slice(4, 4 + packet_length + 16) // +16 for GCM tag
+                    ));
+
+                    client_sequence_number++;
+
+                    // extract padding and payload
+                    const padding_length = decrypted[0];
+                    const payload = decrypted.slice(1, decrypted.length - padding_length);
+
+                    return deserialise_ssh_message(payload);
+                }
+
+                const encrypt_message = async (message: SSHMessage): Promise<Uint8Array> => {
+                    const payload = serialise_ssh_message(message);
+
+                    let padding_len = (BLOCK_SIZE*2 - ((payload.length + 1) % BLOCK_SIZE*2)) || BLOCK_SIZE*2; // +1 for padding length field
+                    if (padding_len < 4) {
+                        padding_len += BLOCK_SIZE*2;
+                    }
+
+                    const padding = random_bytes(padding_len);
+
+                    // build packet of padding length, payload, and padding
+                    const plaintext = new Uint8Array(1 + payload.length + padding.length);
+                    plaintext[0] = padding_len;
+                    plaintext.set(payload, 1);
+                    plaintext.set(padding, 1 + payload.length);
+
+                    // build nonce (xor last 8 bytes)
+                    const nonce = new Uint8Array(cryptographic_keys.server_to_client_iv);
+                    const nonce_view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
+                    const nonce_suffix = nonce_view.getBigUint64(4, false) ^ server_sequence_number;
+                    nonce_view.setBigUint64(4, nonce_suffix, false);
+
+                    // build aad (4 byte length prefix)
+                    const aad = new Uint8Array(4);
+                    const aad_view = new DataView(aad.buffer);
+                    aad_view.setUint32(0, plaintext.length, false);
+
+                    // encrypt packet
+                    const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+                        { name: "AES-GCM", iv: nonce, additionalData: aad, tagLength: 128 },
+                        server_to_client,
+                        plaintext
+                    ));
+
+                    server_sequence_number++;
+
+                    // prepend aad
+                    const packet = new Uint8Array(4 + ciphertext.length);
+                    packet.set(aad, 0);
+                    packet.set(ciphertext, 4);
+
+                    return packet;
+                }
+
+                // TODO: could just pass key dict rather than defining new funcs
+
                 // enter encrypted session
-                await socket.send(wrap_ssh_message({type: "NEWKEYS"}));
+                let client_newkeys: SSHMessage;
+                await Promise.all([socket.send(wrap_ssh_message({type: "NEWKEYS"})), (async () => client_newkeys = (await wait_for_next_ssh_message(socket)).message)()]);
+
+                if (client_newkeys.type !== "NEWKEYS") {
+                    socket.close();
+                    return;
+                }
 
                 // TODO: actually handle the next steps
 
