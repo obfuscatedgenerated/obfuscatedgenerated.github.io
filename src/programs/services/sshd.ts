@@ -6,6 +6,23 @@ interface SSHMessageBase {
     type: string;
 }
 
+interface DisconnectMessage extends SSHMessageBase {
+    type: "DISCONNECT";
+    reason_code: number;
+    description: string;
+    language_tag: string;
+}
+
+interface ServiceRequestMessage extends SSHMessageBase {
+    type: "SERVICE_REQUEST";
+    service_name: string;
+}
+
+interface ServiceAcceptMessage extends SSHMessageBase {
+    type: "SERVICE_ACCEPT";
+    service_name: string;
+}
+
 interface KEXInitMessage extends SSHMessageBase {
     type: "KEXINIT";
     kex_algorithms: string[];
@@ -37,10 +54,58 @@ interface KEXECDHReplyMessage extends SSHMessageBase {
     signature: Uint8Array;
 }
 
-type SSHMessage = KEXInitMessage | NewKeysMessage | KEXECDHInitMessage | KEXECDHReplyMessage;
+interface UserAuthRequestMessageBase extends SSHMessageBase {
+    type: "USERAUTH_REQUEST";
+    username: string;
+    service_name: string;
+    method_name: string;
+}
+
+interface UserAuthRequestMessageNone extends UserAuthRequestMessageBase {
+    method_name: "none";
+}
+
+interface UserAuthRequestMessagePassword extends UserAuthRequestMessageBase {
+    method_name: "password";
+    is_password_change_request: boolean;
+    password: string;
+}
+
+interface UserAuthRequestMessagePublicKey extends UserAuthRequestMessageBase {
+    method_name: "publickey";
+    public_key_algorithm: string;
+    public_key: Uint8Array;
+    signature?: Uint8Array; // optional for initial request without signature
+}
+
+type UserAuthRequestMessage = UserAuthRequestMessageNone | UserAuthRequestMessagePublicKey | UserAuthRequestMessagePassword;
+
+interface UserAuthFailureMessage extends SSHMessageBase {
+    type: "USERAUTH_FAILURE";
+    allowed_methods: string[];
+    partial_success: boolean;
+}
+
+interface UserAuthSuccessMessage extends SSHMessageBase {
+    type: "USERAUTH_SUCCESS";
+}
+
+interface UserAuthBannerMessage extends SSHMessageBase {
+    type: "USERAUTH_BANNER";
+    message: string;
+}
+
+type SSHMessage =
+    DisconnectMessage |
+    ServiceRequestMessage | ServiceAcceptMessage |
+    KEXInitMessage |
+    NewKeysMessage |
+    KEXECDHInitMessage | KEXECDHReplyMessage
+    | UserAuthRequestMessage | UserAuthFailureMessage | UserAuthSuccessMessage | UserAuthBannerMessage;
+
 type SSHMessageType = SSHMessage["type"];
 
-class SSHWriter {
+class MessageWriter {
     #buffer: number[] = [];
 
     write_byte(value: number) {
@@ -91,9 +156,13 @@ class SSHWriter {
     }
 }
 
-class SSHReader {
+class MessageReader {
     #buffer: Uint8Array;
     #offset = 0;
+
+    get remaining_length() {
+        return this.#buffer.length - this.#offset;
+    }
 
     constructor(data: Uint8Array) {
         this.#buffer = data;
@@ -139,13 +208,27 @@ const random_bytes = (length: number): Uint8Array => {
 }
 
 const MESSAGE_IDS: Record<SSHMessageType, number> = {
+    "DISCONNECT": 1,
+    //"IGNORE": 2,
+    //"UNIMPLEMENTED": 3,
+    //"DEBUG": 4,
+    "SERVICE_REQUEST": 5,
+    "SERVICE_ACCEPT": 6,
     "KEXINIT": 20,
     "NEWKEYS": 21,
     "KEXECDH_INIT": 30,
-    "KEXECDH_REPLY": 31
+    "KEXECDH_REPLY": 31,
+    "USERAUTH_REQUEST": 50,
+    "USERAUTH_FAILURE": 51,
+    "USERAUTH_SUCCESS": 52,
+    "USERAUTH_BANNER": 53,
 };
 
-const message_serialisers: Partial<Record<SSHMessageType, (writer: SSHWriter, message: SSHMessage) => void>> = {
+const message_serialisers: Partial<Record<SSHMessageType, (writer: MessageWriter, message: SSHMessage) => void>> = {
+    "SERVICE_ACCEPT": (writer, message: ServiceAcceptMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_SERVICE_ACCEPT
+        writer.write_string(message.service_name);
+    },
     "KEXINIT": (writer, message: KEXInitMessage) => {
         writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_KEXINIT
         writer.write_bytes(random_bytes(16)); // cookie
@@ -170,10 +253,33 @@ const message_serialisers: Partial<Record<SSHMessageType, (writer: SSHWriter, me
         writer.write_string(message.host_key);
         writer.write_string(message.server_public_key);
         writer.write_string(message.signature);
+    },
+    "USERAUTH_FAILURE": (writer, message: UserAuthFailureMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_USERAUTH_FAILURE
+        writer.write_name_list(message.allowed_methods);
+        writer.write_byte(message.partial_success ? 1 : 0);
+    },
+    "USERAUTH_SUCCESS": (writer, message: UserAuthSuccessMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_USERAUTH_SUCCESS
+    },
+    "USERAUTH_BANNER": (writer, message: UserAuthBannerMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_USERAUTH_BANNER
+        writer.write_string(message.message);
+        writer.write_string(""); // language tag, not supported
     }
 };
 
-const message_deserialisers: Record<number, (reader: SSHReader) => SSHMessage> = {
+const message_deserialisers: Record<number, (reader: MessageReader) => SSHMessage> = {
+    [MESSAGE_IDS.DISCONNECT]: (reader) => {
+        const reason_code = reader.read_uint32();
+        const description = reader.read_string();
+        const language_tag = reader.read_string();
+        return { type: "DISCONNECT", reason_code, description, language_tag };
+    },
+    [MESSAGE_IDS.SERVICE_REQUEST]: (reader) => {
+        const service_name = reader.read_string();
+        return { type: "SERVICE_REQUEST", service_name };
+    },
     [MESSAGE_IDS.KEXINIT]: (reader) => {
         // consume cookie. yummy!
         reader.read_bytes(16);
@@ -213,6 +319,33 @@ const message_deserialisers: Record<number, (reader: SSHReader) => SSHMessage> =
     },
     [MESSAGE_IDS.NEWKEYS]: (reader) => {
         return { type: "NEWKEYS" };
+    },
+    [MESSAGE_IDS.USERAUTH_REQUEST]: (reader) => {
+        const username = reader.read_string();
+        const service_name = reader.read_string();
+        const method_name = reader.read_string();
+
+        if (method_name === "password") {
+            const is_password_change_request = !!reader.read_byte();
+            const password = reader.read_string();
+            return { type: "USERAUTH_REQUEST", username, service_name, method_name, is_password_change_request, password } as UserAuthRequestMessagePassword;
+        } else if (method_name === "publickey") {
+            const public_key_algorithm = reader.read_string();
+            const key_length = reader.read_uint32();
+            const public_key = reader.read_bytes(key_length);
+            let signature: Uint8Array | undefined;
+
+            // check if there's a signature present (there may not be in the initial request)
+            if (reader.remaining_length > 0) {
+                const sig_length = reader.read_uint32();
+                signature = reader.read_bytes(sig_length);
+            }
+
+            return { type: "USERAUTH_REQUEST", username, service_name, method_name, public_key_algorithm, public_key, signature } as UserAuthRequestMessagePublicKey;
+        } else {
+            // unsupported auth method
+            return { type: "USERAUTH_REQUEST", username, service_name, method_name } as UserAuthRequestMessage;
+        }
     }
 };
 
@@ -236,12 +369,12 @@ const pad_ssh_message = (payload: Uint8Array): Uint8Array => {
     return final_packet;
 }
 
-const serialise_ssh_message = (message: SSHMessage): Uint8Array => {
-    const writer = new SSHWriter();
+const serialise_ssh_message = (message: SSHMessage): Uint8Array | null => {
+    const writer = new MessageWriter();
     const serialiser = message_serialisers[message.type];
 
     if (!serialiser) {
-        throw new Error(`No serialiser for message type ${message.type}`);
+        return null;
     }
 
     serialiser(writer, message);
@@ -271,15 +404,15 @@ const unpad_ssh_message = (data: Uint8Array): { payload: Uint8Array, remaining: 
     return {payload, remaining};
 }
 
-const deserialise_ssh_message = (payload: Uint8Array): SSHMessage => {
+const deserialise_ssh_message = (payload: Uint8Array): SSHMessage | null => {
     const message_type = payload[0];
     const deserialiser = message_deserialisers[message_type];
 
     if (!deserialiser) {
-        throw new Error(`No deserialiser for message type ${message_type}`);
+        return null;
     }
 
-    const reader = new SSHReader(payload.slice(1)); // skip message type byte
+    const reader = new MessageReader(payload.slice(1)); // skip message type byte
     return deserialiser(reader);
 }
 
@@ -314,7 +447,7 @@ const wait_for_next_ssh_message = async (socket: UserspaceClientSocket): Promise
     return new Promise((resolve) => {
         const on_message = (data: Uint8Array) => {
             const result = unwrap_ssh_message(data);
-            if (result) {
+            if (result && result.message) {
                 socket.remove_event_listener("data", on_message);
                 resolve({ message: result.message, raw: data.slice(0, data.length - result.remaining.length) });
             }
@@ -362,7 +495,7 @@ export default {
 
                 const host_public_key = new Uint8Array(await crypto.subtle.exportKey("raw", host_key_pair.publicKey));
 
-                const host_key_blob_writer = new SSHWriter();
+                const host_key_blob_writer = new MessageWriter();
                 host_key_blob_writer.write_string("ssh-ed25519");
                 host_key_blob_writer.write_string(host_public_key);
                 const host_key_blob = host_key_blob_writer.to_uint8_array();
@@ -417,7 +550,7 @@ export default {
                 ));
 
                 // compute exchange hash
-                const hash_data = new SSHWriter();
+                const hash_data = new MessageWriter();
                 hash_data.write_string(client_banner.trim());
                 hash_data.write_string(SERVER_BANNER);
                 hash_data.write_string(unpad_ssh_message(client_kexinit.raw).payload);
@@ -436,7 +569,7 @@ export default {
                     exchange_hash
                 ));
 
-                const signature_blob_writer = new SSHWriter();
+                const signature_blob_writer = new MessageWriter();
                 signature_blob_writer.write_string("ssh-ed25519");
                 signature_blob_writer.write_string(signature_raw);
                 const signature_blob = signature_blob_writer.to_uint8_array();
@@ -453,7 +586,7 @@ export default {
 
                 // derive nonces and keys (A - D)
                 const derive_key = async (letter: string, length: number) => {
-                    const key_data = new SSHWriter();
+                    const key_data = new MessageWriter();
                     key_data.write_mpint(shared_secret);
                     key_data.write_bytes(exchange_hash);
                     key_data.write_byte(letter.charCodeAt(0));
@@ -468,7 +601,7 @@ export default {
                     // if the hash isn't long enough, we need to hash again with the previous hash as extra data until we have enough key material
                     let result = full_key;
                     while (result.length < length) {
-                        const extra_data = new SSHWriter();
+                        const extra_data = new MessageWriter();
                         extra_data.write_mpint(shared_secret);
                         extra_data.write_bytes(exchange_hash);
                         extra_data.write_byte(letter.charCodeAt(0));
@@ -507,16 +640,16 @@ export default {
                 let client_sequence_number = 0n;
                 let server_sequence_number = 0n;
 
-                const decrypt_message = async (msg_data: Uint8Array): Promise<SSHMessage> => {
+                const decrypt_payload = async (msg_data: Uint8Array): Promise<Uint8Array> => {
                     // 4 byte length in plaintext aad
                     const aad = msg_data.slice(0, 4);
                     const packet_length = new DataView(aad.buffer, aad.byteOffset, 4).getUint32(0, false);
 
-                    // build 12 byte nonce from iv and sequence number (xor last 8 bytes)
-                    const nonce = new Uint8Array(cryptographic_keys.client_to_server_iv);
+                    const nonce = new Uint8Array(12);
+                    nonce.set(cryptographic_keys.client_to_server_iv);
                     const nonce_view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
-                    const nonce_suffix = nonce_view.getBigUint64(4, false) ^ client_sequence_number;
-                    nonce_view.setBigUint64(4, nonce_suffix, false);
+                    const nonce_suffix = nonce_view.getBigUint64(4, false);
+                    nonce_view.setBigUint64(4, nonce_suffix + client_sequence_number, false);
 
                     // decrypt the packet
                     const decrypted = new Uint8Array(await crypto.subtle.decrypt(
@@ -531,15 +664,15 @@ export default {
                     const padding_length = decrypted[0];
                     const payload = decrypted.slice(1, decrypted.length - padding_length);
 
-                    return deserialise_ssh_message(payload);
+                    return payload;
                 }
 
                 const encrypt_message = async (message: SSHMessage): Promise<Uint8Array> => {
                     const payload = serialise_ssh_message(message);
 
-                    let padding_len = (BLOCK_SIZE*2 - ((payload.length + 1) % BLOCK_SIZE*2)) || BLOCK_SIZE*2; // +1 for padding length field
+                    let padding_len = 16 - ((1 + payload.length) % 16);
                     if (padding_len < 4) {
-                        padding_len += BLOCK_SIZE*2;
+                        padding_len += 16;
                     }
 
                     const padding = random_bytes(padding_len);
@@ -550,11 +683,11 @@ export default {
                     plaintext.set(payload, 1);
                     plaintext.set(padding, 1 + payload.length);
 
-                    // build nonce (xor last 8 bytes)
-                    const nonce = new Uint8Array(cryptographic_keys.server_to_client_iv);
+                    const nonce = new Uint8Array(12);
+                    nonce.set(cryptographic_keys.server_to_client_iv);
                     const nonce_view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
-                    const nonce_suffix = nonce_view.getBigUint64(4, false) ^ server_sequence_number;
-                    nonce_view.setBigUint64(4, nonce_suffix, false);
+                    const nonce_suffix = nonce_view.getBigUint64(4, false);
+                    nonce_view.setBigUint64(4, nonce_suffix + server_sequence_number, false);
 
                     // build aad (4 byte length prefix)
                     const aad = new Uint8Array(4);
@@ -570,12 +703,13 @@ export default {
 
                     server_sequence_number++;
 
-                    // prepend aad
-                    const packet = new Uint8Array(4 + ciphertext.length);
-                    packet.set(aad, 0);
-                    packet.set(ciphertext, 4);
+                    // prepend length
+                    const final_packet = new Uint8Array(4 + ciphertext.length);
+                    const view = new DataView(final_packet.buffer);
+                    view.setUint32(0, plaintext.length, false);
+                    final_packet.set(ciphertext, 4);
 
-                    return packet;
+                    return final_packet;
                 }
 
                 // TODO: could just pass key dict rather than defining new funcs
@@ -589,7 +723,110 @@ export default {
                     return;
                 }
 
-                // TODO: actually handle the next steps
+                // handle messages bufferred
+                const handle_message = async (message: SSHMessage) => {
+                    switch (message.type) {
+                        case "DISCONNECT": {
+                            console.log(`Client disconnected: ${message.description} (reason code ${message.reason_code})`);
+                            socket.close();
+                            return;
+                        }
+                        case "SERVICE_REQUEST": {
+                            if (message.service_name !== "ssh-userauth") {
+                                socket.close();
+                                return;
+                            }
+
+                            const service_accept_message: SSHMessage = {
+                                type: "SERVICE_ACCEPT",
+                                service_name: "ssh-userauth"
+                            };
+
+                            await socket.send(await encrypt_message(service_accept_message));
+                            break;
+                        }
+                        case "USERAUTH_REQUEST": {
+                            // it will request with none, send a failure with allowed methods, then it will send again with the chosen method
+                            if (message.method_name === "none") {
+                                const failure_message: UserAuthFailureMessage = {
+                                    type: "USERAUTH_FAILURE",
+                                    allowed_methods: ["password", "publickey"],
+                                    partial_success: false
+                                };
+
+                                await socket.send(await encrypt_message(failure_message));
+                            } else if (message.method_name === "password") {
+                                if (message.is_password_change_request) {
+                                    // not allowed
+                                    const failure_message: UserAuthFailureMessage = {
+                                        type: "USERAUTH_FAILURE",
+                                        allowed_methods: ["password", "publickey"],
+                                        partial_success: false
+                                    };
+
+                                    await socket.send(await encrypt_message(failure_message));
+                                    return;
+                                }
+
+                                console.log("Received password auth request for user", message.username, "with password", message.password);
+
+                                // for now we dont have passwords lol! the password is just password for testing
+                                const success = message.password === "password";
+
+                                const response_message: SSHMessage = success ? {
+                                    type: "USERAUTH_SUCCESS"
+                                } : {
+                                    type: "USERAUTH_FAILURE",
+                                    allowed_methods: ["password", "publickey"],
+                                    partial_success: false
+                                };
+
+                                await socket.send(await encrypt_message(response_message));
+                            } else if (message.method_name === "publickey") {
+                                console.log("Received publickey auth request for user", message.username);
+                            }
+                        }
+                    }
+                }
+
+                // TODO: move this buffer to handle the handshake too?
+                let incoming_buffer = new Uint8Array(0);
+
+                socket.add_event_listener("data", async (msg_data) => {
+                    const new_buffer = new Uint8Array(incoming_buffer.length + msg_data.length);
+                    new_buffer.set(incoming_buffer, 0);
+                    new_buffer.set(msg_data, incoming_buffer.length);
+                    incoming_buffer = new_buffer;
+
+                    while (incoming_buffer.length >= 4) {
+                        // get packet length from first 4 bytes
+                        const view = new DataView(incoming_buffer.buffer, incoming_buffer.byteOffset, incoming_buffer.byteLength);
+                        const packet_length = view.getUint32(0, false);
+
+                        if (incoming_buffer.length < 4 + packet_length + 16) { // +16 for GCM tag
+                            break; // wait for more data
+                        }
+
+                        const encrypted_packet = incoming_buffer.slice(0, 4 + packet_length + 16);
+                        incoming_buffer = incoming_buffer.slice(4 + packet_length + 16);
+
+                        try {
+                            const payload = await decrypt_payload(encrypted_packet);
+                            const message = deserialise_ssh_message(payload);
+
+                            if (!message) {
+                                console.log(`Received unknown SSH message with type ${payload[0]}`);
+                                continue;
+                            }
+
+                            await handle_message(message);
+                        } catch (e) {
+                            console.error("Failed to decrypt or handle SSH message:", e);
+                            socket.close();
+                            return;
+                        }
+                    }
+                });
 
                 // // spawn ash shell running with our virtual terminal
                 // try {

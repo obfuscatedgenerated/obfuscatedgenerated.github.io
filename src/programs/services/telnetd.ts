@@ -184,6 +184,11 @@ export default {
         // extract from data to make code less verbose
         const { term, process, kernel } = data;
 
+        if (!kernel.privileged) {
+            term.writeln(`${term.ansi.PREFABS.error}This program must be run with elevated privileges.${term.ansi.STYLE.reset_all}`);
+            return 1;
+        }
+
         if (!kernel.has_network_manager()) {
             term.writeln(`${term.ansi.PREFABS.error}No network manager found. This program requires a network manager to function.${term.ansi.STYLE.reset_all}`);
             return 1;
