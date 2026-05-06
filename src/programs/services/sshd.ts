@@ -1230,23 +1230,13 @@ export default {
                     }
                 });
 
-                // // spawn ash shell running with our virtual terminal
-                // try {
-                //     const spawn_result = kernel.spawn(
-                //         "ash",
-                //         ["--login"],
-                //         // TODO: should prob change this to object args but will be annoying to change
-                //         undefined,
-                //         false,
-                //         session_term
-                //     );
-                //
-                //     spawn_result.process.kill(await spawn_result.completion);
-                // } catch (e) {
-                //     session_term.writeln(`${session_term.ansi.PREFABS.error}Failed to spawn shell: ${e.message}${session_term.ansi.STYLE.reset_all}`);
-                // } finally {
-                //     session_term.dispose();
-                // }
+                socket.add_event_listener("close", () => {
+                    // close every shell and terminal
+                    channels.forEach((channel) => {
+                        channel.shell?.process.kill();
+                        channel.terminal?.dispose();
+                    });
+                });
             });
         };
 
