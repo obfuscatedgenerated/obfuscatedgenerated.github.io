@@ -43,6 +43,7 @@ export { default as finger } from "./finger";
 
 export { default as telnetd } from "./services/telnetd";
 export { default as fingerd } from "./services/fingerd";
+export { default as sshd } from "./services/sshd";
 
 // shhhhh!
 export { default as ipc_bg_test } from "./ipc_bg_test";
