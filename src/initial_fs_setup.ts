@@ -115,7 +115,7 @@ const setup_boot = async (fs: AbstractFileSystem) => {
   "name": "SSH Server",
   "dependencies": [],
   "exec": "sshd",
-  "auto_start": false,
+  "auto_start": true,
   "oneshot": false,
   "restart": {
     "on": "failure",
