@@ -807,8 +807,6 @@ export default {
                         plaintext
                     ));
 
-                    server_sequence_number++;
-
                     // prepend length
                     const final_packet = new Uint8Array(4 + ciphertext.length);
                     const view = new DataView(final_packet.buffer);
@@ -816,6 +814,18 @@ export default {
                     final_packet.set(ciphertext, 4);
 
                     return final_packet;
+                }
+
+                // must strictly follow sequencing
+                let send_lock = Promise.resolve();
+                const send_encrypted_message_atomic = async (message: SSHMessage): Promise<void> => {
+                    send_lock = send_lock.then(async () => {
+                        const msg_data = await encrypt_message(message);
+                        await socket.send(msg_data);
+                        server_sequence_number++;
+                    });
+
+                    return send_lock;
                 }
 
                 // TODO: could just pass key dict rather than defining new funcs
@@ -871,7 +881,7 @@ export default {
                             data: new TextEncoder().encode(newline_fmt)
                         };
 
-                        encrypt_message(data_msg).then(enc => socket.send(enc)).then(callback);
+                        send_encrypted_message_atomic(data_msg).then(callback);
                     }
 
                     writeln(msg_data: string | Uint8Array, callback?: () => void) {
@@ -883,7 +893,7 @@ export default {
                             data: new TextEncoder().encode(newline_fmt)
                         };
 
-                        encrypt_message(data_msg).then(enc => socket.send(enc)).then(callback);
+                        send_encrypted_message_atomic(data_msg).then(callback);
                     }
 
                     focus() {
@@ -1013,7 +1023,7 @@ export default {
                                 service_name: "ssh-userauth"
                             };
 
-                            await socket.send(await encrypt_message(service_accept_message));
+                            await send_encrypted_message_atomic(service_accept_message);
                             break;
                         }
                         case "USERAUTH_REQUEST": {
@@ -1025,7 +1035,7 @@ export default {
                                     partial_success: false
                                 };
 
-                                await socket.send(await encrypt_message(failure_message));
+                                await send_encrypted_message_atomic(failure_message);
                             } else if (message.method_name === "password") {
                                 if (message.is_password_change_request) {
                                     // not allowed
@@ -1035,7 +1045,7 @@ export default {
                                         partial_success: false
                                     };
 
-                                    await socket.send(await encrypt_message(failure_message));
+                                    await send_encrypted_message_atomic(failure_message);
                                     return;
                                 }
 
@@ -1052,7 +1062,7 @@ export default {
                                     partial_success: false
                                 };
 
-                                await socket.send(await encrypt_message(response_message));
+                                await send_encrypted_message_atomic(response_message);
                             } else if (message.method_name === "publickey") {
                                 console.log("Received publickey auth request for user", message.username);
                             }
@@ -1068,7 +1078,7 @@ export default {
                                     language_tag: ""
                                 };
 
-                                await socket.send(await encrypt_message(failure_message));
+                                await send_encrypted_message_atomic(failure_message);
                                 return;
                             }
 
@@ -1086,7 +1096,7 @@ export default {
                                 maximum_packet_size: 32768 // 32KB
                             };
 
-                            await socket.send(await encrypt_message(confirmation_message));
+                            await send_encrypted_message_atomic(confirmation_message);
                             break;
                         }
                         case "CHANNEL_REQUEST": {
@@ -1100,7 +1110,7 @@ export default {
                                         recipient_channel: message.recipient_channel
                                     };
 
-                                    await socket.send(await encrypt_message(failure_message));
+                                    await send_encrypted_message_atomic(failure_message);
                                 }
 
                                 return;
@@ -1115,7 +1125,7 @@ export default {
                                             recipient_channel: message.recipient_channel
                                         };
 
-                                        await socket.send(await encrypt_message(failure_message));
+                                        await send_encrypted_message_atomic(failure_message);
                                     }
 
                                     return;
@@ -1129,7 +1139,7 @@ export default {
                                         recipient_channel: message.recipient_channel
                                     };
 
-                                    await socket.send(await encrypt_message(success_message));
+                                    await send_encrypted_message_atomic(success_message);
                                 }
                             } else if (message.request_type === "shell") {
                                 if (!channel.terminal) {
@@ -1140,7 +1150,7 @@ export default {
                                             recipient_channel: message.recipient_channel
                                         };
 
-                                        await socket.send(await encrypt_message(failure_message));
+                                        await send_encrypted_message_atomic(failure_message);
                                     }
 
                                     return;
@@ -1154,7 +1164,7 @@ export default {
                                             recipient_channel: message.recipient_channel
                                         };
 
-                                        await socket.send(await encrypt_message(failure_message));
+                                        await send_encrypted_message_atomic(failure_message);
                                     }
 
                                     return;
@@ -1174,7 +1184,7 @@ export default {
                                         recipient_channel: message.recipient_channel
                                     };
 
-                                    await socket.send(await encrypt_message(success_message));
+                                    await send_encrypted_message_atomic(success_message);
                                 }
                             } else {
                                 // unsupported request type, ignore
@@ -1184,7 +1194,7 @@ export default {
                                         recipient_channel: message.recipient_channel
                                     };
 
-                                    await socket.send(await encrypt_message(failure_message));
+                                    await send_encrypted_message_atomic(failure_message);
                                 }
                             }
                         }
@@ -1193,6 +1203,7 @@ export default {
 
                 // TODO: move this buffer to handle the handshake too?
                 let incoming_buffer = new Uint8Array(0);
+                let is_consuming = false
 
                 socket.add_event_listener("data", async (msg_data) => {
                     const new_buffer = new Uint8Array(incoming_buffer.length + msg_data.length);
@@ -1200,33 +1211,44 @@ export default {
                     new_buffer.set(msg_data, incoming_buffer.length);
                     incoming_buffer = new_buffer;
 
-                    while (incoming_buffer.length >= 4) {
-                        // get packet length from first 4 bytes
-                        const view = new DataView(incoming_buffer.buffer, incoming_buffer.byteOffset, incoming_buffer.byteLength);
-                        const packet_length = view.getUint32(0, false);
+                    if (is_consuming) {
+                        // be careful not to consume in parallel, the next iteration will see the new data anyway
+                        return;
+                    }
 
-                        if (incoming_buffer.length < 4 + packet_length + 16) { // +16 for GCM tag
-                            break; // wait for more data
-                        }
+                    is_consuming = true;
 
-                        const encrypted_packet = incoming_buffer.slice(0, 4 + packet_length + 16);
-                        incoming_buffer = incoming_buffer.slice(4 + packet_length + 16);
+                    try {
+                        while (incoming_buffer.length >= 4) {
+                            // get packet length from first 4 bytes
+                            const view = new DataView(incoming_buffer.buffer, incoming_buffer.byteOffset, incoming_buffer.byteLength);
+                            const packet_length = view.getUint32(0, false);
 
-                        try {
-                            const payload = await decrypt_payload(encrypted_packet);
-                            const message = deserialise_ssh_message(payload);
-
-                            if (!message) {
-                                console.log(`Received unknown SSH message with type ${payload[0]}`);
-                                continue;
+                            if (incoming_buffer.length < 4 + packet_length + 16) { // +16 for GCM tag
+                                break; // wait for more data
                             }
 
-                            await handle_message(message);
-                        } catch (e) {
-                            console.error("Failed to decrypt or handle SSH message:", e);
-                            socket.close();
-                            return;
+                            const encrypted_packet = incoming_buffer.slice(0, 4 + packet_length + 16);
+                            incoming_buffer = incoming_buffer.slice(4 + packet_length + 16);
+
+                            try {
+                                const payload = await decrypt_payload(encrypted_packet);
+                                const message = deserialise_ssh_message(payload);
+
+                                if (!message) {
+                                    console.log(`Received unknown SSH message with type ${payload[0]}`);
+                                    continue;
+                                }
+
+                                await handle_message(message);
+                            } catch (e) {
+                                console.error("Failed to decrypt or handle SSH message:", e);
+                                socket.close();
+                                return;
+                            }
                         }
+                    } finally {
+                        is_consuming = false;
                     }
                 });
 
