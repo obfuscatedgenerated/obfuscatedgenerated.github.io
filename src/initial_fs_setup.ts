@@ -110,6 +110,24 @@ const setup_boot = async (fs: AbstractFileSystem) => {
         await fs.write_file(absolute_fingerd_service, fingerd_service_content);
     }
 
+    // create /etc/services/privileged/sshd.service.json file if it doesn't exist
+    const ssh_service_content = `{
+  "name": "SSH Server",
+  "dependencies": [],
+  "exec": "sshd",
+  "auto_start": false,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_ssh_service = fs.absolute("/etc/services/privileged/sshd.service.json");
+    if (!(await fs.exists(absolute_ssh_service))) {
+        await fs.write_file(absolute_ssh_service, ssh_service_content);
+    }
+
     // create /home/.plan file if it doesn't exist
     const plan_content = "Hello! I am using OllieOS!";
     const absolute_plan = fs.absolute("/home/.plan");

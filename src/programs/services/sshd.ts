@@ -1,6 +1,7 @@
 import type {PrivilegedProgram} from "../../types";
 import {AbstractTerminal, KeyEvent} from "../../kernel/term_ctl";
 import {UserspaceClientSocket} from "../../kernel/network";
+import {SpawnResult} from "../../kernel";
 
 interface SSHMessageBase {
     type: string;
@@ -95,13 +96,65 @@ interface UserAuthBannerMessage extends SSHMessageBase {
     message: string;
 }
 
+type ChannelOpenType = "session" | "x11" | "direct-tcpip" | "forwarded-tcpip";
+interface ChannelOpenMessage extends SSHMessageBase {
+    type: "CHANNEL_OPEN";
+    channel_type: ChannelOpenType;
+    sender_channel: number;
+    initial_window_size: number;
+    maximum_packet_size: number;
+}
+
+interface ChannelOpenConfirmationMessage extends SSHMessageBase {
+    type: "CHANNEL_OPEN_CONFIRMATION";
+    recipient_channel: number;
+    sender_channel: number;
+    initial_window_size: number;
+    maximum_packet_size: number;
+}
+
+interface ChannelOpenFailureMessage extends SSHMessageBase {
+    type: "CHANNEL_OPEN_FAILURE";
+    recipient_channel: number;
+    reason_code: number;
+    description: string;
+    language_tag: string;
+}
+
+interface ChannelDataMessage extends SSHMessageBase {
+    type: "CHANNEL_DATA";
+    recipient_channel: number;
+    data: Uint8Array;
+}
+
+type ChannelRequestType = "shell" | "pty-req" | "exec" | "subsystem" | "window-change" | "x11-req" | "env";
+interface ChannelRequestMessage extends SSHMessageBase {
+    type: "CHANNEL_REQUEST";
+    recipient_channel: number;
+    request_type: ChannelRequestType;
+    want_reply: boolean;
+}
+
+interface ChannelSuccessMessage extends SSHMessageBase {
+    type: "CHANNEL_SUCCESS";
+    recipient_channel: number;
+}
+
+interface ChannelFailureMessage extends SSHMessageBase {
+    type: "CHANNEL_FAILURE";
+    recipient_channel: number;
+}
+
 type SSHMessage =
     DisconnectMessage |
     ServiceRequestMessage | ServiceAcceptMessage |
     KEXInitMessage |
     NewKeysMessage |
     KEXECDHInitMessage | KEXECDHReplyMessage
-    | UserAuthRequestMessage | UserAuthFailureMessage | UserAuthSuccessMessage | UserAuthBannerMessage;
+    | UserAuthRequestMessage | UserAuthFailureMessage | UserAuthSuccessMessage | UserAuthBannerMessage
+    | ChannelOpenMessage | ChannelOpenConfirmationMessage | ChannelOpenFailureMessage |
+    ChannelRequestMessage | ChannelSuccessMessage | ChannelFailureMessage |
+    ChannelDataMessage;
 
 type SSHMessageType = SSHMessage["type"];
 
@@ -222,6 +275,13 @@ const MESSAGE_IDS: Record<SSHMessageType, number> = {
     "USERAUTH_FAILURE": 51,
     "USERAUTH_SUCCESS": 52,
     "USERAUTH_BANNER": 53,
+    "CHANNEL_OPEN": 90,
+    "CHANNEL_OPEN_CONFIRMATION": 91,
+    "CHANNEL_OPEN_FAILURE": 92,
+    "CHANNEL_DATA": 94,
+    "CHANNEL_REQUEST": 98,
+    "CHANNEL_SUCCESS": 99,
+    "CHANNEL_FAILURE": 100
 };
 
 const message_serialisers: Partial<Record<SSHMessageType, (writer: MessageWriter, message: SSHMessage) => void>> = {
@@ -266,6 +326,33 @@ const message_serialisers: Partial<Record<SSHMessageType, (writer: MessageWriter
         writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_USERAUTH_BANNER
         writer.write_string(message.message);
         writer.write_string(""); // language tag, not supported
+    },
+    "CHANNEL_OPEN_CONFIRMATION": (writer, message: ChannelOpenConfirmationMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_CHANNEL_OPEN_CONFIRMATION
+        writer.write_uint32(message.recipient_channel);
+        writer.write_uint32(message.sender_channel);
+        writer.write_uint32(message.initial_window_size);
+        writer.write_uint32(message.maximum_packet_size);
+    },
+    "CHANNEL_OPEN_FAILURE": (writer, message: ChannelOpenFailureMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_CHANNEL_OPEN_FAILURE
+        writer.write_uint32(message.recipient_channel);
+        writer.write_uint32(message.reason_code);
+        writer.write_string(message.description);
+        writer.write_string(message.language_tag);
+    },
+    "CHANNEL_DATA": (writer, message: ChannelDataMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_CHANNEL_DATA
+        writer.write_uint32(message.recipient_channel);
+        writer.write_string(message.data);
+    },
+    "CHANNEL_SUCCESS": (writer, message: ChannelSuccessMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_CHANNEL_SUCCESS
+        writer.write_uint32(message.recipient_channel);
+    },
+    "CHANNEL_FAILURE": (writer, message: ChannelFailureMessage) => {
+        writer.write_byte(MESSAGE_IDS[message.type]); // SSH_MSG_CHANNEL_FAILURE
+        writer.write_uint32(message.recipient_channel);
     }
 };
 
@@ -346,6 +433,25 @@ const message_deserialisers: Record<number, (reader: MessageReader) => SSHMessag
             // unsupported auth method
             return { type: "USERAUTH_REQUEST", username, service_name, method_name } as UserAuthRequestMessage;
         }
+    },
+    [MESSAGE_IDS.CHANNEL_OPEN]: (reader) => {
+        const channel_type = reader.read_string() as ChannelOpenType;
+        const sender_channel = reader.read_uint32();
+        const initial_window_size = reader.read_uint32();
+        const maximum_packet_size = reader.read_uint32();
+        return { type: "CHANNEL_OPEN", channel_type, sender_channel, initial_window_size, maximum_packet_size };
+    },
+    [MESSAGE_IDS.CHANNEL_REQUEST]: (reader) => {
+        const recipient_channel = reader.read_uint32();
+        const request_type = reader.read_string() as ChannelRequestType;
+        const want_reply = !!reader.read_byte();
+        return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply };
+    },
+    [MESSAGE_IDS.CHANNEL_DATA]: (reader) => {
+        const recipient_channel = reader.read_uint32();
+        const data_length = reader.read_uint32();
+        const data = reader.read_bytes(data_length);
+        return { type: "CHANNEL_DATA", recipient_channel, data };
     }
 };
 
@@ -723,8 +829,173 @@ export default {
                     return;
                 }
 
+                class SSHTerminal extends AbstractTerminal {
+                    #x = 0;
+                    #y = 0;
+
+                    #cols = 80;
+                    #rows = 24;
+
+                    input_enabled = true;
+
+                    #channel_id: number;
+
+                    get cursor_x() {
+                        return this.#x;
+                    }
+
+                    get cursor_y() {
+                        return this.#y;
+                    }
+
+                    get rows() {
+                        return this.#rows;
+                    }
+
+                    get cols() {
+                        return this.#cols;
+                    }
+
+                    constructor(channel_id: number) {
+                        super();
+                        this.#channel_id = channel_id;
+                        this.resume_input_processing();
+                    }
+
+                    write(msg_data: string | Uint8Array, callback?: () => void) {
+                        const text = typeof msg_data === "string" ? msg_data : new TextDecoder().decode(msg_data);
+                        const newline_fmt = text.replaceAll("\n", "\r\n");
+                        const data_msg: ChannelDataMessage = {
+                            type: "CHANNEL_DATA",
+                            recipient_channel: this.#channel_id,
+                            data: new TextEncoder().encode(newline_fmt)
+                        };
+
+                        encrypt_message(data_msg).then(enc => socket.send(enc)).then(callback);
+                    }
+
+                    writeln(msg_data: string | Uint8Array, callback?: () => void) {
+                        const text = typeof msg_data === "string" ? msg_data : new TextDecoder().decode(msg_data);
+                        const newline_fmt = text.replaceAll("\n", "\r\n") + "\r\n";
+                        const data_msg: ChannelDataMessage = {
+                            type: "CHANNEL_DATA",
+                            recipient_channel: this.#channel_id,
+                            data: new TextEncoder().encode(newline_fmt)
+                        };
+
+                        encrypt_message(data_msg).then(enc => socket.send(enc)).then(callback);
+                    }
+
+                    focus() {
+                        // noop
+                    }
+
+                    dispose() {
+                        this.pause_input_processing();
+                        socket.close();
+                    }
+
+                    #on_socket_data = (msg_data: Uint8Array) => {
+                        const text = new TextDecoder().decode(msg_data);
+                        this._simulate_typing(text);
+                    }
+
+                    // resume_input_processing() {
+                    //     socket.add_event_listener("data", this.#on_socket_data);
+                    // }
+                    //
+                    // pause_input_processing() {
+                    //     socket.remove_event_listener("data", this.#on_socket_data);
+                    // }
+
+                    // TODO: implement
+                    resume_input_processing() {
+                        // noop
+                    }
+
+                    pause_input_processing() {
+                        // noop
+                    }
+
+                    // protected async _read_raw_key(): Promise<KeyEvent> {
+                    //     return new Promise((resolve) => {
+                    //         const once = (msg_data: Uint8Array) => {
+                    //             this.socket.remove_event_listener("data", once);
+                    //             resolve({
+                    //                 key: new TextDecoder().decode(msg_data),
+                    //                 domEvent: {} as KeyboardEvent // TODO: dom event translation. or should this be removed from keyEvent entirely? i remember the same problem for node
+                    //             });
+                    //         };
+                    //
+                    //         this.socket.add_event_listener("data", once);
+                    //     });
+                    // }
+
+                    // TODO: implement
+                    protected async _read_raw_key(): Promise<KeyEvent> {
+                        // NOOP
+                        return new Promise(() => {
+                            return {
+                                key: "",
+                                domEvent: {} as KeyboardEvent
+                            }
+                        });
+                    }
+
+                    clear() {
+                        this.write("\x1bc");
+                    }
+
+                    reset() {
+                        this.clear();
+                        this.#x = 0;
+                        this.#y = 0;
+                    }
+
+                    get_custom_flag(flag: string): any {
+                        return undefined;
+                    }
+
+                    set_custom_flag(flag: string, value: any) {
+                        // noop
+                    }
+
+                    supports_custom_flag(flag: string): boolean {
+                        return false;
+                    }
+
+                    get_selection(): string {
+                        return "";
+                    }
+
+                    has_selection(): boolean {
+                        return false;
+                    }
+
+                    clear_selection() {
+                        // noop
+                    }
+
+                    copy() {
+                        // noop
+                    }
+
+                    paste() {
+                        // noop
+                    }
+                }
+
+                const channels: Map<number, {
+                    window_size: number;
+                    max_packet_size: number;
+                    terminal?: SSHTerminal
+                    shell?: SpawnResult
+                }> = new Map();
+
                 // handle messages bufferred
                 const handle_message = async (message: SSHMessage) => {
+                    console.table(message);
+
                     switch (message.type) {
                         case "DISCONNECT": {
                             console.log(`Client disconnected: ${message.description} (reason code ${message.reason_code})`);
@@ -784,6 +1055,137 @@ export default {
                                 await socket.send(await encrypt_message(response_message));
                             } else if (message.method_name === "publickey") {
                                 console.log("Received publickey auth request for user", message.username);
+                            }
+                            break;
+                        }
+                        case "CHANNEL_OPEN": {
+                            if (message.channel_type !== "session") {
+                                const failure_message: ChannelOpenFailureMessage = {
+                                    type: "CHANNEL_OPEN_FAILURE",
+                                    recipient_channel: message.sender_channel,
+                                    reason_code: 1, // SSH_OPEN_ADMINISTRATIVELY_PROHIBITED
+                                    description: "Only session channels are supported",
+                                    language_tag: ""
+                                };
+
+                                await socket.send(await encrypt_message(failure_message));
+                                return;
+                            }
+
+                            // for simplicity, use the client ids on our side
+                            channels.set(message.sender_channel, {
+                                window_size: message.initial_window_size,
+                                max_packet_size: message.maximum_packet_size,
+                            });
+
+                            const confirmation_message: ChannelOpenConfirmationMessage = {
+                                type: "CHANNEL_OPEN_CONFIRMATION",
+                                recipient_channel: message.sender_channel,
+                                sender_channel: message.sender_channel,
+                                initial_window_size: 1024 * 1024, // 1MB
+                                maximum_packet_size: 32768 // 32KB
+                            };
+
+                            await socket.send(await encrypt_message(confirmation_message));
+                            break;
+                        }
+                        case "CHANNEL_REQUEST": {
+                            const channel = channels.get(message.recipient_channel);
+                            if (!channel) {
+                                // invalid channel, ignore
+
+                                if (message.want_reply) {
+                                    const failure_message: ChannelFailureMessage = {
+                                        type: "CHANNEL_FAILURE",
+                                        recipient_channel: message.recipient_channel
+                                    };
+
+                                    await socket.send(await encrypt_message(failure_message));
+                                }
+
+                                return;
+                            }
+
+                            if (message.request_type === "pty-req") {
+                                if (channel.terminal) {
+                                    // already has a terminal, can't open another
+                                    if (message.want_reply) {
+                                        const failure_message: ChannelFailureMessage = {
+                                            type: "CHANNEL_FAILURE",
+                                            recipient_channel: message.recipient_channel
+                                        };
+
+                                        await socket.send(await encrypt_message(failure_message));
+                                    }
+
+                                    return;
+                                }
+
+                                channel.terminal = new SSHTerminal(message.recipient_channel);
+
+                                if (message.want_reply) {
+                                    const success_message: ChannelSuccessMessage = {
+                                        type: "CHANNEL_SUCCESS",
+                                        recipient_channel: message.recipient_channel
+                                    };
+
+                                    await socket.send(await encrypt_message(success_message));
+                                }
+                            } else if (message.request_type === "shell") {
+                                if (!channel.terminal) {
+                                    // no terminal, can't start shell
+                                    if (message.want_reply) {
+                                        const failure_message: ChannelFailureMessage = {
+                                            type: "CHANNEL_FAILURE",
+                                            recipient_channel: message.recipient_channel
+                                        };
+
+                                        await socket.send(await encrypt_message(failure_message));
+                                    }
+
+                                    return;
+                                }
+
+                                if (channel.shell) {
+                                    // already has a shell, can't open another
+                                    if (message.want_reply) {
+                                        const failure_message: ChannelFailureMessage = {
+                                            type: "CHANNEL_FAILURE",
+                                            recipient_channel: message.recipient_channel
+                                        };
+
+                                        await socket.send(await encrypt_message(failure_message));
+                                    }
+
+                                    return;
+                                }
+
+                                channel.shell = kernel.spawn(
+                                    "ash",
+                                    ["--login"],
+                                    undefined,
+                                    false,
+                                    channel.terminal
+                                );
+
+                                if (message.want_reply) {
+                                    const success_message: ChannelSuccessMessage = {
+                                        type: "CHANNEL_SUCCESS",
+                                        recipient_channel: message.recipient_channel
+                                    };
+
+                                    await socket.send(await encrypt_message(success_message));
+                                }
+                            } else {
+                                // unsupported request type, ignore
+                                if (message.want_reply) {
+                                    const failure_message: ChannelFailureMessage = {
+                                        type: "CHANNEL_FAILURE",
+                                        recipient_channel: message.recipient_channel
+                                    };
+
+                                    await socket.send(await encrypt_message(failure_message));
+                                }
                             }
                         }
                     }
