@@ -135,26 +135,26 @@ export default {
                         const service_msg = payload as IgnitionIPCServiceMessage;
                         switch (service_msg.action) {
                             case "start": {
-                                svc_mgr.start_service(service_msg.service_id);
+                                const [success, message] = svc_mgr.start_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} started.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }
                             case "stop": {
-                                svc_mgr.stop_service(service_msg.service_id);
+                                const [success, message] = svc_mgr.stop_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} stopped.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }
                             case "restart": {
-                                svc_mgr.restart_service(service_msg.service_id);
+                                const [success, message] = svc_mgr.restart_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} restarted.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }

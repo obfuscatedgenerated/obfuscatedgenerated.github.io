@@ -259,14 +259,12 @@ export class ServiceManager {
         // TODO: check dependencies are running, start them if not (be careful of circular deps, could use calculate_service_start_order for this with a subset of 1)
 
         if (this.#running_services.has(service_id)) {
-            console.warn(`Service ${service_id} is already running.`);
-            return;
+            return [false, `Service ${service_id} is already running.`];
         }
 
         const service = this.#service_files.get(service_id);
         if (!service) {
-            console.error(`Service ${service_id} not found.`);
-            return;
+            return [false, `Service ${service_id} not found.`];
         }
 
         // mark service as should be running, so exit handlers know to restart it
@@ -277,7 +275,7 @@ export class ServiceManager {
             spawn_result = this.#kernel.spawn(service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
-            return;
+            return [false, "Error starting service ${service_id}."];
         }
 
         this.#running_services.set(service_id, spawn_result);
@@ -301,18 +299,18 @@ export class ServiceManager {
             this.#running_services.delete(service_id);
             this.#handle_service_exit(service_id, exit_code);
         });
+
+        return [true, `Service ${service_id} started successfully.`];
     }
 
     stop_service(service_id: string) {
         if (!this.#running_services.has(service_id)) {
-            console.warn(`Service ${service_id} is not running.`);
-            return;
+            return [false, `Service ${service_id} is not running.`];
         }
 
         const spawn_result = this.#running_services.get(service_id);
         if (!spawn_result) {
-            console.error(`Service ${service_id} spawn result not found.`);
-            return;
+            return [false, `Service ${service_id} process not found.`];
         }
 
         const { process } = spawn_result;
@@ -324,11 +322,22 @@ export class ServiceManager {
         process.kill(143);
 
         // removal from running services will be handled in exit listener
+        return [true, `Service ${service_id} stopped successfully.`];
     }
 
     restart_service(service_id: string) {
-        this.stop_service(service_id);
-        this.start_service(service_id); // TODO: will this conflict with the exit listener?
+        const [stop_success, stop_msg] = this.stop_service(service_id);
+
+        if (!stop_success) {
+            return [false, stop_msg];
+        }
+
+        const [start_success, start_msg] = this.start_service(service_id); // TODO: will this conflict with the exit listener?
+        if (!start_success) {
+            return [false, start_msg];
+        }
+
+        return [true, `Service ${service_id} restarted successfully.`];
     }
 
     get_service_status(service_id: string): ServiceStatus | null {
