@@ -84,7 +84,15 @@ module.exports = (env, argv) => {
                 },
                 {
                     test: /\.css$/,
-                    use: ["style-loader", "css-loader"]
+                    oneOf: [
+                        {
+                            resourceQuery: /raw/, // ?raw import to import file as string
+                            type: "asset/source",
+                        },
+
+                        // otherwise, treat as normal css and inject into page
+                        {use: ["style-loader", "css-loader"]}
+                    ]
                 }
             ],
         },

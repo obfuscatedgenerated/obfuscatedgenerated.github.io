@@ -1,0 +1,79 @@
+import type { Program } from "../types";
+import {XTermTerminal} from "../term_impl/xterm";
+
+import xterm_css from "@xterm/xterm/css/xterm.css?raw";
+
+export default {
+    name: "terminal_test",
+    description: "",
+    usage_suffix: "",
+    arg_descriptions: {},
+    compat: "2.0.0",
+    hide_from_help: true,
+    completion: async () => [],
+    main: async (data) => {
+        // extract from data to make code less verbose
+        const { kernel: userspace_kernel, term, process } = data;
+
+        if (!userspace_kernel.has_window_manager()) {
+            term.writeln("This program requires a window manager.");
+            return 1;
+        }
+
+        const kernel = await userspace_kernel.request_privilege("Spawn a new terminal");
+        if (!kernel) {
+            term.writeln("Privilege request denied.");
+            return 1;
+        }
+
+        const wind = process.create_window();
+
+        wind.title = "Terminal";
+
+        const terminal_root = document.createElement("div");
+        terminal_root.style.width = "100%";
+        terminal_root.style.height = "100%";
+        terminal_root.style.boxSizing = "border-box";
+        terminal_root.style.padding = "0.5em";
+        terminal_root.style.background = "black";
+        wind.dom.appendChild(terminal_root);
+
+        // add xterm stylesheet
+        const xterm_style = document.createElement("style");
+        xterm_style.textContent = xterm_css;
+        wind.dom.appendChild(xterm_style);
+
+        // add custom stylesheet
+        const style = document.createElement("style");
+        style.textContent = `
+        .xterm .xterm-viewport {
+            overflow: hidden !important;
+        }
+        `;
+        wind.dom.appendChild(style);
+
+        const subterm = new XTermTerminal();
+        subterm.open(terminal_root);
+
+        // spawn ash in the subterm
+        const subproc = kernel.spawn("ash", ["--login"], undefined, false, subterm);
+        subproc.completion.then((code) => {
+            subproc.process.kill(code);
+            process.kill(code);
+        });
+
+        process.add_exit_listener((code) => {
+            subproc.process.kill(code);
+        });
+
+        wind.add_event_listener("close", () => {
+            process.kill(0);
+        });
+
+        wind.show();
+        subterm.focus();
+
+        process.detach();
+        return 0;
+    }
+} as Program;
