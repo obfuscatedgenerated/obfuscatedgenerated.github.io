@@ -135,6 +135,14 @@ interface ChannelRequestMessage extends SSHMessageBase {
     want_reply: boolean;
 }
 
+interface ChannelWindowChangeRequestMessage extends ChannelRequestMessage {
+    request_type: "window-change";
+    cols: number;
+    rows: number;
+    width_px: number;
+    height_px: number;
+}
+
 interface ChannelSuccessMessage extends SSHMessageBase {
     type: "CHANNEL_SUCCESS";
     recipient_channel: number;
@@ -154,6 +162,7 @@ type SSHMessage =
     | UserAuthRequestMessage | UserAuthFailureMessage | UserAuthSuccessMessage | UserAuthBannerMessage
     | ChannelOpenMessage | ChannelOpenConfirmationMessage | ChannelOpenFailureMessage |
     ChannelRequestMessage | ChannelSuccessMessage | ChannelFailureMessage |
+    ChannelWindowChangeRequestMessage |
     ChannelDataMessage;
 
 type SSHMessageType = SSHMessage["type"];
@@ -445,6 +454,16 @@ const message_deserialisers: Record<number, (reader: MessageReader) => SSHMessag
         const recipient_channel = reader.read_uint32();
         const request_type = reader.read_string() as ChannelRequestType;
         const want_reply = !!reader.read_byte();
+
+        if (request_type === "window-change") {
+            const cols = reader.read_uint32();
+            const rows = reader.read_uint32();
+            const width_px = reader.read_uint32();
+            const height_px = reader.read_uint32();
+
+            return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply, cols, rows, width_px, height_px };
+        }
+
         return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply };
     },
     [MESSAGE_IDS.CHANNEL_DATA]: (reader) => {
@@ -866,6 +885,11 @@ export default {
                         return this.#cols;
                     }
 
+                    resize(cols: number, rows: number) {
+                        this.#cols = cols;
+                        this.#rows = rows;
+                    }
+
                     constructor(channel_id: number) {
                         super();
                         this.#channel_id = channel_id;
@@ -1188,6 +1212,32 @@ export default {
                                     false,
                                     channel.terminal
                                 );
+
+                                if (message.want_reply) {
+                                    const success_message: ChannelSuccessMessage = {
+                                        type: "CHANNEL_SUCCESS",
+                                        recipient_channel: message.recipient_channel
+                                    };
+
+                                    await send_encrypted_message_atomic(success_message);
+                                }
+                            } else if (message.request_type === "window-change") {
+                                if (!channel.terminal) {
+                                    // no terminal, can't change window
+                                    if (message.want_reply) {
+                                        const failure_message: ChannelFailureMessage = {
+                                            type: "CHANNEL_FAILURE",
+                                            recipient_channel: message.recipient_channel
+                                        };
+
+                                        await send_encrypted_message_atomic(failure_message);
+                                    }
+
+                                    return;
+                                }
+
+                                const change_msg = message as ChannelWindowChangeRequestMessage;
+                                channel.terminal.resize(change_msg.cols, change_msg.rows);
 
                                 if (message.want_reply) {
                                     const success_message: ChannelSuccessMessage = {
