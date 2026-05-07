@@ -523,9 +523,10 @@ export class Kernel {
         const ipc = this.get_ipc();
         const channel_id = ipc.reserve_kernel_channel();
 
-        // spawn the privilege agent program, passing the channel id, and assign the channel to it, passing the requesting process' shell if any
-        // TODO: is this secure? can a malicious shell be passed that can bypass the agent?
-        const agent_proc = this.spawn(agent_program, [channel_id.toString()], process.shell);
+        // spawn the privilege agent program, passing the channel id, and assign the channel to it
+        // make sure it is displayed on the requesting process' terminal
+        // vital that it passes the terminal, not the full shell, as a userspace program can manipulate the shell to pass a malicious terminal that autoaccepts
+        const agent_proc = this.spawn(agent_program, [channel_id.toString()], undefined, false, process.terminal);
         ipc.assign_kernel_channel(channel_id, agent_proc.process.pid);
 
         let handling_request = false;
