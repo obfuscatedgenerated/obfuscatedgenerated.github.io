@@ -23,7 +23,8 @@ export {
     PathNotFoundError,
     MoveDestinationDirectoryNotEmptyError,
     NonRecursiveDirectoryError,
-    ReadOnlyError
+    ReadOnlyError,
+    ProtectedFileReadError
 } from "../kernel/filesystem";
 
 /**

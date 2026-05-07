@@ -47,6 +47,18 @@ export class ReadOnlyError extends Error {
 }
 
 /**
+ * Error thrown when attempting to read a protected file without privilege.
+ *
+ * @group Userspace
+ * @category Filesystem
+ */
+export class ProtectedFileReadError extends Error {
+    constructor(path: string) {
+        super(`Path is protected and cannot be read: ${path}`);
+    }
+}
+
+/**
  * Event types emitted after filesystem operations.
  *
  * @group Userspace
@@ -496,16 +508,19 @@ export abstract class AbstractFileSystem {
         const proxy = Object.create(null);
 
         // write protect certain kernel secured paths
-        const check_path = (path: string): string => {
+        const check_path_for_writing = (path: string): string => {
             const absolute_path = self.absolute(path);
 
+            // TODO: allow priv programs to add to protection
             const is_protected =
                 absolute_path === "/sys" ||
                 absolute_path.startsWith("/sys/") ||
                 absolute_path === "/boot" ||
                 absolute_path.startsWith("/boot/") ||
                 absolute_path === "/etc/services/privileged/" ||
-                absolute_path.startsWith("/etc/services/privileged/");
+                absolute_path.startsWith("/etc/services/privileged/") ||
+                absolute_path === "/etc/ssh/" ||
+                absolute_path.startsWith("/etc/ssh/");
 
             if (is_protected) {
                 throw new ReadOnlyError(absolute_path);
@@ -514,18 +529,32 @@ export abstract class AbstractFileSystem {
             return absolute_path;
         };
 
+        // read protect even more locked down paths
+        const check_path_for_reading = (path: string): string => {
+            const absolute_path = self.absolute(path);
+
+            const is_protected =
+                (absolute_path.startsWith("/etc/ssh/") && absolute_path !== "/etc/ssh/"); // allow listing /etc/ssh but not reading files in it
+
+            if (is_protected) {
+                throw new ProtectedFileReadError(absolute_path);
+            }
+
+            return absolute_path;
+        }
+
         Object.defineProperties(proxy, {
             get_unique_fs_type_name: { value: () => self.get_unique_fs_type_name(), enumerable: true },
             erase_all: { value: () => self.erase_all(), enumerable: true },
             purge_cache: { value: (smart?: boolean) => self.purge_cache(smart), enumerable: true },
-            read_file: { value: (path: string, as_uint?: boolean) => self.read_file(self.absolute(path), as_uint), enumerable: true },
-            list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(self.absolute(path), dirs_first), enumerable: true },
+            read_file: { value: (path: string, as_uint?: boolean) => self.read_file(check_path_for_reading(path), as_uint), enumerable: true },
+            list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(check_path_for_reading(path), dirs_first), enumerable: true },
             exists: { value: (path: string) => self.exists(self.absolute(path)), enumerable: true },
             dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path)), enumerable: true },
             is_readonly: {
                 value: async (path: string) => {
                     try {
-                        check_path(path);
+                        check_path_for_writing(path);
                     } catch (e) {
                         if (e instanceof ReadOnlyError) {
                             return true;
@@ -545,35 +574,35 @@ export abstract class AbstractFileSystem {
             get_root: { value: () => self.get_root(), enumerable: true },
             write_file: {
                 value: (path: string, data: string | Uint8Array, force?: boolean) =>
-                    self.write_file(check_path(path), data, force),
+                    self.write_file(check_path_for_writing(path), data, force),
                 enumerable: true
             },
             delete_file: {
-                value: (path: string) => self.delete_file(check_path(path)),
+                value: (path: string) => self.delete_file(check_path_for_writing(path)),
                 enumerable: true
             },
             move_file: {
                 value: (path: string, new_path: string) => {
-                    return self.move_file(check_path(path), check_path(new_path));
+                    return self.move_file(check_path_for_writing(path), check_path_for_writing(new_path));
                 },
                 enumerable: true
             },
             make_dir: {
-                value: (path: string) => self.make_dir(check_path(path)),
+                value: (path: string) => self.make_dir(check_path_for_writing(path)),
                 enumerable: true
             },
             delete_dir: {
-                value: (path: string, recursive?: boolean) => self.delete_dir(check_path(path), recursive),
+                value: (path: string, recursive?: boolean) => self.delete_dir(check_path_for_writing(path), recursive),
                 enumerable: true
             },
             move_dir: {
                 value: (src: string, dest: string, move_inside?: boolean) => {
-                    return self.move_dir(check_path(src), check_path(dest), move_inside);
+                    return self.move_dir(check_path_for_writing(src), check_path_for_writing(dest), move_inside);
                 },
                 enumerable: true
             },
             set_readonly: {
-                value: (path: string, readonly: boolean) => self.set_readonly(check_path(path), readonly),
+                value: (path: string, readonly: boolean) => self.set_readonly(check_path_for_writing(path), readonly),
                 enumerable: true
             },
             set_cwd: { value: (path: string) => self.set_cwd(path), enumerable: true }

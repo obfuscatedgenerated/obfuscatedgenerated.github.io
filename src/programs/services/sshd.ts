@@ -584,6 +584,10 @@ const wait_for_next_ssh_message = async (socket: UserspaceClientSocket): Promise
 
 const SERVER_BANNER = "SSH-2.0-OllieOS";
 
+const HOST_KEY_DIR = "/etc/ssh/";
+const HOST_KEY_PRIV = `${HOST_KEY_DIR}ssh_host_ed25519_key`;
+const HOST_KEY_PUB = `${HOST_KEY_DIR}ssh_host_ed25519_key.pub`;
+
 export default {
     name: "sshd",
     description: "SSH service",
@@ -596,9 +600,62 @@ export default {
         // extract from data to make code less verbose
         const { term, process, kernel } = data;
 
+        if (!kernel.privileged) {
+            term.writeln(`${term.ansi.PREFABS.error}This program must be run with elevated privileges.${term.ansi.STYLE.reset_all}`);
+            return 1;
+        }
+
         if (!kernel.has_network_manager()) {
             term.writeln(`${term.ansi.PREFABS.error}No network manager found. This program requires a network manager to function.${term.ansi.STYLE.reset_all}`);
             return 1;
+        }
+
+        const fs = kernel.get_fs();
+
+        if (!await fs.exists(HOST_KEY_DIR)) {
+            await fs.make_dir(HOST_KEY_DIR);
+        }
+
+        // load keypair from file or generate if it doesn't exist
+        let host_private_key: CryptoKey;
+        let host_public_key: CryptoKey;
+        let host_public_key_data: Uint8Array<ArrayBuffer>;
+        if (await fs.exists(HOST_KEY_PRIV) && await fs.exists(HOST_KEY_PUB)) {
+            const priv_key_data = await fs.read_file(HOST_KEY_PRIV, true) as Uint8Array;
+            const pub_key_data = await fs.read_file(HOST_KEY_PUB, true) as Uint8Array;
+
+            host_public_key_data = pub_key_data as Uint8Array<ArrayBuffer>;
+
+            host_private_key = await crypto.subtle.importKey(
+                "pkcs8",
+                priv_key_data as Uint8Array<ArrayBuffer>,
+                { name: "Ed25519" },
+                true,
+                ["sign"]
+            );
+
+            host_public_key = await crypto.subtle.importKey(
+                "raw",
+                host_public_key_data,
+                { name: "Ed25519" },
+                true,
+                ["verify"]
+            );
+        } else {
+            const host_key_pair = await crypto.subtle.generateKey(
+                { name: "Ed25519" },
+                true,
+                ["sign", "verify"]
+            );
+
+            host_private_key = host_key_pair.privateKey;
+            host_public_key = host_key_pair.publicKey;
+
+            host_public_key_data = new Uint8Array(await crypto.subtle.exportKey("raw", host_public_key));
+
+            // persist the keys to the files
+            await fs.write_file(HOST_KEY_PRIV, new Uint8Array(await crypto.subtle.exportKey("pkcs8", host_private_key)));
+            await fs.write_file(HOST_KEY_PUB, host_public_key_data);
         }
 
         const start_server = async () => {
@@ -611,18 +668,9 @@ export default {
                 // send banner
                 await socket.send(`${SERVER_BANNER}\r\n`);
 
-                // for now generate a keypair on the fly for testing TODO persist
-                const host_key_pair = await crypto.subtle.generateKey(
-                    { name: "Ed25519" },
-                    true,
-                    ["sign", "verify"]
-                );
-
-                const host_public_key = new Uint8Array(await crypto.subtle.exportKey("raw", host_key_pair.publicKey));
-
                 const host_key_blob_writer = new MessageWriter();
                 host_key_blob_writer.write_string("ssh-ed25519");
-                host_key_blob_writer.write_string(host_public_key);
+                host_key_blob_writer.write_string(host_public_key_data);
                 const host_key_blob = host_key_blob_writer.to_uint8_array();
 
                 // send KEXINIT
@@ -690,7 +738,7 @@ export default {
                 // sign the hash
                 const signature_raw = new Uint8Array(await crypto.subtle.sign(
                     { name: "Ed25519" },
-                    host_key_pair.privateKey,
+                    host_private_key,
                     exchange_hash
                 ));
 
