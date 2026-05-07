@@ -289,6 +289,7 @@ export interface UserspaceNetworkManager {
     // listen and connect must be done via the pcb in userspace to track ownership
     // same for adding event listeners to the manager, as we want the listeners to die at the end of the process
     // doesn't apply to listeners on the socket because the whole socket is killed at the end of the process, so no risk of leaking listeners there
+    // TODO: worth documneting and linking
 }
 
 export abstract class AbstractNetworkManager {
