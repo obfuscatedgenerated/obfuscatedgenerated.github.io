@@ -57,6 +57,8 @@ export default {
                 handling: true
             });
 
+            // TODO: run on terminal that invokes it. since this is a background agent, it always displays on the primary terminal
+
             term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
 
             term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);
