@@ -183,12 +183,11 @@ const end = async (data: ProgramMainData,) => {
     term.write(NEWLINE);
 
     term.writeln("Thanks for using OllieOS.");
-    term.writeln("The OS will now restart.");
     term.write(NEWLINE);
 
     await wait_block(term);
 
-    await run_cmd(data, "shutdown", ["-r", "-t", "0"]);
+    term.reset();
 };
 
 
