@@ -1352,3 +1352,5 @@ export default {
         return 0;
     }
 } as PrivilegedProgram;
+
+// TODO: clean up! use separate files with a state and command pattern!
