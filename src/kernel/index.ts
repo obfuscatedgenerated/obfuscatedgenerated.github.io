@@ -38,6 +38,8 @@ export interface SpawnResult {
 /**
  * Interface for interacting with the kernel from userspace.
  *
+ * For the privileged API, see {@link Kernel}.
+ *
  * @group Userspace
  * @category Kernel
  */
@@ -135,6 +137,8 @@ export interface ParsedCommandLine {
 
 /**
  * Interface for interacting with the kernel.
+ *
+ * For the userspace API, see {@link UserspaceKernel}.
  *
  * @group Kernel (Privileged)
  * @category Kernel
