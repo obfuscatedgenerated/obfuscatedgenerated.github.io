@@ -80,6 +80,8 @@ export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 /**
  * Interface for interacting with the chosen filesystem implementation from userspace.
  *
+ * For the privileged API, see {@link AbstractFileSystem}.
+ *
  * @group Userspace
  * @category Filesystem
  */
@@ -108,6 +110,8 @@ export interface UserspaceFileSystem {
 }
 /**
  * Interface for interacting with a filesystem implementation.
+ *
+ * For the userspace API, see {@link UserspaceFileSystem}.
  *
  * @group Kernel (Privileged)
  * @category Filesystem
