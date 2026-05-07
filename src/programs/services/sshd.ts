@@ -1037,12 +1037,15 @@ export default {
                     shell?: SpawnResult
                 }> = new Map();
 
+                let authenticated = false;
+
                 // handle messages bufferred
                 const handle_message = async (message: SSHMessage) => {
                     console.table(message);
 
                     switch (message.type) {
                         case "DISCONNECT": {
+                            authenticated = false;
                             console.log(`Client disconnected: ${message.description} (reason code ${message.reason_code})`);
                             socket.close();
                             return;
@@ -1097,6 +1100,8 @@ export default {
                                     partial_success: false
                                 };
 
+                                // simple boolean auth state for now
+                                authenticated = success;
                                 await send_encrypted_message_atomic(response_message);
                             } else if (message.method_name === "publickey") {
                                 console.log("Received publickey auth request for user", message.username);
@@ -1104,6 +1109,19 @@ export default {
                             break;
                         }
                         case "CHANNEL_OPEN": {
+                            if (!authenticated) {
+                                const failure_message: ChannelOpenFailureMessage = {
+                                    type: "CHANNEL_OPEN_FAILURE",
+                                    recipient_channel: message.sender_channel,
+                                    reason_code: 2, // SSH_OPEN_PROHIBITED_BY_POLICY
+                                    description: "Authentication required",
+                                    language_tag: ""
+                                };
+
+                                await send_encrypted_message_atomic(failure_message);
+                                return;
+                            }
+
                             if (message.channel_type !== "session") {
                                 const failure_message: ChannelOpenFailureMessage = {
                                     type: "CHANNEL_OPEN_FAILURE",
@@ -1135,6 +1153,16 @@ export default {
                             break;
                         }
                         case "CHANNEL_REQUEST": {
+                            if (!authenticated) {
+                                const failure_message: ChannelFailureMessage = {
+                                    type: "CHANNEL_FAILURE",
+                                    recipient_channel: message.recipient_channel
+                                };
+
+                                await send_encrypted_message_atomic(failure_message);
+                                return;
+                            }
+
                             const channel = channels.get(message.recipient_channel);
                             if (!channel) {
                                 // invalid channel, ignore
@@ -1261,6 +1289,16 @@ export default {
                             break;
                         }
                         case "CHANNEL_DATA": {
+                            if (!authenticated) {
+                                const failure_message: ChannelFailureMessage = {
+                                    type: "CHANNEL_FAILURE",
+                                    recipient_channel: message.recipient_channel
+                                };
+
+                                await send_encrypted_message_atomic(failure_message);
+                                return;
+                            }
+
                             const channel = channels.get(message.recipient_channel);
                             if (!channel || !channel.terminal) {
                                 // invalid channel, ignore
@@ -1354,4 +1392,3 @@ export default {
 } as PrivilegedProgram;
 
 // TODO: clean up! use separate files with a state and command pattern!
-// TODO: need to actually keep track of auth state, clients can just send data without authing as is
