@@ -35,7 +35,7 @@ export class MoveDestinationDirectoryNotEmptyError extends Error {
 }
 
 /**
- * Error thrown when attempting to write to a read-only path.
+ * Error thrown when attempting to write to a read-only path, or when attemping to write to a protected path without privilege.
  *
  * @group Userspace
  * @category Filesystem
