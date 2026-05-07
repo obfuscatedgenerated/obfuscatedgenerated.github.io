@@ -1354,3 +1354,4 @@ export default {
 } as PrivilegedProgram;
 
 // TODO: clean up! use separate files with a state and command pattern!
+// TODO: need to actually keep track of auth state, clients can just send data without authing as is
