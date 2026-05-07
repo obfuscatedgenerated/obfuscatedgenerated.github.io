@@ -56,10 +56,12 @@ export default {
         subterm.open(terminal_root);
 
         // spawn ash in the subterm
+        let close_exit_code = 0;
         const subproc = kernel.spawn("ash", ["--login"], undefined, false, subterm);
         subproc.completion.then((code) => {
+            close_exit_code = code;
             subproc.process.kill(code);
-            process.kill(code);
+            wind.close();
         });
 
         process.add_exit_listener((code) => {
@@ -67,7 +69,7 @@ export default {
         });
 
         wind.add_event_listener("close", () => {
-            process.kill(0);
+            process.kill(close_exit_code);
         });
 
         wind.show();
