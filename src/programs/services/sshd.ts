@@ -143,6 +143,11 @@ interface ChannelWindowChangeRequestMessage extends ChannelRequestMessage {
     height_px: number;
 }
 
+interface ChannelExecRequestMessage extends ChannelRequestMessage {
+    request_type: "exec";
+    command: string;
+}
+
 interface ChannelSuccessMessage extends SSHMessageBase {
     type: "CHANNEL_SUCCESS";
     recipient_channel: number;
@@ -162,7 +167,7 @@ type SSHMessage =
     | UserAuthRequestMessage | UserAuthFailureMessage | UserAuthSuccessMessage | UserAuthBannerMessage
     | ChannelOpenMessage | ChannelOpenConfirmationMessage | ChannelOpenFailureMessage |
     ChannelRequestMessage | ChannelSuccessMessage | ChannelFailureMessage |
-    ChannelWindowChangeRequestMessage |
+    ChannelWindowChangeRequestMessage | ChannelExecRequestMessage |
     ChannelDataMessage;
 
 type SSHMessageType = SSHMessage["type"];
@@ -462,6 +467,9 @@ const message_deserialisers: Record<number, (reader: MessageReader) => SSHMessag
             const height_px = reader.read_uint32();
 
             return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply, cols, rows, width_px, height_px };
+        } else if (request_type === "exec") {
+            const command = reader.read_string();
+            return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply, command };
         }
 
         return { type: "CHANNEL_REQUEST", recipient_channel, request_type, want_reply };
@@ -1323,6 +1331,54 @@ export default {
 
                                     await send_encrypted_message_atomic(success_message);
                                 }
+                            } else if (message.request_type === "exec") {
+                                if (!channel.terminal) {
+                                    // create a terminal if it doesn't exist, since exec can be used without pty-req
+                                    channel.terminal = new SSHTerminal(message.recipient_channel);
+                                }
+
+                                const command = (message as ChannelExecRequestMessage).command;
+
+                                // spawn the exec process
+                                // TODO: when piping exists then pipe channel data to process stdin
+                                let spawn_result: SpawnResult;
+                                try {
+                                    spawn_result = kernel.spawn(
+                                        command,
+                                        [],
+                                        undefined,
+                                        false,
+                                        channel.terminal
+                                    );
+                                } catch (e) {
+                                    console.error("Failed to spawn process for exec request:", e);
+
+                                    if (message.want_reply) {
+                                        const failure_message: ChannelFailureMessage = {
+                                            type: "CHANNEL_FAILURE",
+                                            recipient_channel: message.recipient_channel
+                                        };
+
+                                        await send_encrypted_message_atomic(failure_message);
+                                    }
+
+                                    return;
+                                }
+
+                                // acknowledge the spawn
+                                if (message.want_reply) {
+                                    const success_message: ChannelSuccessMessage = {
+                                        type: "CHANNEL_SUCCESS",
+                                        recipient_channel: message.recipient_channel
+                                    }
+
+                                    await send_encrypted_message_atomic(success_message);
+                                }
+
+                                // handle process termination
+                                spawn_result.completion.then((exit_code) => {
+                                    spawn_result.process.kill(exit_code);
+                                });
                             } else {
                                 // unsupported request type, ignore
                                 if (message.want_reply) {
