@@ -905,51 +905,62 @@ export default {
                         socket.close();
                     }
 
-                    #on_socket_data = (msg_data: Uint8Array) => {
-                        const text = new TextDecoder().decode(msg_data);
+                    #data_buffer: Uint8Array = new Uint8Array();
+
+                    #submit_data = (msg_data: Uint8Array) => {
+                        const text = new TextDecoder().decode(msg_data).replace(/\r(\n)?/g, "\n");
                         this._simulate_typing(text);
                     }
 
-                    // resume_input_processing() {
-                    //     socket.add_event_listener("data", this.#on_socket_data);
-                    // }
-                    //
-                    // pause_input_processing() {
-                    //     socket.remove_event_listener("data", this.#on_socket_data);
-                    // }
+                    #processing = false;
 
-                    // TODO: implement
                     resume_input_processing() {
-                        // noop
+                        if (this.#processing) {
+                            return;
+                        }
+
+                        this.#processing = true;
+
+                        // if there's data in the buffer, submit it and clear the buffer
+                        if (this.#data_buffer.length > 0) {
+                            this.#submit_data(this.#data_buffer);
+                            this.#data_buffer = new Uint8Array();
+                        }
                     }
 
                     pause_input_processing() {
-                        // noop
+                        this.#processing = false;
                     }
 
-                    // protected async _read_raw_key(): Promise<KeyEvent> {
-                    //     return new Promise((resolve) => {
-                    //         const once = (msg_data: Uint8Array) => {
-                    //             this.socket.remove_event_listener("data", once);
-                    //             resolve({
-                    //                 key: new TextDecoder().decode(msg_data),
-                    //                 domEvent: {} as KeyboardEvent // TODO: dom event translation. or should this be removed from keyEvent entirely? i remember the same problem for node
-                    //             });
-                    //         };
-                    //
-                    //         this.socket.add_event_listener("data", once);
-                    //     });
-                    // }
+                    #on_data: ((msg_data: Uint8Array) => void) | null = null;
 
-                    // TODO: implement
                     protected async _read_raw_key(): Promise<KeyEvent> {
-                        // NOOP
-                        return new Promise(() => {
-                            return {
-                                key: "",
-                                domEvent: {} as KeyboardEvent
+                        return new Promise((resolve) => {
+                            this.#on_data = (msg_data: Uint8Array) => {
+                                this.#on_data = null;
+
+                                const string = new TextDecoder().decode(msg_data).replace(/\r(\n)?/g, "\n");
+                                resolve({
+                                    key: string[string.length - 1], // take last char in case of multiple chars (e.g. pasting)
+                                    domEvent: {} as KeyboardEvent // TODO: dom event translation. or should this be removed from keyEvent entirely? i remember the same problem for node
+                                });
                             }
                         });
+                    }
+
+                    feed_input(new_data: Uint8Array) {
+                        // append to buffer
+                        this.#data_buffer = new Uint8Array([...this.#data_buffer, ...new_data]);
+
+                        if (this.#on_data) {
+                            this.#on_data(new_data);
+                        }
+
+                        // if processing, submit data and clear buffer
+                        if (this.#processing) {
+                            this.#submit_data(this.#data_buffer);
+                            this.#data_buffer = new Uint8Array();
+                        }
                     }
 
                     clear() {
@@ -1197,6 +1208,17 @@ export default {
                                     await send_encrypted_message_atomic(failure_message);
                                 }
                             }
+                            break;
+                        }
+                        case "CHANNEL_DATA": {
+                            const channel = channels.get(message.recipient_channel);
+                            if (!channel || !channel.terminal) {
+                                // invalid channel, ignore
+                                return;
+                            }
+
+                            channel.terminal.feed_input(message.data);
+                            break;
                         }
                     }
                 }
