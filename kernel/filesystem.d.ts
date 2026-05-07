@@ -35,6 +35,15 @@ export declare class ReadOnlyError extends Error {
     constructor(path: string);
 }
 /**
+ * Error thrown when attempting to read a protected file without privilege.
+ *
+ * @group Userspace
+ * @category Filesystem
+ */
+export declare class ProtectedFileReadError extends Error {
+    constructor(path: string);
+}
+/**
  * Event types emitted after filesystem operations.
  *
  * @group Userspace
