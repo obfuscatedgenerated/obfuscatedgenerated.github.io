@@ -794,3 +794,5 @@ export class ProcessManager {
 }
 
 // TODO: store kernel privilege state on processcontext
+// TODO: dead flag
+// TODO: allow windows to gracefully close on kill
