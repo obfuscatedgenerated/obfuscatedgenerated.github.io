@@ -48,7 +48,6 @@ export { default as sshd } from "./services/sshd";
 // shhhhh!
 export { default as ipc_bg_test } from "./ipc_bg_test";
 export { default as ipc_fg_test } from "./ipc_fg_test";
-export { default as taskbar_test } from "./taskbar_test";
 export { default as terminal_test } from "./terminal_test";
 
 export { default as trigger_create_trigger } from "./pkg/triggers/create_trigger";

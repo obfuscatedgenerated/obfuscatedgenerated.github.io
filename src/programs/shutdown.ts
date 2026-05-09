@@ -73,6 +73,8 @@ export default {
                 window.location.reload();
             } else {
                 // TODO: need to dispose ALL terminals. def easier to manage in igntion but could make a kernel.dispose() method
+                // TODO: send kill signal to all processes to allow them to clean up before shutdown
+                // TODO: this behaviour should be moved to either kernel or ignition
                 term.dispose();
             }
         }, time);
