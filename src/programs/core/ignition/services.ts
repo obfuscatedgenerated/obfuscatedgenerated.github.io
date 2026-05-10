@@ -275,7 +275,7 @@ export class ServiceManager {
             spawn_result = this.#kernel.spawn(service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
-            return [false, "Error starting service ${service_id}."];
+            return [false, `Error starting service ${service_id}.`];
         }
 
         this.#running_services.set(service_id, spawn_result);

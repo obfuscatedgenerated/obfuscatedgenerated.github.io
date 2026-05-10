@@ -57,6 +57,7 @@ export default {
     compat: "2.0.0",
     gui: {
         display_name: "Hello, HTTP!",
+        starts_in_terminal_window: true
     },
     completion: async () => [],
     main: async (data) => {
