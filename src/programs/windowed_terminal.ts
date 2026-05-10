@@ -69,11 +69,15 @@ export default {
         const subterm = new XTermTerminal();
         subterm.open(terminal_root);
 
+        // TODO: update title to reflect live command rather than just initial (maybe some custom shell hooking?)
+
         // spawn ash/command in the subterm
         // TODO: spawn the preferred shell instead of hardcoding ash
         // TODO: should it be wrapped in ash regardless if custom command
         const command = args[0] || "ash";
         const command_args = args.slice(1) || [];
+
+        wind.title = `Terminal - ${command}`;
 
         let close_exit_code = 0;
         const subproc = kernel.spawn(command, command_args, undefined, false, subterm);
