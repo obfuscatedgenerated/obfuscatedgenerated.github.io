@@ -51,6 +51,8 @@ export interface ProgramGUIProps {
     starts_in_terminal_window?: boolean,
 }
 
+// TODO: allow specifying to keep terminal open after run
+
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
 export interface Program<K = UserspaceKernel> {
     // command to execute the program, should ideally match the filename for consistency
