@@ -506,6 +506,7 @@ export class Kernel {
         // TODO: a way to skip this when already privileged? or by pid?
         // TODO: remember my answer option when /sys security is implemented
         // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
+        // TODO: fallback logic if process undefined (because a privileged process called this func without expecting to so had wrong types)
 
         // read /sys/privilege_agent to determine privilege agent
         const fs = this.get_fs();

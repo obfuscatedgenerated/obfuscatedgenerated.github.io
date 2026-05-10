@@ -2,6 +2,7 @@ import type { Program } from "../types";
 import {XTermTerminal} from "../term_impl/xterm";
 
 import xterm_css from "@xterm/xterm/css/xterm.css?raw";
+import {Kernel} from "../kernel";
 
 export default {
     name: "windowed_terminal",
@@ -25,10 +26,18 @@ export default {
             return 1;
         }
 
-        const kernel = await userspace_kernel.request_privilege("Spawn a new terminal");
-        if (!kernel) {
-            term.writeln("Privilege request denied.");
-            return 1;
+        let kernel: Kernel;
+        // TODO: remove this check when the kernel skips this automatically for us
+        if (!userspace_kernel.privileged) {
+            const maybe_kernel = await userspace_kernel.request_privilege("Spawn a new terminal");
+            if (!maybe_kernel) {
+                term.writeln("Privilege request denied.");
+                return 1;
+            }
+
+            kernel = maybe_kernel;
+        } else {
+            kernel = userspace_kernel as unknown as Kernel;
         }
 
         const wind = process.create_window();
