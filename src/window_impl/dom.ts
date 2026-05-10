@@ -1,7 +1,40 @@
-import {AbstractWindow, AbstractWindowManager, WindowEvent} from "../kernel/windowing";
+import {AbstractWindow, AbstractWindowManager, WindowCompositionLayer, WindowEvent} from "../kernel/windowing";
+
+interface LayerZRange {
+    min_z: number;
+    max_z: number;
+}
+
+const LAYERS: Record<WindowCompositionLayer, LayerZRange> = {
+    "background": { min_z: -1024, max_z: -1 },
+    "normal": { min_z: 0, max_z: 2048 },
+    "top": { min_z: 2049, max_z: 4096 },
+    "overlay": { min_z: 4097, max_z: 5120 },
+    "administrative": { min_z: 5121, max_z: 6145 }
+}
 
 export class DOMWindowManager extends AbstractWindowManager {
-    #top_z_index = 10;
+    #layer_top_z_indices: Record<WindowCompositionLayer, number> = {
+        "background": LAYERS["background"].min_z,
+        "normal": LAYERS["normal"].min_z,
+        "top": LAYERS["top"].min_z,
+        "overlay": LAYERS["overlay"].min_z,
+        "administrative": LAYERS["administrative"].min_z
+    }
+
+    #get_next_z(layer: WindowCompositionLayer): number {
+        const z_range = LAYERS[layer];
+        const top_z = this.#layer_top_z_indices[layer];
+
+        // TODO: automatic z index compaction when approaching max_z
+        // this would work by collapsing gaps in caused by refocus, then reassigning the zs of all open windows to the new compacted values
+        if (top_z > z_range.max_z) {
+            throw new Error(`Exceeded maximum number of windows in layer ${layer}`);
+        }
+
+        this.#layer_top_z_indices[layer] += 1;
+        return top_z;
+    }
 
     #window_id_counter = 1;
     readonly #window_map: Map<number, AbstractWindow> = new Map();
@@ -63,6 +96,12 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             private readonly _custom_flags: Set<string> = new Set();
 
+            #layer: WindowCompositionLayer = "normal";
+
+            get layer() {
+                return this.#layer;
+            }
+
             get manager() {
                 return this._manager;
             }
@@ -80,7 +119,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_root.id = `window-${this._window_id}`;
                 document.body.appendChild(this._window_root);
 
-                this._window_root.style.zIndex = manager.#top_z_index.toString();
+                this._window_root.style.zIndex = manager.#get_next_z("normal").toString();
                 this._window_root.addEventListener("mousedown", () => this.focus(), { capture: true });
                 window.addEventListener("blur", () => this._handle_window_blur());
 
@@ -167,9 +206,22 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             focus() {
                 this._emit_event("focus");
+                this._window_root.style.zIndex = manager.#get_next_z(this.layer).toString();
+            }
 
-                manager.#top_z_index += 1;
-                this._window_root.style.zIndex = manager.#top_z_index.toString();
+            request_layer(new_layer: WindowCompositionLayer) {
+                if (new_layer === this.layer) {
+                    return;
+                }
+
+                // check space available in new layer
+                const z_range = LAYERS[new_layer];
+                if (manager.#layer_top_z_indices[new_layer] > z_range.max_z) {
+                    throw new Error(`Cannot move window to layer ${new_layer} as it has reached maximum capacity`);
+                }
+
+                this.#layer = new_layer;
+                this._window_root.style.zIndex = manager.#get_next_z(new_layer).toString();
             }
 
             private _handle_window_blur() {

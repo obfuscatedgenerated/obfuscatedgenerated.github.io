@@ -1,5 +1,11 @@
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
+export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
+const PRIVILEGED_LAYERS = ["overlay", "administrative"] as const;
+export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
+
+export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
+
 export interface UserspaceOtherWindow {
     readonly id: number;
     readonly manager: UserspaceWindowManager;
@@ -12,6 +18,8 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+
+    readonly layer: WindowCompositionLayer;
 }
 
 export interface UserspaceWindow extends UserspaceOtherWindow {
@@ -26,6 +34,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     visible: boolean;
     maximised: boolean;
+
+    readonly layer: WindowCompositionLayer;
+    request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
 
     center(): void;
     focus(): void;
@@ -105,6 +116,9 @@ export abstract class AbstractWindow {
 
     abstract wait_for_event(event: WindowEvent): Promise<void>;
 
+    abstract get layer(): WindowCompositionLayer;
+    abstract request_layer(new_layer: WindowCompositionLayer): void;
+
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
@@ -120,7 +134,8 @@ export abstract class AbstractWindow {
             x: { get: () => self.x, enumerable: true },
             y: { get: () => self.y, enumerable: true },
             visible: { get: () => self.visible, enumerable: true },
-            maximised: { get: () => self.maximised, enumerable: true }
+            maximised: { get: () => self.maximised, enumerable: true },
+            layer: { get: () => self.layer, enumerable: true }
         });
 
         return Object.freeze(proxy);
@@ -176,7 +191,17 @@ export abstract class AbstractWindow {
             toggle: { value: () => { self.toggle(); }, enumerable: true },
             close: { value: () => { self.close(); }, enumerable: true },
             add_event_listener: { value: (event: WindowEvent, callback: () => void) => { self.add_event_listener(event, callback); }, enumerable: true },
-            wait_for_event: { value: (event: WindowEvent) => self.wait_for_event(event), enumerable: true }
+            wait_for_event: { value: (event: WindowEvent) => self.wait_for_event(event), enumerable: true },
+            layer: { get: () => self.layer, enumerable: true },
+            request_layer: {
+                value: (new_layer: UserspaceAccessibleCompositionLayer) => {
+                    if (PRIVILEGED_LAYERS.includes(new_layer as PrivilegedCompositionLayer)) {
+                        throw new Error(`Cannot request privileged layer ${new_layer} from userspace window`);
+                    }
+                    self.request_layer(new_layer);
+                },
+                enumerable: true
+            }
         });
 
         return Object.freeze(proxy);
@@ -224,4 +249,3 @@ export abstract class AbstractWindowManager {
     }
 }
 
-// TODO: use separate interfaces so that only the process registry can create windows

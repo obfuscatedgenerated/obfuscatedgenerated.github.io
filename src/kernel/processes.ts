@@ -1,4 +1,4 @@
-import type {AbstractWindow, AbstractWindowManager} from "./windowing";
+import type {AbstractWindow, AbstractWindowManager, UserspaceWindow} from "./windowing";
 import type {AbstractShell} from "../abstract_shell";
 import type {ParsedCommandLine} from "./index";
 import {
@@ -318,7 +318,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): AbstractWindow | null;
+    create_window(): UserspaceWindow | null;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
@@ -679,7 +679,7 @@ export class ProcessContext {
             has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window(),  enumerable: true },
+            create_window: { value: () => self.create_window().create_userspace_proxy_as_full_window(),  enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();
