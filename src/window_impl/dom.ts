@@ -516,7 +516,6 @@ export class DOMWindowManager extends AbstractWindowManager {
                             this._window_top_bar.classList.remove("hidden");
                         }
                         break;
-                        // TODO: always on top
                 }
             }
 

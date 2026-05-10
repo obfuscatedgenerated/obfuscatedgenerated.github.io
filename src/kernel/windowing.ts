@@ -47,6 +47,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     add_event_listener(event: WindowEvent, callback: () => void): void;
     wait_for_event(event: WindowEvent): Promise<void>;
+
+    get_custom_flag(flag: string): boolean;
+    set_custom_flag(flag: string, value: boolean): void;
 }
 
 export abstract class AbstractWindow {
@@ -202,6 +205,14 @@ export abstract class AbstractWindow {
                     }
                     self.request_layer(new_layer);
                 },
+                enumerable: true
+            },
+            get_custom_flag: {
+                value: (flag: string) => self.get_custom_flag(flag),
+                enumerable: true
+            },
+            set_custom_flag: {
+                value: (flag: string, value: boolean) => self.set_custom_flag(flag, value),
                 enumerable: true
             }
         });
