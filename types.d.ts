@@ -21,6 +21,7 @@ export interface ProgramGUIProps {
     display_name: string;
     start_with_args?: string[];
     starts_in_terminal_window?: boolean;
+    keep_terminal_open_after_run?: "never" | "on_error" | "always";
 }
 export type ArgDescriptions = {
     [key: string]: string | ArgDescriptions;
