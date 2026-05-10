@@ -22,18 +22,48 @@ export class DOMWindowManager extends AbstractWindowManager {
         "administrative": LAYERS["administrative"].min_z
     }
 
+    #perform_z_compaction(layer: WindowCompositionLayer) {
+        console.log("Performing z-index compaction for layer", layer);
+
+        // collapse gaps in caused by refocus, and reassign the zs of all open windows to the new compacted values
+        // easiest approach is to just reassign in order, starting from the min
+
+        const z_range = LAYERS[layer];
+        let next_z = z_range.min_z;
+
+        for (const window of this.#window_map.values()) {
+            if (window.layer === layer) {
+                window.force_z_index(next_z++);
+            }
+        }
+
+        this.#layer_top_z_indices[layer] = next_z;
+    }
+
     #get_next_z(layer: WindowCompositionLayer): number {
         const z_range = LAYERS[layer];
         const top_z = this.#layer_top_z_indices[layer];
 
-        // TODO: automatic z index compaction when approaching max_z
-        // this would work by collapsing gaps in caused by refocus, then reassigning the zs of all open windows to the new compacted values
         if (top_z > z_range.max_z) {
-            throw new Error(`Exceeded maximum number of windows in layer ${layer}`);
+            // try to perform compaction first
+            this.#perform_z_compaction(layer);
+
+            // check again if we are still over the max after compaction, if so throw error
+            if (this.#layer_top_z_indices[layer] > z_range.max_z) {
+                throw new Error(`Exceeded maximum number of windows in layer ${layer}`);
+            }
+
+            // otherwise, we have successfully compacted and can return the next z
+            return this.#layer_top_z_indices[layer]++;
         }
 
-        this.#layer_top_z_indices[layer] += 1;
-        return top_z;
+        // if approaching max z, perform compaction to free up space from gaps created by refocusing windows and closing
+        if (top_z >= z_range.max_z - 10) {
+            this.#perform_z_compaction(layer);
+            return this.#layer_top_z_indices[layer]++;
+        }
+
+        return this.#layer_top_z_indices[layer]++;
     }
 
     #window_id_counter = 1;
@@ -222,6 +252,10 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 this.#layer = new_layer;
                 this._window_root.style.zIndex = manager.#get_next_z(new_layer).toString();
+            }
+
+            force_z_index(new_z: number) {
+                this._window_root.style.zIndex = new_z.toString();
             }
 
             private _handle_window_blur() {

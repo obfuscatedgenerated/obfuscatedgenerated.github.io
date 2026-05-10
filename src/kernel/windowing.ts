@@ -119,6 +119,8 @@ export abstract class AbstractWindow {
     abstract get layer(): WindowCompositionLayer;
     abstract request_layer(new_layer: WindowCompositionLayer): void;
 
+    abstract force_z_index(new_z_index: number): void;
+
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
