@@ -1,6 +1,6 @@
 {
   "name": "ollieos",
-  "version": "2.4.8",
+  "version": "2.4.9",
   "description": "",
   "main": "server.js",
   "scripts": {

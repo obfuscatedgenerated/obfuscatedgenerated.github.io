@@ -26,7 +26,7 @@ const TRIGGER_DIR = "/var/lib/pkg/triggers";
 
 // TODO: subcommand template / helper
 
-const append_url_pathnames = (url: URL, pathnames: string[]) => {
+const append_url_pathnames = (url: URL, pathnames: string[], allow_subdir = false) => {
     const new_url = new URL(url.toString());
     let urlpath = new_url.pathname;
 
@@ -36,7 +36,7 @@ const append_url_pathnames = (url: URL, pathnames: string[]) => {
     }
 
     for (const path of pathnames) {
-        if (path.includes("/") || path.includes("\\") || path.includes("..")) {
+        if ((path.includes("/") && !allow_subdir) || path.includes("\\") || path.includes("..")) {
             throw new Error("Unsafe pathname: " + path);
         }
 
@@ -132,7 +132,11 @@ export const repo_query = {
         filepath = filepath.replace(/\./g, "%2E");
 
         // repo/pkgs/pkg/version/filepath
-        const url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version, filepath]);
+        let url = append_url_pathnames(repo_url_obj, ["pkgs", pkg, version]);
+
+        // laxer append here to allow subdirectories in package files
+        // TODO: is this safe
+        url = append_url_pathnames(url, [filepath], true);
 
         const response = await fetch(url.toString());
         if (!response.ok) {
