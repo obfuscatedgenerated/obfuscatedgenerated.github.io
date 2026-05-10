@@ -28,7 +28,7 @@ export { ProgramRegistry } from "../kernel/prog_registry";
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export { AbstractWindow, AbstractWindowManager } from "../kernel/windowing";
+export { AbstractWindow, AbstractWindowManager, WindowCompositionLayer, PrivilegedCompositionLayer } from "../kernel/windowing";
 
 /**
  * @group Kernel (Privileged)

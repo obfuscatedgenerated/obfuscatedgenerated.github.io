@@ -52,7 +52,7 @@ export {UserspaceProgramRegistry, ProgramRegistrant} from "../kernel/prog_regist
  * @group Userspace
  * @category Windowing
  */
-export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent} from "../kernel/windowing";
+export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent, UserspaceAccessibleCompositionLayer} from "../kernel/windowing";
 
 /**
  * @group Userspace
