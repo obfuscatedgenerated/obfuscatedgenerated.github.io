@@ -404,3 +404,4 @@ export class ProgramRegistry {
 
 // TODO: restructure methods to not need fs (i.e. move this closer to the kernel where fs is accessible)
 
+// TODO: dont allow overriding programs invoked in a privileged manner (HOW??, might be finally time to move to ondemand loading to avoid it being an issue)
