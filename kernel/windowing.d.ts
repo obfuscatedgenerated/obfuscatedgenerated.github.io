@@ -74,6 +74,7 @@ export declare abstract class AbstractWindow {
     abstract wait_for_event(event: WindowEvent): Promise<void>;
     abstract get layer(): WindowCompositionLayer;
     abstract request_layer(new_layer: WindowCompositionLayer): void;
+    abstract force_z_index(new_z_index: number): void;
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow;
     create_userspace_proxy_as_full_window(): UserspaceWindow;
 }
