@@ -108,6 +108,10 @@ export default {
         "username": "The GitHub username to show basic info about. Defaults to my username, with the special info shown."
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "mefetch",
+        starts_in_terminal_window: true
+    },
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

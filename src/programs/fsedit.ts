@@ -11,6 +11,9 @@ export default {
         }
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "FSEdit",
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term, process } = data;

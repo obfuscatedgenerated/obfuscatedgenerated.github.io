@@ -4,12 +4,15 @@ import {XTermTerminal} from "../term_impl/xterm";
 import xterm_css from "@xterm/xterm/css/xterm.css?raw";
 
 export default {
-    name: "terminal_test",
+    name: "windowed_terminal",
     description: "",
     usage_suffix: "",
     arg_descriptions: {},
     compat: "2.0.0",
     hide_from_help: true,
+    gui: {
+        display_name: "Terminal"
+    },
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -56,6 +59,7 @@ export default {
         subterm.open(terminal_root);
 
         // spawn ash in the subterm
+        // TODO: spawn the preferred shell instead of hardcoding ash
         let close_exit_code = 0;
         const subproc = kernel.spawn("ash", ["--login"], undefined, false, subterm);
         subproc.completion.then((code) => {
@@ -79,3 +83,5 @@ export default {
         return 0;
     }
 } as Program;
+
+// TODO: worth moving to skylight?

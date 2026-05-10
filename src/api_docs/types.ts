@@ -9,6 +9,7 @@ export {
     ProgramMain,
     ProgramMainData,
     ArgDescriptions,
+    ProgramGUIProps
 } from "../types";
 
 /**

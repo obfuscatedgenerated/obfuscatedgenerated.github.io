@@ -93,6 +93,10 @@ export default {
         }
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "RSS Blog",
+        starts_in_terminal_window: true
+    },
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose

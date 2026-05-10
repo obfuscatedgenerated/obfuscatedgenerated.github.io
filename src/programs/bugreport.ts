@@ -18,6 +18,9 @@ export default {
         other: "Opens the bug reporter with the template chooser (default).",
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "Bug Reporter",
+    },
     completion: helper_completion_options(["bug", "feature", "other"]),
     main: async (data) => {
         // extract from data to make code less verbose

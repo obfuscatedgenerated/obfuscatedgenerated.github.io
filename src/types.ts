@@ -37,6 +37,20 @@ export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Pro
 
 export type PrivilegedProgramMain = ProgramMain<Kernel>;
 
+/**
+ * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
+ */
+export interface ProgramGUIProps {
+    // the friendly name of the program to show
+    display_name: string,
+
+    // arguments to start the program with by default
+    start_with_args?: string[],
+
+    // if true, the program will be launched in a new terminal window, rather than running silently in the background
+    starts_in_terminal_window?: boolean,
+}
+
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
 export interface Program<K = UserspaceKernel> {
     // command to execute the program, should ideally match the filename for consistency
@@ -65,6 +79,9 @@ export interface Program<K = UserspaceKernel> {
 
     // should be set to "2.0.0" for programs that have been ported to the 2.0.0+ API. if not set, considered to be "1.x" legacy program that will not run.
     compat?: string
+
+    // optional GUI properties. if set, the program may be displayed in 3rd party GUI listings, such as start menus, search, etc with the provided display name and icon, and launched with the provided args. if left blank, GUIs may not list the program as a user launchable program, but it can still be launched by typing its name in the terminal.
+    gui?: ProgramGUIProps,
 }
 
 export type PrivilegedProgram = Program<Kernel>;
