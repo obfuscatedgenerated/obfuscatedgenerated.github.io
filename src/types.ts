@@ -49,9 +49,10 @@ export interface ProgramGUIProps {
 
     // if true, the program will be launched in a new terminal window, rather than running silently in the background
     starts_in_terminal_window?: boolean,
-}
 
-// TODO: allow specifying to keep terminal open after run
+    // only applies if starts_in_terminal_window is true. the default behaviour is on_error TODO: unimplemented!
+    keep_terminal_open_after_run?: "never" | "on_error" | "always",
+}
 
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
 export interface Program<K = UserspaceKernel> {
