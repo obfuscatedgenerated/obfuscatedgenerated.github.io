@@ -135,6 +135,12 @@ export interface ParsedCommandLine {
     run_in_bg: boolean;
 }
 
+interface EnqueuedPrivilegeRequest {
+    reason: string;
+    process: ProcessContext;
+    resolve: (value: Kernel | false) => void;
+}
+
 /**
  * Interface for interacting with the kernel.
  *
@@ -496,18 +502,10 @@ export class Kernel {
         return true;
     }
 
-    /**
-     * Request privileged access from the kernel.
-     * @param reason The reason for requesting privileged access.
-     * @param process The process requesting privileged access.
-     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
-     */
-    async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
-        // TODO: a way to skip this when already privileged? or by pid?
-        // TODO: remember my answer option when /sys security is implemented
-        // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
-        // TODO: fallback logic if process undefined (because a privileged process called this func without expecting to so had wrong types)
+    #privilege_request_queue: EnqueuedPrivilegeRequest[] = [];
+    #is_privilege_queue_handling = false;
 
+    async #handle_privilege_request({reason, process, resolve}: EnqueuedPrivilegeRequest) {
         // read /sys/privilege_agent to determine privilege agent
         const fs = this.get_fs();
         let agent_program = "default_privilege_agent";
@@ -573,7 +571,7 @@ export class Kernel {
                 });
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 500));
+            await new Promise((resolve_timeout) => setTimeout(resolve_timeout, 500));
         }
 
         ipc.destroy_channel(channel_id);
@@ -586,10 +584,59 @@ export class Kernel {
 
         // return result
         if (approved) {
-            return this;
+            resolve(this);
         } else {
-            return false;
+            resolve(false);
         }
+    }
+
+    #handle_privilege_request_queue() {
+        if (this.#is_privilege_queue_handling) {
+            return;
+        }
+
+        console.log("Handling privilege request queue...");
+        this.#is_privilege_queue_handling = true;
+
+        const handle_next = () => {
+            const next_request = this.#privilege_request_queue.shift();
+            if (next_request) {
+                this.#handle_privilege_request(next_request).then(() => {
+                    handle_next();
+                });
+            } else {
+                this.#is_privilege_queue_handling = false;
+                console.log("Finished handling privilege request queue.");
+            }
+        };
+
+        handle_next();
+    }
+
+    /**
+     * Request privileged access from the kernel.
+     * @param reason The reason for requesting privileged access.
+     * @param process The process requesting privileged access.
+     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
+     */
+    async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
+        // TODO: a way to skip this when already privileged? or by pid?
+        // TODO: remember my answer option when /sys security is implemented
+        // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
+        // TODO: fallback logic if process undefined (because a privileged process called this func without expecting to so had wrong types)
+
+        if (!reason) {
+            reason = "No reason provided";
+        }
+
+        // enqueue the request to ensure it is handled sequentially
+        console.log(`Enqueuing privilege request for reason: ${reason}`);
+        return new Promise((resolve) => {
+            this.#privilege_request_queue.push({reason, process, resolve});
+
+            // begin handling the queue if not already doing so
+            this.#handle_privilege_request_queue();
+        });
     }
 
     constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
