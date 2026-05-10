@@ -36,6 +36,8 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
     close(): void;
     add_event_listener(event: WindowEvent, callback: () => void): void;
     wait_for_event(event: WindowEvent): Promise<void>;
+    get_custom_flag(flag: string): boolean;
+    set_custom_flag(flag: string, value: boolean): void;
 }
 export declare abstract class AbstractWindow {
     abstract readonly id: number;
