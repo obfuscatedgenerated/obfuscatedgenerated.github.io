@@ -1,4 +1,8 @@
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
+export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
+declare const PRIVILEGED_LAYERS: readonly ["overlay", "administrative"];
+export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
+export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
 export interface UserspaceOtherWindow {
     readonly id: number;
     readonly manager: UserspaceWindowManager;
@@ -10,6 +14,7 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+    readonly layer: WindowCompositionLayer;
 }
 export interface UserspaceWindow extends UserspaceOtherWindow {
     readonly manager: UserspaceWindowManager;
@@ -21,6 +26,8 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
     y: string | number;
     visible: boolean;
     maximised: boolean;
+    readonly layer: WindowCompositionLayer;
+    request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
     center(): void;
     focus(): void;
     show(): void;
@@ -65,6 +72,8 @@ export declare abstract class AbstractWindow {
     abstract get_custom_flag(flag: string): boolean;
     abstract set_custom_flag(flag: string, value: boolean): void;
     abstract wait_for_event(event: WindowEvent): Promise<void>;
+    abstract get layer(): WindowCompositionLayer;
+    abstract request_layer(new_layer: WindowCompositionLayer): void;
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow;
     create_userspace_proxy_as_full_window(): UserspaceWindow;
 }
@@ -81,3 +90,4 @@ export declare abstract class AbstractWindowManager {
     abstract dispose_all(): void;
     create_userspace_proxy(): UserspaceWindowManager;
 }
+export {};

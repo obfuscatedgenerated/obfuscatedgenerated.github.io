@@ -1,4 +1,4 @@
-import type { AbstractWindow, AbstractWindowManager } from "./windowing";
+import type { AbstractWindow, AbstractWindowManager, UserspaceWindow } from "./windowing";
 import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
 import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener, UserspaceClientSocket, UserspaceServerSocket } from "./network";
@@ -63,7 +63,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): AbstractWindow | null;
+    create_window(): UserspaceWindow | null;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
