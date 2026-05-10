@@ -14,6 +14,14 @@ export interface ProgramMainData<K = UserspaceKernel> {
 export type PrivilegedProgramMainData = ProgramMainData<Kernel>;
 export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
 export type PrivilegedProgramMain = ProgramMain<Kernel>;
+/**
+ * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
+ */
+export interface ProgramGUIProps {
+    display_name: string;
+    start_with_args?: string[];
+    starts_in_terminal_window?: boolean;
+}
 export type ArgDescriptions = {
     [key: string]: string | ArgDescriptions;
 };
@@ -27,6 +35,7 @@ export interface Program<K = UserspaceKernel> {
     main: ProgramMain<K>;
     completion?: CompletionGenerator;
     compat?: string;
+    gui?: ProgramGUIProps;
 }
 export type PrivilegedProgram = Program<Kernel>;
 export interface CompletionData {
