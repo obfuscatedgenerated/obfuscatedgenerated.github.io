@@ -111,13 +111,6 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         fit.fit();
     });
 
-
-    // bind right click to copy/paste
-    window.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        term.copy_or_paste();
-    });
-
     // create the kernel
     const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm, net_manager);
     kernel.set_env_info(document.body.dataset.version, "web");

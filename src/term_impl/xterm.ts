@@ -125,6 +125,12 @@ export class XTermTerminal extends AbstractTerminal {
 
     open(parent: HTMLElement) {
         this.#xterm.open(parent);
+
+        // bind right click to copy/paste
+        this.#xterm.element.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            this.copy_or_paste();
+        });
     }
 
     focus() {
