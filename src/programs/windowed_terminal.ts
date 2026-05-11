@@ -44,6 +44,9 @@ export default {
 
         wind.title = "Terminal";
 
+        wind.x = "10vw";
+        wind.y = "10vh";
+
         const terminal_root = document.createElement("div");
         terminal_root.style.width = "100%";
         terminal_root.style.height = "100%";
