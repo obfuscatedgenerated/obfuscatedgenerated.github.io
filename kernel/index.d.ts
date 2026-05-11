@@ -204,6 +204,8 @@ export declare class Kernel {
      * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
      */
     request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false>;
+    power_off(): void;
+    reboot(): void;
     constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager);
     /**
      * Create a userspace proxy of this kernel for use in a userspace process.
