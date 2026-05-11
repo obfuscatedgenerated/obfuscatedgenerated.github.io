@@ -16,7 +16,7 @@ export default {
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, shell, args, term } = data;
+        const { kernel, shell, args, term, process } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
@@ -68,15 +68,20 @@ export default {
             term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
         }
 
-        setTimeout(() => {
-            if (restart) {
-                window.location.reload();
-            } else {
-                // TODO: need to dispose ALL terminals. def easier to manage in igntion but could make a kernel.dispose() method
-                // TODO: send kill signal to all processes to allow them to clean up before shutdown
-                // TODO: this behaviour should be moved to either kernel or ignition
-                term.dispose();
+        process.create_timeout(() => {
+            // talk to ignition over ipc
+            const ipc = kernel.get_ipc();
+            const channel_id = ipc.create_channel("init");
+
+            if (!channel_id) {
+                term.writeln(`${FG.red}Failed to communicate with ignition.${STYLE.reset_all}`);
+                return;
             }
+
+            ipc.channel_send(channel_id, {
+                type: "power",
+                action: restart ? "reboot" : "shutdown",
+            });
         }, time);
 
         // hang the terminal until it is shut down or restarted (dont allow any more commands)
@@ -85,4 +90,3 @@ export default {
     }
 } as Program;
 
-// TODO: move this to talk to ignition to perform a soft (or hard) shutdown via IPC

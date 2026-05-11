@@ -639,6 +639,30 @@ export class Kernel {
         });
     }
 
+    power_off() {
+        // dispose of all terminals of any remaining processes, including the kernel terminal
+        const proc_mgr = this.get_process_manager();
+        const pids = proc_mgr.list_pids();
+
+        for (const pid of pids) {
+            const proc = proc_mgr.get_process(pid);
+            proc.terminal.dispose();
+        }
+
+        this.#term.dispose();
+
+        proc_mgr.dispose_all();
+    }
+
+    reboot() {
+        this.power_off();
+
+        if (typeof window !== "undefined") {
+            // TODO: more formal reboot here, calling boot again with clean state somehow
+            window.location.reload();
+        }
+    }
+
     constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
         this.#term = term;
         this.#fs = fs;

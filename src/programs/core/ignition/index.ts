@@ -183,6 +183,63 @@ export default {
                         }
                     }
                         break;
+                    case "power": {
+                        const power_msg = payload as IgnitionIPCPowerMessage;
+                        switch (power_msg.action) {
+                            case "shutdown": {
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: power_msg.hard ? "Hard shutdown initiated." : "Shutdown initiated."
+                                });
+
+                                // TODO: stop services in reverse order
+
+                                // kill all processes except for init in reverse order of creation
+                                // TODO: polite shutdown signal first (need to add) then force kill after timeout (or instantly based on force flag)
+                                const proc_mgr = kernel.get_process_manager();
+                                const pids = proc_mgr.list_pids().reverse();
+                                for (const pid of pids) {
+                                    if (pid !== process.pid) {
+                                        const proc = proc_mgr.get_process(pid);
+                                        if (proc) {
+                                            proc.kill();
+                                        }
+                                    }
+                                }
+
+                                kernel.power_off();
+                                break;
+                            }
+                            case "reboot": {
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: power_msg.hard ? "Hard reboot initiated." : "Reboot initiated."
+                                });
+
+                                // TODO: stop services in reverse order
+
+                                // kill all processes except for init in reverse order of creation
+                                const proc_mgr = kernel.get_process_manager();
+                                const pids = proc_mgr.list_pids().reverse();
+                                for (const pid of pids) {
+                                    if (pid !== process.pid) {
+                                        const proc = proc_mgr.get_process(pid);
+                                        if (proc) {
+                                            proc.kill();
+                                        }
+                                    }
+                                }
+
+                                kernel.reboot();
+                                break;
+                            }
+                            default:
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "error",
+                                    message: `Unknown power action: ${power_msg.action}`
+                                });
+                        }
+                    }
                     default:
                         ipc.channel_send(channel_id, process.pid, {
                             type: "error",
