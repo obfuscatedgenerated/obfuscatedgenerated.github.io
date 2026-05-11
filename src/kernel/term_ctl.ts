@@ -100,6 +100,8 @@ export interface ReadLineBuffer {
 
 export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 
+// TODO: add trust flag and privilege agent preference not visible to userspace. a trusted terminal is allowed to have the privilege agent spawned in it
+
 export abstract class AbstractTerminal {
     readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     readonly #on_printable_handlers: KeyEventHandler[] = [];
