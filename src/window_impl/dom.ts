@@ -6,11 +6,11 @@ interface LayerZRange {
 }
 
 const LAYERS: Record<WindowCompositionLayer, LayerZRange> = {
-    "background": { min_z: -1024, max_z: -1 },
-    "normal": { min_z: 0, max_z: 2048 },
-    "top": { min_z: 2049, max_z: 4096 },
-    "overlay": { min_z: 4097, max_z: 5120 },
-    "administrative": { min_z: 5121, max_z: 6145 }
+    "background": { min_z: 10, max_z: 2048 },
+    "normal": { min_z: 2049, max_z: 4096 },
+    "top": { min_z: 4097, max_z: 5120 },
+    "overlay": { min_z: 5121, max_z: 6145 },
+    "administrative": { min_z: 6146, max_z: 8192 }
 }
 
 export class DOMWindowManager extends AbstractWindowManager {
