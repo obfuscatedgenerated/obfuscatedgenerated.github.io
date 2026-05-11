@@ -108,7 +108,7 @@ export default {
         }
 
         // create service manager
-        const svc_mgr = new ServiceManager(kernel);
+        const svc_mgr = new ServiceManager(kernel, process);
 
         // load service files but don't start them yet
         await svc_mgr.load_service_files();
@@ -239,12 +239,13 @@ export default {
                                     message: `Unknown power action: ${power_msg.action}`
                                 });
                         }
+                        break;
                     }
-                    default:
-                        ipc.channel_send(channel_id, process.pid, {
-                            type: "error",
-                            message: `Unknown message type: ${payload.type}`
-                        });
+                    // default:
+                    //     ipc.channel_send(channel_id, process.pid, {
+                    //         type: "error",
+                    //         message: `Unknown message type: ${payload.type}`
+                    //     });
                 }
             });
         });
@@ -274,7 +275,7 @@ export default {
 
         // execute boot target in a respawn loop
         while (running) {
-            const boot_target_proc = kernel.spawn(boot_target, boot_args);
+            const boot_target_proc = kernel.spawn(process, boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
             let exit_code: number;
@@ -312,7 +313,7 @@ export default {
                 if (key.key.toLowerCase() === "r") {
                     term.writeln("Entering recovery mode...");
 
-                    const recovery_proc = kernel.spawn("recovery", [], undefined, true);
+                    const recovery_proc = kernel.spawn(process, "recovery", [], undefined, true);
                     let recovery_exit_code: number;
                     try {
                         recovery_exit_code = await recovery_proc.completion;

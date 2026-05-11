@@ -1290,6 +1290,7 @@ export default {
                                 }
 
                                 channel.shell = kernel.spawn(
+                                    process,
                                     "ash",
                                     ["--login"],
                                     undefined,
@@ -1344,6 +1345,7 @@ export default {
                                 let spawn_result: SpawnResult;
                                 try {
                                     spawn_result = kernel.spawn(
+                                        process,
                                         command,
                                         [],
                                         undefined,

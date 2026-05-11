@@ -9,7 +9,7 @@ import {
     KERNEL_FAKE_PID,
     ProcessContext,
     ProcessManager,
-    UserspaceIPCManager, UserspaceOtherProcessContext,
+    UserspaceIPCManager, UserspaceOtherProcessContext, UserspaceProcessContext,
     UserspaceProcessManager
 } from "./processes";
 import type {AbstractShell} from "../abstract_shell";
@@ -267,15 +267,17 @@ export class Kernel {
     /**
      * Spawn a new process.
      * @param cmd_or_parse Either a command string or a pre-parsed command line to execute.
+     * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
      * @param start_privileged Whether to start the process with privileged kernel access. The process will not need to use {@link request_privilege} if this is true!!!
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn = (cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): SpawnResult => {
+    spawn = (spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): SpawnResult => {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
+        // TODO: now collecting spawning process for the cwd inheritance stuff so can now trivially add ownership
 
         // we may not be provided a parsed line (if this is a direct call, not from execute()), but we can create one by assumption
         // args are only used if cmd_or_parse is a string
@@ -330,8 +332,8 @@ export class Kernel {
         // select the terminal to assign to the process
         const term = term_override || this.#term;
 
-        // create new process context
-        const process = this.#process_manager.create_process(term, parsed_line, shell);
+        // create new process context, inheriting cwd from spawning process (or root if spawned by kernel)
+        const process = this.#process_manager.create_process(term, parsed_line, shell, spawning_process ? spawning_process.cwd : "/");
 
         // protect from pollution
         const data = Object.create(null) as ProgramMainData<unknown>;
@@ -435,9 +437,8 @@ export class Kernel {
         // mount all programs in any subdirectory of /usr/bin
         // TODO: get rid of the concept of a programregistry being the sole way to run programs. mounting is a bad concept. it should be a cache, not the sole execution method. may need to redesign how programs are stored to have it be more part of the filesystem
         // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        const usr_bin = fs.absolute("/usr/bin");
-        if (await fs.exists(usr_bin)) {
-            await recurse_mount_and_register_with_output(fs, usr_bin, this.get_program_registry(), this.#term);
+        if (await fs.exists("/usr/bin/")) {
+            await recurse_mount_and_register_with_output(fs, "/usr/bin/", this.get_program_registry(), this.#term);
         }
 
         // read /boot/init to determine init system
@@ -467,7 +468,7 @@ export class Kernel {
 
         // run init program
         try {
-            const init = this.spawn(init_program, init_args, undefined, true);
+            const init = this.spawn(null, init_program, init_args, undefined, true);
 
             this.#init_program_name = init_program;
             this.#term.focus();
@@ -529,7 +530,7 @@ export class Kernel {
         // spawn the privilege agent program, passing the channel id, and assign the channel to it
         // make sure it is displayed on the requesting process' terminal
         // vital that it passes the terminal, not the full shell, as a userspace program can manipulate the shell to pass a malicious terminal that autoaccepts
-        const agent_proc = this.spawn(agent_program, [channel_id.toString()], undefined, false, process.terminal);
+        const agent_proc = this.spawn(process, agent_program, [channel_id.toString()], undefined, false, process.terminal);
         ipc.assign_kernel_channel(channel_id, agent_proc.process.pid);
 
         let handling_request = false;
@@ -687,7 +688,7 @@ export class Kernel {
 
         const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
         const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, kernel_fs);
-        const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs);
+        const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs, process);
 
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },
@@ -716,7 +717,7 @@ export class Kernel {
             spawn: {
                 // force the process to pass its own terminal as the one to use
                 value: (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell) =>
-                    self.spawn(command, args, shell, false, process.terminal),
+                    self.spawn(process, command, args, shell, false, process.terminal),
                 enumerable: true
             },
             request_privilege: {

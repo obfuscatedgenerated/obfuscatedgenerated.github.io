@@ -18,6 +18,8 @@ export default {
     },
     completion: async () => [],
     main: async (data) => {
+        // TODO: eventually this wont need privilege
+
         // extract from data to make code less verbose
         const { kernel: userspace_kernel, term, process, args } = data;
 
@@ -83,7 +85,7 @@ export default {
         wind.title = `Terminal - ${command}`;
 
         let close_exit_code = 0;
-        const subproc = kernel.spawn(command, command_args, undefined, false, subterm);
+        const subproc = kernel.spawn(process, command, command_args, undefined, false, subterm);
         subproc.completion.then((code) => {
             close_exit_code = code;
             subproc.process.kill(code);

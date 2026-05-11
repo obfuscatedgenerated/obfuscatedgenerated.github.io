@@ -1,3 +1,5 @@
+import {ProcessContext} from "./processes";
+
 /**
  * Error thrown when a path is not found.
  *
@@ -76,8 +78,9 @@ export enum FSEventType {
     DELETED_DIR,
     MOVED_DIR,
 
-    SET_CWD,
-    GETTING_CWD,
+    REMOVED_SET_CWD,
+    REMOVED_GETTING_CWD,
+
     SET_HOME,
     GETTING_HOME,
     SET_ROOT,
@@ -126,7 +129,6 @@ export interface UserspaceFileSystem {
     join(base_dir: string, ...paths: string[]): string;
     absolute(path: string): string;
     get_cwd(): string;
-    set_cwd(path: string): void;
     get_home(): string;
     get_root(): string;
 }
@@ -154,7 +156,6 @@ export abstract class AbstractFileSystem {
 
     _root = "/";
     _home = "/home";
-    _cwd = this._home; // TODO: this should be moved to the pcb and inherited. cd should be built into the shell so it can override the shell cwd
 
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
@@ -340,27 +341,6 @@ export abstract class AbstractFileSystem {
         this.purge_cache(true);
     }
 
-    get_cwd(): string {
-        this._call_callbacks(FSEventType.GETTING_CWD, this._cwd);
-        return this._cwd;
-    }
-
-    set_cwd(path: string): void {
-        // if path ends with /, remove it
-        if (path.endsWith("/")) {
-            path = path.slice(0, -1);
-        }
-
-        // if path is empty, set to root
-        if (path === "") {
-            path = this._root;
-        }
-
-        this._cwd = path;
-        this._call_callbacks(FSEventType.SET_CWD, path);
-    }
-
-
     get_home(): string {
         this._call_callbacks(FSEventType.GETTING_HOME, this._home);
         return this._home;
@@ -396,7 +376,12 @@ export abstract class AbstractFileSystem {
         return this.exists_direct(path);
     }
 
-    absolute(path: string): string {
+    absolute(path: string, cwd?: string): string {
+        // absoluteify cwd
+        if (cwd) {
+            cwd = this.absolute(cwd);
+        }
+
         // if path is blank, path is root
         if (path === "") {
             return this._root;
@@ -405,7 +390,11 @@ export abstract class AbstractFileSystem {
         // if path is ., return cwd
         // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
         if (path === ".") {
-            return this._cwd;
+            if (!cwd) {
+                throw new Error("Cannot resolve relative path without cwd");
+            }
+
+            return cwd;
         }
 
         // if path is ~, return home
@@ -415,7 +404,7 @@ export abstract class AbstractFileSystem {
         }
 
         // if path starts with cwd and doesn't contain .., it is absolute
-        if (path.startsWith(this._cwd) && !path.includes("..")) {
+        if (cwd && path.startsWith(cwd) && !path.includes("..")) {
             return path;
         }
 
@@ -429,8 +418,11 @@ export abstract class AbstractFileSystem {
             path = path.slice(2);
         }
 
+        if (!cwd) {
+            cwd = this._root;
+        }
 
-        let effective_cwd = this._cwd;
+        let effective_cwd = cwd;
 
         // if path starts with .., step up the cwd
         while (path.startsWith("..") && effective_cwd !== this._root) {
@@ -507,13 +499,13 @@ export abstract class AbstractFileSystem {
         setInterval(() => this.#remote_listener(), 100);
     }
 
-    static create_userspace_proxy(fs: AbstractFileSystem): UserspaceFileSystem {
+    static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem {
         const self = fs;
         const proxy = Object.create(null);
 
         // write protect certain kernel secured paths
         const check_path_for_writing = (path: string): string => {
-            const absolute_path = self.absolute(path);
+            const absolute_path = self.absolute(path, process.cwd);
 
             // TODO: allow priv programs to add to protection
             const is_protected =
@@ -535,7 +527,7 @@ export abstract class AbstractFileSystem {
 
         // read protect even more locked down paths
         const check_path_for_reading = (path: string): string => {
-            const absolute_path = self.absolute(path);
+            const absolute_path = self.absolute(path, process.cwd);
 
             const is_protected =
                 (absolute_path.startsWith("/etc/ssh/") && absolute_path !== "/etc/ssh/"); // allow listing /etc/ssh but not reading files in it
@@ -553,8 +545,8 @@ export abstract class AbstractFileSystem {
             purge_cache: { value: (smart?: boolean) => self.purge_cache(smart), enumerable: true },
             read_file: { value: (path: string, as_uint?: boolean) => self.read_file(check_path_for_reading(path), as_uint), enumerable: true },
             list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(check_path_for_reading(path), dirs_first), enumerable: true },
-            exists: { value: (path: string) => self.exists(self.absolute(path)), enumerable: true },
-            dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path)), enumerable: true },
+            exists: { value: (path: string) => self.exists(self.absolute(path, process.cwd)), enumerable: true },
+            dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path, process.cwd)), enumerable: true },
             is_readonly: {
                 value: async (path: string) => {
                     try {
@@ -567,13 +559,12 @@ export abstract class AbstractFileSystem {
                         throw e;
                     }
 
-                    return await self.is_readonly(self.absolute(path));
+                    return await self.is_readonly(self.absolute(path, process.cwd));
                 },
                 enumerable: true
             },
             join: { value: (base: string, ...paths: string[]) => self.join(base, ...paths), enumerable: true },
-            absolute: { value: (path: string) => self.absolute(path), enumerable: true },
-            get_cwd: { value: () => self.get_cwd(), enumerable: true },
+            absolute: { value: (path: string) => self.absolute(path, process.cwd), enumerable: true },
             get_home: { value: () => self.get_home(), enumerable: true },
             get_root: { value: () => self.get_root(), enumerable: true },
             write_file: {
@@ -609,7 +600,9 @@ export abstract class AbstractFileSystem {
                 value: (path: string, readonly: boolean) => self.set_readonly(check_path_for_writing(path), readonly),
                 enumerable: true
             },
-            set_cwd: { value: (path: string) => self.set_cwd(path), enumerable: true }
+
+            // helper for compatability
+            get_cwd: { value: () => self.absolute(process.cwd), enumerable: true },
         });
 
         return Object.freeze(proxy);

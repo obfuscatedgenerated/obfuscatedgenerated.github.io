@@ -238,9 +238,11 @@ const main = async () => {
         file_tree.appendChild(li);
     };
 
+    let cwd = "/";
+
     render_directory = async (dir: string) => {
         // set the cwd
-        fs.set_cwd(fs.absolute(dir));
+        cwd = fs.absolute(dir, cwd);
 
         // list files in the directory
         const dir_contents = await fs.list_dir(dir, true);
@@ -478,7 +480,7 @@ const main = async () => {
         }
 
         // set cwd
-        fs.set_cwd(params.get("dir"));
+        cwd = params.get("dir");
 
         document.querySelector("#loading").remove();
         render_directory(params.get("dir"));

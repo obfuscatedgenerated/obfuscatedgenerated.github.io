@@ -10,7 +10,7 @@ export default {
     hide_from_help: true,
     compat: "2.0.0",
     main: async (data) => {
-        const { kernel, term } = data;
+        const { kernel, term, process } = data;
 
         const {CURSOR} = ANSI;
 
@@ -55,7 +55,7 @@ export default {
                     // TODO: this doesnt make much difference being privileged as the programs are separate processes
                     // TODO: bypass the privilege agent instead
                     let exit_code: number;
-                    const shell = kernel.spawn("ash", ["--no-scripts"], undefined, true);
+                    const shell = kernel.spawn(process, "ash", ["--no-scripts"], undefined, true);
                     try {
                         exit_code = await shell.completion;
                     } catch (e) {

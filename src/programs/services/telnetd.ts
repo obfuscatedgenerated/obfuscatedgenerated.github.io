@@ -217,6 +217,7 @@ export default {
                 // spawn ash shell running with our virtual terminal
                 try {
                     const spawn_result = kernel.spawn(
+                        process,
                         "ash",
                         ["--login"],
                         // TODO: should prob change this to object args but will be annoying to change

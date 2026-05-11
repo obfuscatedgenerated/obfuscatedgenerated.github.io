@@ -308,6 +308,7 @@ export interface UserspaceOtherProcessContext {
 }
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    cwd: string;
     readonly terminal: AbstractTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
@@ -352,11 +353,14 @@ export class ProcessContext {
     readonly #network_clients: Set<AbstractClientSocket> = new Set();
     readonly #network_manager_listeners: Map<NetworkManagerEvent, Set<NetworkManagerEventListener>> = new Map();
 
-    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
+    #cwd = "/";
+
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd = "/") {
         this.#pid = pid;
         this.#terminal = terminal;
         this.#source_command = source_command;
         this.#manager = registry;
+        this.#cwd = initial_cwd;
 
         if (shell) {
             this.#shell = shell;
@@ -369,6 +373,24 @@ export class ProcessContext {
 
     get pid(): number {
         return this.#pid;
+    }
+
+    get cwd(): string {
+        return this.#cwd;
+    }
+
+    set cwd(path: string) {
+        // if path ends with /, remove it
+        if (path.endsWith("/")) {
+            path = path.slice(0, -1);
+        }
+
+        // if path is empty, set to root
+        if (path === "") {
+            path = "/";
+        }
+
+        this.#cwd = path;
     }
 
     get terminal(): AbstractTerminal {
@@ -663,6 +685,7 @@ export class ProcessContext {
 
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
+            cwd: { get: () => self.cwd, set: (new_cwd: string) => { self.cwd = new_cwd; }, enumerable: true },
             terminal: { get: () => self.terminal, enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
@@ -743,9 +766,9 @@ export class ProcessManager {
         this.#processes.clear();
     }
 
-    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext {
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd = "/"): ProcessContext {
         const pid = this.#next_pid++;
-        const context = new ProcessContext(pid, terminal, source_command, this, shell);
+        const context = new ProcessContext(pid, terminal, source_command, this, shell, initial_cwd);
         this.#processes.set(pid, context);
         return context;
     }

@@ -1,4 +1,5 @@
 import type {Kernel, SpawnResult} from "../../../kernel";
+import {ProcessContext} from "../../../kernel/processes";
 
 const SERVICES_DIR = "/etc/services/";
 const PRIVILEGED_SERVICES_DIR = "/etc/services/privileged/";
@@ -62,14 +63,16 @@ export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
 
 export class ServiceManager {
     readonly #kernel: Kernel;
+    readonly #process: ProcessContext;
 
     readonly #service_files: Map<string, ServiceFileWithExtra> = new Map();
     readonly #running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
     readonly #should_be_running_services: Set<string> = new Set();
     readonly #failed_services: Set<string> = new Set();
 
-    constructor(kernel: Kernel) {
+    constructor(kernel: Kernel, process: ProcessContext) {
         this.#kernel = kernel;
+        this.#process = process;
     }
 
     async load_service_files() {
@@ -272,7 +275,7 @@ export class ServiceManager {
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this.#kernel.spawn(service.exec, service.args || [], undefined, service.privileged);
+            spawn_result = this.#kernel.spawn(this.#process, service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
             return [false, `Error starting service ${service_id}.`];

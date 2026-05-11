@@ -11,39 +11,9 @@ export default {
     compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, args, term } = data;
+        const { term } = data;
 
-        // extract from ANSI to make code less verbose
-        const { STYLE, PREFABS } = ANSI;
-        
-        // get filesystem
-        const fs = kernel.get_fs();
-
-        
-        // if no arguments, go to home directory
-        if (args.length === 0) {
-            fs.set_cwd(fs.get_home());
-            return 0;
-        }
-
-        // if more than one argument, print error
-        if (args.length > 1) {
-            term.writeln(`${PREFABS.error}Too many arguments${STYLE.reset_all}`);
-            return 1;
-        }
-
-        // check if path is a directory and exists
-        const path = args[0];
-        const absolute_path = fs.absolute(path);
-
-        if (!(await fs.dir_exists(absolute_path))) {
-            term.writeln(`${PREFABS.error}No such directory: ${path}${STYLE.reset_all}`);
-            return 1;
-        }
-
-        // change directory
-        fs.set_cwd(absolute_path);
-
-        return 0;
+        term.writeln(`${ANSI.PREFABS.error}cd should be handled by the shell instead! This is a stand-in to list on help.${ANSI.STYLE.reset_all}`);
+        return 1;
     }
 } as Program;

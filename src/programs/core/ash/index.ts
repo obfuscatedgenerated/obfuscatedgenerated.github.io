@@ -18,13 +18,16 @@ export default {
     main: async (data) => {
         const {kernel, term, process, args} = data;
 
-        const shell = new AshShell(term, kernel);
+        const shell = new AshShell(term, kernel, process);
 
         const env_info = kernel.get_env_info();
         shell.memory.set_variable("VERSION", env_info.version);
         shell.memory.set_variable("ENV", env_info.env);
 
         const fs = kernel.get_fs();
+
+        // set cwd to home
+        process.cwd = fs.absolute("~");
 
         const absolute_profile = fs.absolute("~/.ash_profile");
         const absolute_rc = fs.absolute("~/.ashrc");
