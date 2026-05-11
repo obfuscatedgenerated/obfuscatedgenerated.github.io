@@ -154,7 +154,7 @@ export abstract class AbstractFileSystem {
 
     _root = "/";
     _home = "/home";
-    _cwd = this._home;
+    _cwd = this._home; // TODO: should this be on terminal instead and passed somehow? multi terminals will interfere with each other as is
 
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
