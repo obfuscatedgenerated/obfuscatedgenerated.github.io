@@ -53,6 +53,7 @@ export interface UserspaceOtherProcessContext {
     readonly source_command: ParsedCommandLine;
 }
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    cwd: string;
     readonly terminal: AbstractTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
@@ -72,8 +73,10 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
 }
 export declare class ProcessContext {
     #private;
-    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell);
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd?: string);
     get pid(): number;
+    get cwd(): string;
+    set cwd(path: string);
     get terminal(): AbstractTerminal;
     get source_command(): ParsedCommandLine;
     get created_at(): Date;
@@ -116,7 +119,7 @@ export declare class ProcessManager {
     get ipc_manager(): IPCManager;
     get network_manager(): AbstractNetworkManager | null;
     dispose_all(): void;
-    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext;
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd?: string): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
     mark_terminated(pid: number): void;

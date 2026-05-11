@@ -3,7 +3,7 @@ import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
-import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessManager } from "./processes";
+import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager } from "./processes";
 import type { AbstractShell } from "../abstract_shell";
 import { type AbstractTerminal } from "./term_ctl";
 /**
@@ -177,13 +177,14 @@ export declare class Kernel {
     /**
      * Spawn a new process.
      * @param cmd_or_parse Either a command string or a pre-parsed command line to execute.
+     * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
      * @param start_privileged Whether to start the process with privileged kernel access. The process will not need to use {@link request_privilege} if this is true!!!
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn: (cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal) => SpawnResult;
+    spawn: (spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal) => SpawnResult;
     /**
      * Throw all the toys out of the pram.
      * @param message The panic message to show at the top of the panic screen.

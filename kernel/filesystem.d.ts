@@ -1,3 +1,4 @@
+import { ProcessContext } from "./processes";
 /**
  * Error thrown when a path is not found.
  *
@@ -59,8 +60,8 @@ export declare enum FSEventType {
     MADE_DIR = 6,
     DELETED_DIR = 7,
     MOVED_DIR = 8,
-    SET_CWD = 9,
-    GETTING_CWD = 10,
+    REMOVED_SET_CWD = 9,
+    REMOVED_GETTING_CWD = 10,
     SET_HOME = 11,
     GETTING_HOME = 12,
     SET_ROOT = 13,
@@ -104,7 +105,6 @@ export interface UserspaceFileSystem {
     join(base_dir: string, ...paths: string[]): string;
     absolute(path: string): string;
     get_cwd(): string;
-    set_cwd(path: string): void;
     get_home(): string;
     get_root(): string;
 }
@@ -121,7 +121,6 @@ export declare abstract class AbstractFileSystem {
     _initialised: boolean;
     _root: string;
     _home: string;
-    _cwd: string;
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
     abstract is_ready(): Promise<boolean>;
@@ -149,8 +148,6 @@ export declare abstract class AbstractFileSystem {
     abstract move_dir_direct(src: string, dest: string, force_move_inside: boolean): Promise<void>;
     delete_dir(path: string, recursive?: boolean): Promise<void>;
     move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
-    get_cwd(): string;
-    set_cwd(path: string): void;
     get_home(): string;
     set_home(path: string): void;
     get_root(): string;
@@ -158,8 +155,8 @@ export declare abstract class AbstractFileSystem {
     abstract exists_direct(path: string): Promise<boolean>;
     abstract dir_exists(path: string): Promise<boolean>;
     exists(path: string): Promise<boolean>;
-    absolute(path: string): string;
+    absolute(path: string, cwd?: string): string;
     join(base_dir: string, ...paths: string[]): string;
     protected constructor();
-    static create_userspace_proxy(fs: AbstractFileSystem): UserspaceFileSystem;
+    static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem;
 }
