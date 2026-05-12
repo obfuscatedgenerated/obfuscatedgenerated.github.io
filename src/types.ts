@@ -53,6 +53,9 @@ export interface ProgramGUIProps {
 
     // only applies if starts_in_terminal_window is true. the default behaviour is on_error
     keep_terminal_open_after_run?: "never" | "on_error" | "always",
+
+    // path in the fs of an icon to show in program listings. should be png format (ideally no larger than 512x512) or svg
+    icon_path?: string
 }
 
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions }; // any level of nested key:string pairs. each key is a section title, until the innermost object, in which they are pairs of argument name and description.
