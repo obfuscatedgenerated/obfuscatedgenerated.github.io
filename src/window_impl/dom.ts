@@ -13,6 +13,8 @@ const LAYERS: Record<WindowCompositionLayer, LayerZRange> = {
     "administrative": { min_z: 6146, max_z: 8192 }
 }
 
+// TODO: dynamic window icons, defaulting to guiprops
+
 export class DOMWindowManager extends AbstractWindowManager {
     #layer_top_z_indices: Record<WindowCompositionLayer, number> = {
         "background": LAYERS["background"].min_z,
