@@ -84,12 +84,28 @@ export default {
 
         wind.title = `Terminal - ${command}`;
 
+        const prog_reg = kernel.get_program_registry();
+
         let close_exit_code = 0;
         const subproc = kernel.spawn(process, command, command_args, undefined, false, subterm);
-        subproc.completion.then((code) => {
+        subproc.completion.then(async (code) => {
             close_exit_code = code;
             subproc.process.kill(code);
-            wind.close();
+
+            // get the gui props of the command
+            const program = prog_reg.getProgram(command);
+
+            // determine whether to keep the terminal open based on the program's gui props and exit code (default: on_error)
+            const keep_open_value = program?.gui?.keep_terminal_open_after_run || "on_error";
+            const stay_open = keep_open_value === "always" || (keep_open_value === "on_error" && code !== 0);
+
+            if (!stay_open) {
+                wind.close();
+            } else {
+                subterm.writeln(`\r\nProcess exited with code ${code}. Press any key to close.`);
+                await subterm.wait_for_keypress();
+                wind.close();
+            }
         });
 
         process.add_exit_listener((code) => {

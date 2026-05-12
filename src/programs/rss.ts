@@ -95,7 +95,8 @@ export default {
     compat: "2.0.0",
     gui: {
         display_name: "RSS Blog",
-        starts_in_terminal_window: true
+        starts_in_terminal_window: true,
+        keep_terminal_open_after_run: "always"
     },
     // TODO: completion
     main: async (data) => {

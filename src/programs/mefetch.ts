@@ -110,7 +110,8 @@ export default {
     compat: "2.0.0",
     gui: {
         display_name: "mefetch",
-        starts_in_terminal_window: true
+        starts_in_terminal_window: true,
+        keep_terminal_open_after_run: "always"
     },
     completion: async () => [],
     main: async (data) => {

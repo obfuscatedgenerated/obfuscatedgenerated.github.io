@@ -51,7 +51,7 @@ export interface ProgramGUIProps {
     // if true, the program will be launched in a new terminal window, rather than running silently in the background
     starts_in_terminal_window?: boolean,
 
-    // only applies if starts_in_terminal_window is true. the default behaviour is on_error TODO: unimplemented!
+    // only applies if starts_in_terminal_window is true. the default behaviour is on_error
     keep_terminal_open_after_run?: "never" | "on_error" | "always",
 }
 
