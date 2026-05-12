@@ -14,7 +14,8 @@ export default {
     compat: "2.0.0",
     hide_from_help: true,
     gui: {
-        display_name: "Terminal"
+        display_name: "Terminal",
+        icon: "/var/lib/icons/windowed_terminal.svg"
     },
     completion: async () => [],
     main: async (data) => {

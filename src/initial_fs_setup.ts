@@ -519,7 +519,30 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     }
 };
 
+const setup_program_icons = async (fs: AbstractFileSystem) => {
+    // create icons directory if it doesn't exist
+    const absolute_program_icons = fs.absolute("/var/lib/icons");
+    if (!(await fs.dir_exists(absolute_program_icons))) {
+        await fs.make_dir(absolute_program_icons);
+    }
+
+    // download prog_icon/windowed_terminal.svg
+    if (!(await fs.exists(fs.join(absolute_program_icons, "windowed_terminal.svg")))) {
+        try {
+            const content = await fetch_file_with_ttl("/public/windowed_terminal.svg", false);
+            if (content) {
+                await fs.write_file(fs.join(absolute_program_icons, "windowed_terminal.svg"), content, true);
+            }
+        } catch (e) {
+            console.error("Failed to fetch icon for windowed_terminal:");
+            console.error(e);
+        }
+    }
+}
+
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
+    // TODO: parallelise these if they are independent (check first)
+
     await setup_boot(fs);
     await setup_motd(fs);
     await migrate_rc_profile(fs);
@@ -528,4 +551,6 @@ export const initial_fs_setup = async (fs: AbstractFileSystem) => {
 
     const latest_rev = await setup_data_repo(fs);
     await setup_projects(fs, latest_rev);
+
+    await setup_program_icons(fs);
 };
