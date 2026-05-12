@@ -15,7 +15,7 @@ export default {
     hide_from_help: true,
     gui: {
         display_name: "Terminal",
-        icon: "/var/lib/icons/windowed_terminal.svg"
+        icon_path: "/var/lib/icons/windowed_terminal.svg"
     },
     completion: async () => [],
     main: async (data) => {
