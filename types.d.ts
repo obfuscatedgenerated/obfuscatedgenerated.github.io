@@ -40,6 +40,7 @@ export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Pro
 export type PrivilegedProgramMain = ProgramMain<Kernel>;
 /**
  * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
+ * @group Program Types
  * @category Programs
  */
 export interface ProgramGUIProps {
