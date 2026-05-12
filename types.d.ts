@@ -68,6 +68,8 @@ export interface ProgramGUIProps {
 }
 /**
  * Any level of nested key:string pairs. Each key is a section title, until the innermost object, in which they are pairs of argument name and description.
+ * @group Program Types
+ * @category Programs
  */
 export type ArgDescriptions = {
     [key: string]: string | ArgDescriptions;
@@ -134,5 +136,7 @@ export interface CompletionData {
 }
 /**
  * Returns a list of possible completions (or as a generator). Return null to fall back to default completion behaviour (file paths).
+ * @group Program Types
+ * @category Programs
  */
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
