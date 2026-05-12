@@ -61,6 +61,10 @@ export default {
             running = false;
         });
 
+        // invoke shell in home dir
+        // TODO: way to pass cwd override without having to change own directory
+        process.cwd = "~";
+
         // execute shell in a respawn loop
         while (running) {
             const shell_proc = kernel.spawn(default_shell, default_shell_args);
