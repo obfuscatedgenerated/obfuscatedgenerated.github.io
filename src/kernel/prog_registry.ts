@@ -8,8 +8,8 @@ import type {AbstractFileSystem} from "./filesystem";
 import {ANSI, AbstractTerminal} from "./term_ctl";
 
 const encode_js_to_url = (js_code: string): string => {
-    const encoded = encodeURIComponent(js_code);
-    return `data:text/javascript;charset=utf-8,${encoded}`;
+    const blob = new Blob([js_code], { type: "application/javascript" });
+    return URL.createObjectURL(blob);
 }
 
 export interface ProgramRegistrant {
@@ -32,6 +32,8 @@ export const build_registrant_from_js = async (js_code: string, built_in = false
     // note: risk to user, show warning
     // TODO: explore sandboxing via webworkers or other methods
     const imp = await import(/* webpackIgnore: true */data_url);
+    // TODO: this revokation makes debugging from devtools kinda annoying. may be best to wait til unregister somehow if possible (bind url to reg)
+    URL.revokeObjectURL(data_url);
     let program = imp.default;
 
     if (program === undefined) {
