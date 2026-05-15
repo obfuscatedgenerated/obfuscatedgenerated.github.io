@@ -103,6 +103,29 @@ export class DOMWindowManager extends AbstractWindowManager {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const manager = this;
 
+        // track click events to keep track of active element (inc top bar)
+        let active_window_root: HTMLDivElement | null = null;
+        document.addEventListener("mousedown", (event) => {
+            const target = event.target as HTMLElement;
+
+            const window_root = target.closest(".window") as HTMLDivElement;
+            if (window_root) {
+                if (active_window_root && active_window_root === window_root) {
+                    return;
+                } else if (active_window_root) {
+                    active_window_root.classList.remove("active");
+                }
+
+                window_root.classList.add("active");
+                active_window_root = window_root;
+            } else {
+                if (active_window_root) {
+                    active_window_root.classList.remove("active");
+                    active_window_root = null;
+                }
+            }
+        });
+
         class DOMWindow extends AbstractWindow {
             // TODO: appear in an algorithmic location isntead of making all the apps hardcode coords
 
@@ -213,6 +236,8 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 this._window_root.appendChild(this._content_host);
 
+                this._window_root.dataset.layer = this.layer;
+
                 // TODO: resize handles
                 // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
 
@@ -240,8 +265,21 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
 
             focus() {
-                this._emit_event("focus");
+                if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                }
+
+                this._window_root.focus();
                 this._window_root.style.zIndex = manager.#get_next_z(this.layer).toString();
+
+                if (active_window_root && active_window_root !== this._window_root) {
+                    active_window_root.classList.remove("active");
+                }
+
+                this._window_root.classList.add("active");
+                active_window_root = this._window_root;
+
+                this._emit_event("focus");
             }
 
             request_layer(new_layer: WindowCompositionLayer) {
@@ -257,6 +295,8 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 this.#layer = new_layer;
                 this._window_root.style.zIndex = manager.#get_next_z(new_layer).toString();
+
+                this._window_root.dataset.layer = new_layer;
             }
 
             force_z_index(new_z: number) {
@@ -291,14 +331,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 start_event.preventDefault();
 
-                // force the current focussed element to blur
-                if (document.activeElement instanceof HTMLElement) {
-                    document.activeElement.blur();
-                }
-
-                // focus this window next frame
-                // TODO: remember what was focussed and restore that focus next time the window is focussed
-                requestAnimationFrame(() => this.focus());
+                this.focus();
 
                 const rect = this._window_root.getBoundingClientRect();
                 let offset_x = start_event.clientX - rect.left;
@@ -467,6 +500,8 @@ export class DOMWindowManager extends AbstractWindowManager {
                     this._window_root.classList.remove("animating-in");
                 }, 200);
 
+                this.focus();
+
                 this._emit_event("show");
             }
 
@@ -483,12 +518,10 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
 
             toggle() {
-                this._window_root.classList.toggle("visible");
-
                 if (this.visible) {
-                    this._emit_event("show");
+                    this.hide();
                 } else {
-                    this._emit_event("hide");
+                    this.show();
                 }
             }
 
@@ -528,6 +561,13 @@ export class DOMWindowManager extends AbstractWindowManager {
                             this._window_top_bar.classList.add("hidden");
                         } else {
                             this._window_top_bar.classList.remove("hidden");
+                        }
+                        break;
+                    case "no-inactive-fade":
+                        if (value) {
+                            this._window_root.classList.add("no-inactive-fade");
+                        } else {
+                            this._window_root.classList.remove("no-inactive-fade");
                         }
                         break;
                 }
