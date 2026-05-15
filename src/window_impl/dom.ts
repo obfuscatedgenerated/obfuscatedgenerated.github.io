@@ -104,6 +104,8 @@ export class DOMWindowManager extends AbstractWindowManager {
         const manager = this;
 
         class DOMWindow extends AbstractWindow {
+            // TODO: appear in an algorithmic location isntead of making all the apps hardcode coords
+
             private readonly _manager = manager;
 
             private readonly _window_id: number;
@@ -205,6 +207,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 // hosts the shadow dom where programs can add their content
                 this._content_host = document.createElement("div");
                 this._content_host.classList.add("window-content-host");
+                this._content_host.setAttribute("tabindex", "-1");
 
                 this._shadow_dom = this._content_host.attachShadow({ mode: "closed" });
 
@@ -287,6 +290,15 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._content_host.classList.add("dragging");
 
                 start_event.preventDefault();
+
+                // force the current focussed element to blur
+                if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                }
+
+                // focus this window next frame
+                // TODO: remember what was focussed and restore that focus next time the window is focussed
+                requestAnimationFrame(() => this.focus());
 
                 const rect = this._window_root.getBoundingClientRect();
                 let offset_x = start_event.clientX - rect.left;
