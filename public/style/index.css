@@ -146,6 +146,10 @@ body {
     animation: window-close 0.2s ease-in-out forwards;
 }
 
+.window[data-layer="normal"]:not(.active):not(.no-inactive-fade), .window[data-layer="top"]:not(.active):not(.no-inactive-fade) {
+    opacity: 0.95;
+}
+
 .window-top-bar {
     width: 100%;
     height: 2rem;
