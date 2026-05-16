@@ -377,6 +377,10 @@ export abstract class AbstractFileSystem {
     }
 
     absolute(path: string, cwd?: string): string {
+        if (!cwd) {
+            console.warn("Warning: no cwd passed to absolute");
+        }
+
         // absoluteify cwd if it doesnt begin with root, to prevent weird edge cases
         if (cwd && !cwd.startsWith(this._root)) {
             cwd = this.absolute(cwd);

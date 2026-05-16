@@ -180,9 +180,10 @@ const main = async () => {
         dirty = false;
     }
 
+    let cwd = "/";
 
     const render_item = async (dir: string, name: string) => {
-        const abs_path = fs.absolute(name);
+        const abs_path = fs.absolute(name, cwd);
 
         // if the absolute path is the same as the absolute path of the dir, skip
         if (abs_path === dir) {
@@ -237,8 +238,6 @@ const main = async () => {
         li.appendChild(text);
         file_tree.appendChild(li);
     };
-
-    let cwd = "/";
 
     render_directory = async (dir: string) => {
         // set the cwd
