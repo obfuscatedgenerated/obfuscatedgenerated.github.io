@@ -1,8 +1,8 @@
 html,
 body {
-    min-height: 100vh;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: clip;
     background: black;
 }
 
