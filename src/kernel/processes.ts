@@ -46,7 +46,7 @@ export interface UserspaceIPCManager {
     service_lookup(name: string): number | undefined;
     create_channel(service_name: string): number | null;
     destroy_channel(channel_id: number): void;
-    channel_listen(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_listen(channel_id: number, listener: IPCChannelListener, drain_queue?: boolean): boolean;
     channel_unlisten(channel_id: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, data: unknown): boolean;
 }
@@ -175,7 +175,7 @@ export class IPCManager {
         this.#channels.delete(channel_id);
     }
 
-    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
+    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener, drain_queue = true): boolean {
         const channel = this.#channels.get(channel_id);
         if (!channel) {
             return false;
@@ -190,6 +190,27 @@ export class IPCManager {
         }
 
         channel.listeners.get(listening_pid)!.add(listener);
+
+        if (drain_queue) {
+            // drain any queued messages for this listener
+            let queue: IPCMessage[];
+            if (channel.initiator === listening_pid) {
+                queue = channel.peer_to_initiator_queue;
+            } else {
+                queue = channel.initiator_to_peer_queue;
+            }
+
+            // dispatch asynchronously to avoid blocking
+            while (queue.length > 0) {
+                const msg = queue.shift()!;
+                queueMicrotask(() => {
+                    listener(msg).catch((err) => {
+                        console.error("IPC channel listener error:", err);
+                    });
+                });
+            }
+        }
+
         return true;
     }
 
@@ -236,16 +257,20 @@ export class IPCManager {
 
             channel.peer_to_initiator_queue.push(msg);
         } else {
+            console.warn(`Process ${from_pid} attempted to send IPC message on channel ${channel_id} but is not a participant`);
             return false;
         }
+        //console.log(`IPC message sent on channel ${channel_id} from PID ${from_pid} to PID ${msg.to}:`, data);
 
         // notify listeners on the receiving end without blocking
         const to_pid = msg.to;
         const listeners = channel.listeners.get(to_pid);
         if (listeners) {
             for (const listener of listeners) {
-                listener(msg).catch((err) => {
-                    console.error("IPC channel listener error:", err);
+                queueMicrotask(() => {
+                    listener(msg).catch((err) => {
+                        console.error("IPC channel listener error:", err);
+                    });
                 });
             }
         }
@@ -274,8 +299,8 @@ export class IPCManager {
             destroy_channel: { value: (channel_id: number) => {
                 self.destroy_channel(channel_id);
             }, enumerable: true },
-            channel_listen: { value: (channel_id: number, listener: IPCChannelListener) => {
-                return self.channel_listen(channel_id, process_pid, listener);
+            channel_listen: { value: (channel_id: number, listener: IPCChannelListener, drain_queue = true) => {
+                return self.channel_listen(channel_id, process_pid, listener, drain_queue);
             }, enumerable: true },
             channel_unlisten: { value: (channel_id: number, listener: IPCChannelListener) => {
                 return self.channel_unlisten(channel_id, process_pid, listener);

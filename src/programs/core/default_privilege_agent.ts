@@ -31,63 +31,77 @@ export default {
             return 1;
         }
 
-        // wait briefly to ensure the channel is assigned to us
-        // TODO: a way to fix the race condition without making the kernel expose ipc, could at least use a retry mechanism
-        await new Promise((resolve) => setTimeout(resolve, 250));
-
         // listen to the channel
         const ipc = kernel.get_ipc();
 
         let finished = false;
         let handling_request = false;
 
-        ipc.channel_listen(channel_id, async (msg) => {
-            if (handling_request) {
-                // already handling a request, ignore new ones
-                return;
-            }
+        let listening = false;
+        let retries = 0;
 
-            handling_request = true;
+        // retry until we can listen to the channel (may be some delay between process start and channel assignment)
+        while (!listening && retries < 20) {
+            listening = ipc.channel_listen(channel_id, async (msg) => {
+                if (handling_request) {
+                    // already handling a request, ignore new ones
+                    return;
+                }
 
-            const { process, reason } = msg.data as PrivilegeRequestMessage;
+                handling_request = true;
 
-            // immediately acknowledge the request is being handled
-            ipc.channel_send(channel_id, {
-                process,
-                handling: true
+                const {process, reason} = msg.data as PrivilegeRequestMessage;
+
+                // immediately acknowledge the request is being handled
+                ipc.channel_send(channel_id, {
+                    process,
+                    handling: true
+                });
+
+                term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
+
+                term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);
+                term.writeln(`The process gave the following reason for the request:${NEWLINE}`);
+
+                term.writeln(`${ANSI.STYLE.bold}${ANSI.FG.yellow}"${reason}"${ANSI.FG.reset}${ANSI.STYLE.no_bold_or_dim}${NEWLINE}`);
+
+                term.writeln("Granting this request will allow the process full access to the kernel, which may compromise system security and stability.");
+                term.writeln("It may also be able to temporarily share this access with other running processes.");
+
+                term.writeln(`${NEWLINE}Do you wish to grant elevated privileges to PID ${process.pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
+
+                const event = await term.wait_for_keypress();
+                term.write(ANSI.CURSOR.visible);
+
+                if (event.key.toLowerCase() === "y") {
+                    term.writeln(`${NEWLINE}${ANSI.BG.green}${ANSI.FG.white}Privilege request granted.${ANSI.STYLE.reset_all}${NEWLINE}`);
+                    ipc.channel_send(channel_id, {
+                        process,
+                        granted: true
+                    });
+                } else {
+                    term.writeln(`${NEWLINE}${ANSI.BG.red}${ANSI.FG.white}Privilege request denied.${ANSI.STYLE.reset_all}${NEWLINE}`);
+                    ipc.channel_send(channel_id, {
+                        process,
+                        granted: false
+                    });
+                }
+
+                // the kernel should kill the agent when ready, rather than exiting possibly early (race condition)
+                //finished = true;
             });
 
-            term.writeln(`${NEWLINE}${ANSI.STYLE.bold}${ANSI.BG.blue}${ANSI.FG.white}KERNEL PRIVILEGE REQUEST${ANSI.STYLE.reset_all}${ANSI.BG.gray}${NEWLINE}`);
-
-            term.writeln(`Process PID ${process.pid} (${process.source_command.command}) is requesting elevated kernel privileges.`);
-            term.writeln(`The process gave the following reason for the request:${NEWLINE}`);
-
-            term.writeln(`${ANSI.STYLE.bold}${ANSI.FG.yellow}"${reason}"${ANSI.FG.reset}${ANSI.STYLE.no_bold_or_dim}${NEWLINE}`);
-
-            term.writeln("Granting this request will allow the process full access to the kernel, which may compromise system security and stability.");
-            term.writeln("It may also be able to temporarily share this access with other running processes.");
-
-            term.writeln(`${NEWLINE}Do you wish to grant elevated privileges to PID ${process.pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
-
-            const event = await term.wait_for_keypress();
-            term.write(ANSI.CURSOR.visible);
-
-            if (event.key.toLowerCase() === "y") {
-                term.writeln(`${NEWLINE}${ANSI.BG.green}${ANSI.FG.white}Privilege request granted.${ANSI.STYLE.reset_all}${NEWLINE}`);
-                ipc.channel_send(channel_id, {
-                    process,
-                    granted: true
-                });
-            } else {
-                term.writeln(`${NEWLINE}${ANSI.BG.red}${ANSI.FG.white}Privilege request denied.${ANSI.STYLE.reset_all}${NEWLINE}`);
-                ipc.channel_send(channel_id, {
-                    process,
-                    granted: false
-                });
+            if (!listening) {
+                // wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 50));
+                retries++;
             }
+        }
 
-            finished = true;
-        });
+        if (!listening) {
+            term.writeln("Error in privilege agent: Failed to listen to channel after multiple attempts.");
+            return 1;
+        }
 
         my_process.add_exit_listener(() => {
             finished = true;
