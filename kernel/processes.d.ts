@@ -17,7 +17,7 @@ export interface UserspaceIPCManager {
     service_lookup(name: string): number | undefined;
     create_channel(service_name: string): number | null;
     destroy_channel(channel_id: number): void;
-    channel_listen(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_listen(channel_id: number, listener: IPCChannelListener, drain_queue?: boolean): boolean;
     channel_unlisten(channel_id: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, data: unknown): boolean;
 }
@@ -33,7 +33,7 @@ export declare class IPCManager {
     reserve_kernel_channel(): number;
     assign_kernel_channel(channel_id: number, peer_pid: number): boolean;
     destroy_channel(channel_id: number): void;
-    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
+    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener, drain_queue?: boolean): boolean;
     channel_unlisten(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, from_pid: number, data: unknown): boolean;
     create_userspace_proxy(process_pid: number): UserspaceIPCManager;
