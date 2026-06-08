@@ -102,6 +102,9 @@ export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffe
 
 // TODO: add trust flag and privilege agent preference not visible to userspace. a trusted terminal is allowed to have the privilege agent spawned in it
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractTerminal} passed via program main data.
+ */
 export abstract class AbstractTerminal {
     readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     readonly #on_printable_handlers: KeyEventHandler[] = [];

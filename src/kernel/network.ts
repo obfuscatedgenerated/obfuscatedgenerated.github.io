@@ -26,6 +26,8 @@ export type NetworkManagerEventListener = NetworkStateChangeListener;
 /**
  * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
  *
+ * To use in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.SocketReadyState} passed via program main data.
+ *
  * @group Userspace
  * @category Networking
  */
@@ -38,6 +40,8 @@ export enum SocketReadyState {
 
 /**
  * Error thrown when trying to listen on a port that is already in use.
+ *
+ * To emit in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.PortInUseError} passed via program main data.
  *
  * @group Userspace
  * @category Networking
@@ -63,6 +67,9 @@ export interface UserspaceClientSocket {
     close(): Promise<void>;
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractClientSocket} passed via program main data.
+ */
 export abstract class AbstractClientSocket {
     readonly id: string;
     ready_state: SocketReadyState = SocketReadyState.CONNECTING;
@@ -170,6 +177,9 @@ export interface UserspaceServerSocket {
     close(): Promise<void>;
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractServerSocket} passed via program main data.
+ */
 export abstract class AbstractServerSocket {
     readonly port: number;
 
@@ -292,6 +302,9 @@ export interface UserspaceNetworkManager {
     // TODO: worth documneting and linking
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractNetworkManager} passed via program main data.
+ */
 export abstract class AbstractNetworkManager {
     protected _port_map: Map<number, AbstractServerSocket> = new Map();
 

@@ -52,6 +52,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
     set_custom_flag(flag: string, value: boolean): void;
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindow} passed via program main data.
+ */
 export abstract class AbstractWindow {
     abstract readonly id: number;
 
@@ -227,6 +230,9 @@ export interface UserspaceWindowManager {
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindowManager} passed via program main data.
+ */
 export abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;
 
