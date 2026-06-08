@@ -16,6 +16,8 @@ export type NetworkManagerEventListener = NetworkStateChangeListener;
 /**
  * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
  *
+ * To use in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.SocketReadyState} passed via program main data.
+ *
  * @group Userspace
  * @category Networking
  */
@@ -27,6 +29,8 @@ export declare enum SocketReadyState {
 }
 /**
  * Error thrown when trying to listen on a port that is already in use.
+ *
+ * To emit in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.PortInUseError} passed via program main data.
  *
  * @group Userspace
  * @category Networking
@@ -44,6 +48,9 @@ export interface UserspaceClientSocket {
     send(data: Uint8Array | string): Promise<void>;
     close(): Promise<void>;
 }
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractClientSocket} passed via program main data.
+ */
 export declare abstract class AbstractClientSocket {
     #private;
     readonly id: string;
@@ -66,6 +73,9 @@ export interface UserspaceServerSocket {
     remove_event_listener(event: "close", callback: SocketCloseListener): void;
     close(): Promise<void>;
 }
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractServerSocket} passed via program main data.
+ */
 export declare abstract class AbstractServerSocket {
     #private;
     readonly port: number;
@@ -82,6 +92,9 @@ export interface UserspaceNetworkManager {
     get_unique_manager_type_name(): string;
     is_up(try_waiting?: boolean): Promise<boolean>;
 }
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractNetworkManager} passed via program main data.
+ */
 export declare abstract class AbstractNetworkManager {
     protected _port_map: Map<number, AbstractServerSocket>;
     get bound_ports(): number[];

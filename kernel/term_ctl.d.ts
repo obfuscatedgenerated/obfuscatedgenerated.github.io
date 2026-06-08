@@ -75,6 +75,9 @@ export interface ReadLineBuffer {
     set_current_index: (new_index: number) => void;
 }
 export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractTerminal} passed via program main data.
+ */
 export declare abstract class AbstractTerminal {
     #private;
     protected _kernel_has_panicked: boolean;
