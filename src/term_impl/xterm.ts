@@ -1,9 +1,15 @@
 import {AbstractTerminal, KeyEvent} from "../kernel/term_ctl";
 import {IDisposable, ITerminalAddon, ITerminalOptions, Terminal} from "@xterm/xterm";
 
+import xterm_css from "@xterm/xterm/css/xterm.css?raw";
+
 export class XTermTerminal extends AbstractTerminal {
     #xterm: Terminal;
     #disposable_onkey: IDisposable;
+
+    get css(): string {
+        return xterm_css;
+    }
 
     write(data: string | Uint8Array, callback?: () => void) {
         this.#xterm.write(data, callback);

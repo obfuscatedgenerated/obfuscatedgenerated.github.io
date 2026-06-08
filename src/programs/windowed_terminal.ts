@@ -1,7 +1,6 @@
 import type { Program } from "../types";
 import {XTermTerminal} from "../term_impl/xterm";
 
-import xterm_css from "@xterm/xterm/css/xterm.css?raw";
 import {Kernel} from "../kernel";
 
 export default {
@@ -58,11 +57,6 @@ export default {
         terminal_root.style.background = "black";
         wind.dom.appendChild(terminal_root);
 
-        // add xterm stylesheet
-        const xterm_style = document.createElement("style");
-        xterm_style.textContent = xterm_css;
-        wind.dom.appendChild(xterm_style);
-
         // add custom stylesheet
         const style = document.createElement("style");
         style.textContent = `
@@ -73,6 +67,12 @@ export default {
         wind.dom.appendChild(style);
 
         const subterm = new XTermTerminal();
+
+        // add xterm stylesheet
+        const xterm_style = document.createElement("style");
+        xterm_style.textContent = subterm.css;
+        wind.dom.appendChild(xterm_style);
+
         subterm.open(terminal_root);
 
         // TODO: update title to reflect live command rather than just initial (maybe some custom shell hooking?)
