@@ -1,0 +1,31 @@
+import { AbstractTerminal, KeyEvent } from "../kernel/term_ctl";
+import { ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
+export declare class XTermTerminal extends AbstractTerminal {
+    #private;
+    write(data: string | Uint8Array, callback?: () => void): void;
+    writeln(data: string | Uint8Array, callback?: () => void): void;
+    reset(): void;
+    clear(): void;
+    get_selection(): string;
+    clear_selection(): void;
+    has_selection(): boolean;
+    get cols(): number;
+    get rows(): number;
+    get cursor_x(): number;
+    get cursor_y(): number;
+    get_custom_flag(flag: string): any;
+    set_custom_flag(flag: string, value: any): void;
+    supports_custom_flag(flag: string): boolean;
+    get input_enabled(): boolean;
+    set input_enabled(enabled: boolean);
+    pause_input_processing(): void;
+    resume_input_processing(): void;
+    protected _read_raw_key(): Promise<KeyEvent>;
+    copy(): void;
+    paste(): void;
+    loadAddon(addon: ITerminalAddon): void;
+    open(parent: HTMLElement): void;
+    focus(): void;
+    dispose(): void;
+    constructor(xterm_opts?: ITerminalOptions);
+}

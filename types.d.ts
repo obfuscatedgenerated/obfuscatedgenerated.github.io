@@ -2,6 +2,7 @@ import type { Kernel, UserspaceKernel } from "./kernel";
 import type { AbstractTerminal } from "./kernel/term_ctl";
 import type { ProcessContext, UserspaceProcessContext } from "./kernel/processes";
 import type { AbstractShell } from "./abstract_shell";
+import type { sdk } from "./kernel/program_sdk";
 export interface ProgramMainData<K = UserspaceKernel> {
     /**
       Methods to interact with the kernel.<br />
@@ -34,6 +35,10 @@ export interface ProgramMainData<K = UserspaceKernel> {
      * Raw command parts, including program name and unparsed args.
      */
     raw_parts: string[];
+    /**
+     * Abstract classes to extend to provide customised implementations. Note that the types associated with them are already available via the npm package, but these are required to actually extend classes at runtime.
+     */
+    sdk: typeof sdk;
 }
 export type PrivilegedProgramMainData = ProgramMainData<Kernel>;
 export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
