@@ -19,6 +19,7 @@ import {NEWLINE, type AbstractTerminal} from "./term_ctl";
 
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
+import {sdk} from "./program_sdk";
 
 const CURRENT_API_COMPAT = "2.0.0";
 
@@ -352,6 +353,7 @@ export class Kernel {
         data.shell = shell;
         data.unsubbed_args = parsed_line.unsubbed_args;
         data.raw_parts = parsed_line.raw_parts;
+        data.sdk = sdk;
 
         Object.freeze(data);
 
