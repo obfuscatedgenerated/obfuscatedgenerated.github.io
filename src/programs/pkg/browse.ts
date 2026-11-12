@@ -63,14 +63,14 @@ const view_pkg_info = async (pkg_name: string, term: AbstractTerminal, kernel: U
 
     const key = await term.wait_for_keypress();
 
-    if (key.domEvent.key === "i") {
+    if (key.key.toLowerCase() === "i") {
         // double check installation
         term.write(NEWLINE);
         term.write(`${STYLE.bold}Are you sure you want to install '${pkg_name}'? (y/N)${STYLE.no_bold_or_dim}`);
 
         const confirm_key = await term.wait_for_keypress();
 
-        if (confirm_key.domEvent.key.toLowerCase() === "y") {
+        if (confirm_key.key.toLowerCase() === "y") {
             term.write(" yes");
             term.write(NEWLINE);
 
