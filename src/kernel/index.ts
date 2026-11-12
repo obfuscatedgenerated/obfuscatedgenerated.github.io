@@ -4,6 +4,7 @@ import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
 import {AbstractNetworkManager, UserspaceNetworkManager} from "./network";
+import {AbstractPlatformAPI, UserspacePlatformAPI} from "./platform";
 import {
     IPCManager,
     KERNEL_FAKE_PID,
@@ -86,6 +87,16 @@ export interface UserspaceKernel {
     has_network_manager(): boolean;
 
     /**
+     * Access the {@link UserspacePlatformAPI} for this kernel, if any.
+     */
+    get_platform(): UserspacePlatformAPI | null;
+
+    /**
+     * Determine if a platform API is present.
+     */
+    has_platform(): boolean;
+
+    /**
      * Access the {@link UserspaceProcessManager} for this kernel.
      */
     get_process_manager(): UserspaceProcessManager;
@@ -158,6 +169,7 @@ export class Kernel {
     readonly #fs: AbstractFileSystem;
     readonly #wm: AbstractWindowManager | null = null;
     readonly #net_manager: AbstractNetworkManager | null = null;
+    readonly #platform: AbstractPlatformAPI | null = null;
 
     #panicked = false;
     #after_panic: (message: string, debug_info?: string) => void | null = null;
@@ -230,6 +242,20 @@ export class Kernel {
      */
     has_network_manager(): boolean {
         return this.#net_manager !== null;
+    }
+
+    /**
+     * Access the chosen {@link AbstractPlatformAPI} implementation for this kernel, if any.
+     */
+    get_platform(): AbstractPlatformAPI | null {
+        return this.#platform;
+    }
+
+    /**
+     * Determine if a platform API is present.
+     */
+    has_platform(): boolean {
+        return this.#platform !== null;
     }
 
     /**
@@ -666,7 +692,7 @@ export class Kernel {
         }
     }
 
-    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager) {
+    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI) {
         this.#term = term;
         this.#fs = fs;
         this.#prog_registry = prog_registry || new ProgramRegistry();
@@ -674,6 +700,7 @@ export class Kernel {
         this.#wm = wm || null;
         this.#net_manager = net_manager || null;
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
+        this.#platform = platform || null;
     }
 
     /**
@@ -713,6 +740,14 @@ export class Kernel {
                 enumerable: true
             },
             has_network_manager: { value: () => self.has_network_manager(), enumerable: true },
+            get_platform: {
+                value: () => {
+                    const platform = self.get_platform();
+                    return platform ? platform.create_userspace_proxy() : null;
+                },
+                enumerable: true
+            },
+            has_platform: { value: () => self.has_platform(), enumerable: true },
             get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },

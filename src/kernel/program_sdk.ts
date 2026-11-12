@@ -9,6 +9,7 @@ import {
 } from "./network";
 import {AbstractTerminal} from "./term_ctl";
 import {AbstractWindow, AbstractWindowManager} from "./windowing";
+import {AbstractPlatformAPI} from "./platform";
 import {XTermTerminal} from "../term_impl/xterm";
 //import {DOMWindowManager} from "../window_impl/dom";
 
@@ -23,7 +24,7 @@ export const sdk = Object.freeze({
     AbstractTerminal,
     AbstractWindow,
     AbstractWindowManager,
+    AbstractPlatformAPI,
     XTermTerminal,
     //DOMWindowManager
 });
-
