@@ -201,27 +201,118 @@ export class PorterBridgeServerSocket extends AbstractServerSocket {
     }
 }
 
+// chrome's local network access permission for 127.0.0.1 / localhost / [::1]
+// (don't query the legacy "local-network-access" name, it can crash older chrome renderers)
+const LOOPBACK_PERMISSION_NAME = "loopback-network" as PermissionName;
+
+// set after the first successful connection, so browsers without the permission api still auto-connect once opted in
+const AUTOCONNECT_STORAGE_KEY = "porter_autoconnect";
+
+const PORTER_URL = "ws://127.0.0.1:9000";
+const CONNECT_TIMEOUT_MS = 5000;
+// leave time to answer the permission prompt before giving up
+const PROMPT_CONNECT_TIMEOUT_MS = 60000;
+const MAX_RECONNECT_DELAY_MS = 3000;
+
+type LoopbackPermissionState = PermissionState | "unsupported";
+
+const read_autoconnect_flag = (): boolean => {
+    try {
+        return localStorage.getItem(AUTOCONNECT_STORAGE_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+const write_autoconnect_flag = (): void => {
+    try {
+        localStorage.setItem(AUTOCONNECT_STORAGE_KEY, "true");
+    } catch {
+        // storage unavailable, just won't auto-connect next load
+    }
+}
+
 export class PorterBridgeNetworkManager extends AbstractNetworkManager {
     // sock_id -> client
     readonly #client_map = new Map<string, PorterBridgeClientSocket>();
 
+    #ws: WebSocket | null = null;
+    #reconnect_attempts = 0;
+    #reconnect_timer: ReturnType<typeof setTimeout> | null = null;
+    #permission_state: LoopbackPermissionState = "unsupported";
+    #has_connected_this_session = false;
+
     constructor() {
         super();
-        this.#connect_to_ws();
-    }
 
-    #ws: WebSocket;
-    #reconnect_attempts = 0;
+        // no connection is made here: connecting to loopback without permission shows the browser's
+        // local network prompt, which shouldn't appear just for loading the site
+        this.#connect_if_already_allowed();
+    }
 
     get ws(): WebSocket {
         return this.#ws;
     }
 
+    async #connect_if_already_allowed(): Promise<void> {
+        try {
+            const permission_status = await navigator.permissions.query({ name: LOOPBACK_PERMISSION_NAME });
+            this.#permission_state = permission_status.state;
+
+            permission_status.addEventListener("change", () => {
+                this.#permission_state = permission_status.state;
+
+                if (permission_status.state === "granted") {
+                    this.#ensure_connecting();
+                } else if (permission_status.state === "denied") {
+                    this.#cancel_reconnect();
+                }
+            });
+        } catch {
+            // no local network access permission in this browser (or it doesn't know the name)
+            this.#permission_state = "unsupported";
+        }
+
+        // querying is silent, so this is the proof of life check that never prompts
+        const already_granted = this.#permission_state === "granted";
+        const opted_in_without_permission_api = this.#permission_state === "unsupported" && read_autoconnect_flag();
+
+        if (already_granted || opted_in_without_permission_api) {
+            this.#ensure_connecting();
+        }
+    }
+
+    // retrying is only silent once access is granted, otherwise each attempt could re-prompt
+    #should_auto_retry(): boolean {
+        if (this.#permission_state === "denied") {
+            return false;
+        }
+
+        return this.#permission_state === "granted" || this.#has_connected_this_session;
+    }
+
+    #cancel_reconnect(): void {
+        if (this.#reconnect_timer) {
+            clearTimeout(this.#reconnect_timer);
+            this.#reconnect_timer = null;
+        }
+    }
+
+    #ensure_connecting(): void {
+        if (this.#ws && (this.#ws.readyState === WebSocket.OPEN || this.#ws.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+
+        this.#cancel_reconnect();
+        this.#connect_to_ws();
+    }
+
     async is_up(try_waiting = false): Promise<boolean> {
-        if (this.#ws.readyState === WebSocket.OPEN) {
+        if (this.#ws && this.#ws.readyState === WebSocket.OPEN) {
             return true;
         }
 
+        // waiting means a program explicitly wants the network, so this is allowed to connect (and prompt)
         if (try_waiting) {
             try {
                 await this.wait_for_ws_ready();
@@ -230,57 +321,67 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                 return false;
             }
         }
+
+        return false;
     }
 
+    // connects on demand. called from explicit actions (listen, connect, is_up(true)), which is when the
+    // permission prompt makes sense to the user
     wait_for_ws_ready = async (): Promise<void> => {
-        if (this.#ws.readyState === WebSocket.OPEN) {
+        if (this.#permission_state === "denied") {
+            throw new Error("Local network access is blocked for this site. Allow it in the site settings to use porter.");
+        }
+
+        this.#ensure_connecting();
+        const ws = this.#ws;
+
+        if (ws.readyState === WebSocket.OPEN) {
             return;
         }
 
-        if (this.#ws.readyState === WebSocket.CLOSED || this.#ws.readyState === WebSocket.CLOSING) {
-            throw new Error("WebSocket is closed");
-        }
+        const timeout_ms = this.#permission_state === "prompt" ? PROMPT_CONNECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS;
 
         await new Promise<void>((resolve, reject) => {
-            let timeout_id: NodeJS.Timeout | null = null;
+            let timeout_id: ReturnType<typeof setTimeout> | null = null;
+
+            const cleanup = () => {
+                if (timeout_id) {
+                    clearTimeout(timeout_id);
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                ws.removeEventListener("open", on_open);
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                ws.removeEventListener("close", on_close);
+            };
 
             const on_open = () => {
-                if (timeout_id) {
-                    clearTimeout(timeout_id);
-                }
-
-                this.#ws.removeEventListener("open", on_open);
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                this.#ws.removeEventListener("error", on_error);
+                cleanup();
                 resolve();
             };
-            const on_error = (err: Event) => {
-                if (timeout_id) {
-                    clearTimeout(timeout_id);
-                }
 
-                this.#ws.removeEventListener("open", on_open);
-                this.#ws.removeEventListener("error", on_error);
-                reject(new Error(`WebSocket error: ${err}`));
+            const on_close = () => {
+                cleanup();
+                reject(new Error("Could not connect to porter. Is it running?"));
             };
 
-            this.#ws.addEventListener("open", on_open);
-            this.#ws.addEventListener("error", on_error);
+            ws.addEventListener("open", on_open);
+            ws.addEventListener("close", on_close);
 
-            // timeout after 5 seconds
             timeout_id = setTimeout(() => {
-                this.#ws.removeEventListener("open", on_open);
-                this.#ws.removeEventListener("error", on_error);
-                reject(new Error("WebSocket connection timed out"));
-            }, 5000);
+                cleanup();
+                reject(new Error("Connection to porter timed out"));
+            }, timeout_ms);
         });
     }
 
     #connect_to_ws() {
-        // open websocket connection on port 9000, handling all routing (rather than making a separate listener/connection for each socket)
-        this.#ws = new WebSocket("ws://127.0.0.1:9000");
+        // one websocket handles all routing (rather than making a separate listener/connection for each socket)
+        const ws = new WebSocket(PORTER_URL);
+        this.#ws = ws;
+        let was_open = false;
 
-        this.#ws.addEventListener("message", (event) => {
+        ws.addEventListener("message", (event) => {
             const data = JSON.parse(event.data) as InboundMessage;
 
             switch (data.type) {
@@ -327,19 +428,12 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
             }
         });
 
-        this.#ws.addEventListener("open", () => {
-            console.log("WebSocket connection established");
+        ws.addEventListener("open", () => {
+            console.log("Porter connection established");
+            was_open = true;
             this.#reconnect_attempts = 0;
-
-            // disabled as may be unexpected given we inform programs of network state change
-            // // try to rebind all ports on reconnect
-            // for (const port of this.#port_map.keys()) {
-            //     const msg: BindMessage = {
-            //         type: "bind_req",
-            //         port,
-            //     };
-            //     this.#ws.send(JSON.stringify(msg));
-            // }
+            this.#has_connected_this_session = true;
+            write_autoconnect_flag();
 
             // inform event listeners of state change
             this._state_change_listeners.forEach(listener => {
@@ -351,37 +445,53 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
             });
         });
 
-        this.#ws.addEventListener("close", async () => {
-            console.warn("WebSocket connection closed, attempting to reconnect...");
+        ws.addEventListener("close", async () => {
+            // a stale socket closing after being replaced shouldn't tear down the new one's state
+            if (this.#ws !== ws) {
+                return;
+            }
 
-            // inform event listeners of state change
-            this._state_change_listeners.forEach(listener => {
-                try {
-                    listener(false);
-                } catch (err) {
-                    console.error("Error in state change listener:", err);
-                }
-            });
+            if (was_open) {
+                console.warn("Porter connection closed");
 
-            // passively close all clients and clear maps
-            const client_close_promises = Array.from(this.#client_map.values()).map(client => client.close(true));
-            await Promise.allSettled(client_close_promises);
-            this.#client_map.clear();
+                // inform event listeners of state change
+                this._state_change_listeners.forEach(listener => {
+                    try {
+                        listener(false);
+                    } catch (err) {
+                        console.error("Error in state change listener:", err);
+                    }
+                });
 
-            // close all servers and clear map
-            const server_close_promises = Array.from(this._port_map.values()).map(server => server.close());
-            await Promise.allSettled(server_close_promises);
-            this._port_map.clear();
+                // passively close all clients and clear maps
+                const client_close_promises = Array.from(this.#client_map.values()).map(client => client.close(true));
+                await Promise.allSettled(client_close_promises);
+                this.#client_map.clear();
+
+                // close all servers and clear map
+                const server_close_promises = Array.from(this._port_map.values()).map(server => server.close());
+                await Promise.allSettled(server_close_promises);
+                this._port_map.clear();
+            }
+
+            if (!this.#should_auto_retry()) {
+                // stay idle until something explicitly needs the network again
+                return;
+            }
 
             // attempt to reconnect with exponential backoff
-            setTimeout(() => {
-                this.#connect_to_ws();
-            }, Math.min(50 * 2 ** this.#reconnect_attempts, 3000));
+            this.#reconnect_timer = setTimeout(() => {
+                this.#reconnect_timer = null;
+                this.#ensure_connecting();
+            }, Math.min(50 * 2 ** this.#reconnect_attempts, MAX_RECONNECT_DELAY_MS));
             this.#reconnect_attempts++;
         });
 
-        this.#ws.addEventListener("error", (err) => {
-            console.error("WebSocket error:", err);
+        ws.addEventListener("error", (err) => {
+            // a failed connect also fires close, which handles retrying
+            if (was_open) {
+                console.error("Porter websocket error:", err);
+            }
         });
     }
 
