@@ -71,3 +71,9 @@ export {AbstractShell, AbstractShellMemory} from "../abstract_shell";
  * @category Networking
  */
 export {UserspaceNetworkManager, UserspaceClientSocket, UserspaceServerSocket, PortInUseError, SocketReadyState, SocketCloseListener, SocketDataListener, UserspaceSocketConnectionListener, NetworkStateChangeListener} from "../kernel/network";
+
+/**
+ * @group Userspace
+ * @category Platform
+ */
+export {UserspacePlatformAPI, PlatformCapability} from "../kernel/platform";

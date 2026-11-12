@@ -36,4 +36,11 @@ export { AbstractWindow, AbstractWindowManager, WindowCompositionLayer, Privileg
  */
 export { AbstractNetworkManager, AbstractServerSocket, AbstractClientSocket, ServerSocketEvent, ServerSocketEventListener, ClientSocketEvent, ClientSocketEventListener, SocketConnectionListener } from "../kernel/network";
 
+/**
+ * @group Kernel (Privileged)
+ * @category Platform
+ */
+export {AbstractPlatformAPI} from "../kernel/platform";
+
+
 // TODO: figure out why groups/categories dont always descend properly (manually defined groups on kernel etc) or just define it everywhere on each interface
