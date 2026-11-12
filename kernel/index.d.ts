@@ -3,6 +3,7 @@ import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
+import { AbstractPlatformAPI, UserspacePlatformAPI } from "./platform";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager } from "./processes";
 import type { AbstractShell } from "../abstract_shell";
 import { type AbstractTerminal } from "./term_ctl";
@@ -59,6 +60,14 @@ export interface UserspaceKernel {
      * Determine if a network manager is present.
      */
     has_network_manager(): boolean;
+    /**
+     * Access the {@link UserspacePlatformAPI} for this kernel, if any.
+     */
+    get_platform(): UserspacePlatformAPI | null;
+    /**
+     * Determine if a platform API is present.
+     */
+    has_platform(): boolean;
     /**
      * Access the {@link UserspaceProcessManager} for this kernel.
      */
@@ -154,6 +163,14 @@ export declare class Kernel {
      */
     has_network_manager(): boolean;
     /**
+     * Access the chosen {@link AbstractPlatformAPI} implementation for this kernel, if any.
+     */
+    get_platform(): AbstractPlatformAPI | null;
+    /**
+     * Determine if a platform API is present.
+     */
+    has_platform(): boolean;
+    /**
      * Access the {@link ProcessManager} for this kernel.
      */
     get_process_manager(): ProcessManager;
@@ -207,7 +224,7 @@ export declare class Kernel {
     request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false>;
     power_off(): void;
     reboot(): void;
-    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager);
+    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI);
     /**
      * Create a userspace proxy of this kernel for use in a userspace process.
      * @param process The process to create the proxy for.

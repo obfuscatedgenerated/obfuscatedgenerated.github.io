@@ -2,6 +2,7 @@ import { AbstractTerminal, KeyEvent } from "../kernel/term_ctl";
 import { ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
 export declare class XTermTerminal extends AbstractTerminal {
     #private;
+    get css(): string;
     write(data: string | Uint8Array, callback?: () => void): void;
     writeln(data: string | Uint8Array, callback?: () => void): void;
     reset(): void;
