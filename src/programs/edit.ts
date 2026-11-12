@@ -1,61 +1,404 @@
 import type { Program } from "../types";
 import { ANSI, NEWLINE, AbstractTerminal, NON_PRINTABLE_REGEX } from "../kernel/term_ctl";
 
-const HEADER = 2;
+const TAB_WIDTH = 4;
 
-// TODO: explore alternate mode buffer rather than clearing
+// rows used by the header (top), status line and footer (bottom)
+const TOP_RESERVED_ROWS = 1;
+const BOTTOM_RESERVED_ROWS = 2;
 
-const setup = (term: AbstractTerminal, content: string, path: string, readonly: boolean) => {
-    // extract from ANSI to make code less verbose
-    const { STYLE, BG, FG } = ANSI;
+// key sequences as sent by xterm (and most terminal clients, for telnet/ssh sessions)
+const KEYS = {
+    up: ["\x1b[A", "\x1bOA"],
+    down: ["\x1b[B", "\x1bOB"],
+    right: ["\x1b[C", "\x1bOC"],
+    left: ["\x1b[D", "\x1bOD"],
+    home: ["\x1b[H", "\x1bOH", "\x1b[1~", "\x1b[7~"],
+    end: ["\x1b[F", "\x1bOF", "\x1b[4~", "\x1b[8~"],
+    page_up: ["\x1b[5~"],
+    page_down: ["\x1b[6~"],
+    delete: ["\x1b[3~"],
+    f1: ["\x1bOP", "\x1b[11~"],
+    f2: ["\x1bOQ", "\x1b[12~"],
+    escape: ["\x1b"],
+    enter: ["\r", "\n", "\r\n"],
+    backspace: ["\x7f", "\b"],
+    tab: ["\t"],
+    ctrl_s: ["\x13"],
+};
 
-    // clear the screen
-    term.clear();
+// NON_PRINTABLE_REGEX has the global flag, so .test() is stateful (lastIndex) and gives inconsistent results.
+// use a non-global copy instead
+const NON_PRINTABLE = new RegExp(NON_PRINTABLE_REGEX.source);
 
-    // write the file name centered in the header, showing the read-only status if the file is read-only
-    const filename = path.split("/").pop() || "";
-    const header = readonly ? `Viewing read-only file: ${filename}` : `Editing file: ${filename}`;
-    const h_padding_l = " ".repeat(Math.ceil((term.cols - header.length) / 2));
-    const h_padding_r = " ".repeat(Math.floor((term.cols - header.length) / 2));
+const is_high_surrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+const is_low_surrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
 
-    term.write(BG.white + FG.black + STYLE.bold);
-    term.write(h_padding_l);
-    term.write(header);
-    term.write(h_padding_r);
-    term.write(STYLE.reset_all)
+// step over surrogate pairs so emoji etc. aren't split in half
+const previous_index = (line: string, index: number) => {
+    if (index <= 0) {
+        return 0;
+    }
 
-    // go to the bottom of the screen with ansi
-    term.write(`\x1b[${term.rows - 1};0H`);
+    if (index >= 2 && is_low_surrogate(line.charCodeAt(index - 1)) && is_high_surrogate(line.charCodeAt(index - 2))) {
+        return index - 2;
+    }
 
-    // write the footer, showing the save and exit key if the file is not read-only
-    const footer = `${readonly ? "" : "F1: Save & Exit | "}ESC: Exit without saving | F2: Debug Redraw`;
-    const f_padding_l = " ".repeat(Math.ceil((term.cols - footer.length) / 2));
-    const f_padding_r = " ".repeat(Math.floor((term.cols - footer.length) / 2));
-
-    term.write(BG.white + FG.black + STYLE.bold);
-    term.write(f_padding_l);
-    term.write(footer);
-    term.write(f_padding_r);
-    term.write(STYLE.reset_all)
-
-    // reset the cursor position to under the header
-    term.write("\x1b[2;0H");
-    term.write(NEWLINE);
-
-    // write the content
-    term.write(content);
-
-    // reset the cursor position to under the header
-    term.write("\x1b[2;0H");
-    term.write(NEWLINE);
+    return index - 1;
 }
 
+const next_index = (line: string, index: number) => {
+    if (index >= line.length) {
+        return line.length;
+    }
 
-// TODO: expose ANSI cursor control codes as functions in term_ctl
-// TODO: consider instead using a hidden textarea to store the character buffer, or using a queue and reimplementing the terminal's keypress handler
-// TODO: provide method in terminal to set up the above ^^^
-// TODO: none of this accounts for scrolling!! use of cursorPos will not function properly if the terminal is scrolled
-// TODO: it would be nice to not "cheat" at enter and backspace, but to actually handle them properly. this is fine for now i guess
+    if (is_high_surrogate(line.charCodeAt(index)) && is_low_surrogate(line.charCodeAt(index + 1))) {
+        return index + 2;
+    }
+
+    return index + 1;
+}
+
+// the on-screen column of a string index, accounting for tabs
+const index_to_visual = (line: string, index: number) => {
+    let visual = 0;
+
+    for (let char_index = 0; char_index < index && char_index < line.length; char_index = next_index(line, char_index)) {
+        if (line[char_index] === "\t") {
+            visual += TAB_WIDTH - (visual % TAB_WIDTH);
+        } else {
+            visual++;
+        }
+    }
+
+    return visual;
+}
+
+// the string index closest to (but not past) an on-screen column
+const visual_to_index = (line: string, target_visual: number) => {
+    let visual = 0;
+    let char_index = 0;
+
+    while (char_index < line.length) {
+        const width = line[char_index] === "\t" ? TAB_WIDTH - (visual % TAB_WIDTH) : 1;
+
+        if (visual + width > target_visual) {
+            break;
+        }
+
+        visual += width;
+        char_index = next_index(line, char_index);
+    }
+
+    return char_index;
+}
+
+const expand_tabs = (line: string) => {
+    let result = "";
+
+    for (const char of line) {
+        if (char === "\t") {
+            result += " ".repeat(TAB_WIDTH - (result.length % TAB_WIDTH));
+        } else {
+            result += char;
+        }
+    }
+
+    return result;
+}
+
+// pad or truncate text so it fills exactly the given width, centred
+const centre_bar = (text: string, width: number) => {
+    const clipped = text.slice(0, width);
+    const padding_total = width - clipped.length;
+    const padding_left = Math.ceil(padding_total / 2);
+    const padding_right = padding_total - padding_left;
+
+    return " ".repeat(padding_left) + clipped + " ".repeat(padding_right);
+}
+
+// ANSI cursor positioning is 1-indexed
+const move_to = (row: number, col: number) => `\x1b[${row};${col}H`;
+
+const CLEAR_LINE = "\x1b[2K";
+const HIDE_CURSOR = "\x1b[?25l";
+const SHOW_CURSOR = "\x1b[?25h";
+const ENTER_ALT_BUFFER = "\x1b[?1049h";
+const LEAVE_ALT_BUFFER = "\x1b[?1049l";
+
+class Editor {
+    lines: string[];
+
+    // cursor position within the file (row = line index, col = string index within the line)
+    row = 0;
+    col = 0;
+
+    // the visual column the cursor wants to be at when moving vertically (like nano/vim)
+    preferred_visual_col = 0;
+
+    // scroll offsets of the viewport
+    scroll_top = 0;
+    scroll_left = 0;
+
+    modified = false;
+    status_message = "";
+
+    // set after the first escape press with unsaved changes, so a second press confirms discarding
+    confirming_discard = false;
+
+    readonly #term: AbstractTerminal;
+    readonly #filename: string;
+    readonly #readonly: boolean;
+
+    constructor(term: AbstractTerminal, content: string, filename: string, readonly: boolean) {
+        this.#term = term;
+        this.#filename = filename;
+        this.#readonly = readonly;
+
+        // accept either line ending when loading, files are saved with the system NEWLINE
+        this.lines = content.split(/\r?\n/);
+    }
+
+    get readonly() {
+        return this.#readonly;
+    }
+
+    get content() {
+        return this.lines.join(NEWLINE);
+    }
+
+    get #text_height() {
+        return Math.max(1, this.#term.rows - TOP_RESERVED_ROWS - BOTTOM_RESERVED_ROWS);
+    }
+
+    get #current_line() {
+        return this.lines[this.row];
+    }
+
+    #set_col(new_col: number) {
+        this.col = new_col;
+        this.preferred_visual_col = index_to_visual(this.#current_line, this.col);
+    }
+
+    #set_row_keeping_column(new_row: number) {
+        this.row = Math.max(0, Math.min(this.lines.length - 1, new_row));
+        this.col = visual_to_index(this.#current_line, this.preferred_visual_col);
+    }
+
+    #mark_modified() {
+        this.modified = true;
+        this.confirming_discard = false;
+    }
+
+    move_up() {
+        if (this.row === 0) {
+            this.#set_col(0);
+            return;
+        }
+
+        this.#set_row_keeping_column(this.row - 1);
+    }
+
+    move_down() {
+        if (this.row === this.lines.length - 1) {
+            this.#set_col(this.#current_line.length);
+            return;
+        }
+
+        this.#set_row_keeping_column(this.row + 1);
+    }
+
+    move_left() {
+        if (this.col > 0) {
+            this.#set_col(previous_index(this.#current_line, this.col));
+        } else if (this.row > 0) {
+            // wrap to the end of the previous line
+            this.row--;
+            this.#set_col(this.#current_line.length);
+        }
+    }
+
+    move_right() {
+        if (this.col < this.#current_line.length) {
+            this.#set_col(next_index(this.#current_line, this.col));
+        } else if (this.row < this.lines.length - 1) {
+            // wrap to the start of the next line
+            this.row++;
+            this.#set_col(0);
+        }
+    }
+
+    move_home() {
+        this.#set_col(0);
+    }
+
+    move_end() {
+        this.#set_col(this.#current_line.length);
+    }
+
+    page_up() {
+        this.#set_row_keeping_column(this.row - this.#text_height);
+    }
+
+    page_down() {
+        this.#set_row_keeping_column(this.row + this.#text_height);
+    }
+
+    insert_text(text: string) {
+        if (this.#readonly || text.length === 0) {
+            return;
+        }
+
+        // inserted text may contain newlines (e.g. multiple characters arriving at once over telnet)
+        const inserted_lines = text.split(/\r\n|\r|\n/);
+
+        const line = this.#current_line;
+        const before_cursor = line.slice(0, this.col);
+        const after_cursor = line.slice(this.col);
+
+        if (inserted_lines.length === 1) {
+            this.lines[this.row] = before_cursor + text + after_cursor;
+            this.#set_col(this.col + text.length);
+        } else {
+            const last_inserted = inserted_lines[inserted_lines.length - 1];
+
+            const new_lines = [
+                before_cursor + inserted_lines[0],
+                ...inserted_lines.slice(1, -1),
+                last_inserted + after_cursor,
+            ];
+
+            this.lines.splice(this.row, 1, ...new_lines);
+            this.row += new_lines.length - 1;
+            this.#set_col(last_inserted.length);
+        }
+
+        this.#mark_modified();
+    }
+
+    insert_newline() {
+        this.insert_text("\n");
+    }
+
+    backspace() {
+        if (this.#readonly) {
+            return;
+        }
+
+        if (this.col > 0) {
+            const line = this.#current_line;
+            const new_col = previous_index(line, this.col);
+
+            this.lines[this.row] = line.slice(0, new_col) + line.slice(this.col);
+            this.#set_col(new_col);
+            this.#mark_modified();
+            return;
+        }
+
+        if (this.row === 0) {
+            return;
+        }
+
+        // at the start of a line, so join it onto the end of the previous line
+        const removed_line = this.lines[this.row];
+        this.lines.splice(this.row, 1);
+        this.row--;
+
+        const join_point = this.#current_line.length;
+        this.lines[this.row] += removed_line;
+        this.#set_col(join_point);
+        this.#mark_modified();
+    }
+
+    delete_forward() {
+        if (this.#readonly) {
+            return;
+        }
+
+        const line = this.#current_line;
+
+        if (this.col < line.length) {
+            this.lines[this.row] = line.slice(0, this.col) + line.slice(next_index(line, this.col));
+            this.#mark_modified();
+            return;
+        }
+
+        if (this.row === this.lines.length - 1) {
+            return;
+        }
+
+        // at the end of a line, so pull the next line up onto this one
+        this.lines[this.row] += this.lines[this.row + 1];
+        this.lines.splice(this.row + 1, 1);
+        this.#mark_modified();
+    }
+
+    // adjust the scroll offsets so the cursor is on screen
+    #scroll_to_cursor() {
+        const text_height = this.#text_height;
+        const cols = this.#term.cols;
+
+        if (this.row < this.scroll_top) {
+            this.scroll_top = this.row;
+        } else if (this.row >= this.scroll_top + text_height) {
+            this.scroll_top = this.row - text_height + 1;
+        }
+
+        const cursor_visual = index_to_visual(this.#current_line, this.col);
+
+        if (cursor_visual < this.scroll_left) {
+            this.scroll_left = cursor_visual;
+        } else if (cursor_visual >= this.scroll_left + cols) {
+            this.scroll_left = cursor_visual - cols + 1;
+        }
+    }
+
+    // redraw the whole screen in a single write, with the cursor placed from our own state rather than read back from the terminal
+    render() {
+        const { STYLE, BG, FG } = ANSI;
+        const term = this.#term;
+        const cols = term.cols;
+        const rows = term.rows;
+        const text_height = this.#text_height;
+
+        this.#scroll_to_cursor();
+
+        let output = HIDE_CURSOR;
+
+        // header
+        const header_prefix = this.#readonly ? "Viewing read-only file" : "Editing file";
+        const header = `${header_prefix}: ${this.#filename}${this.modified ? " (modified)" : ""}`;
+        output += move_to(1, 1) + BG.white + FG.black + STYLE.bold + centre_bar(header, cols) + STYLE.reset_all;
+
+        // file content
+        for (let screen_row = 0; screen_row < text_height; screen_row++) {
+            const line_index = this.scroll_top + screen_row;
+            output += move_to(TOP_RESERVED_ROWS + screen_row + 1, 1) + CLEAR_LINE;
+
+            if (line_index < this.lines.length) {
+                output += expand_tabs(this.lines[line_index]).slice(this.scroll_left, this.scroll_left + cols);
+            }
+        }
+
+        // status line
+        const position = `Ln ${this.row + 1}, Col ${index_to_visual(this.#current_line, this.col) + 1}`;
+        const status = this.status_message ? `${this.status_message}  |  ${position}` : position;
+        output += move_to(rows - 1, 1) + CLEAR_LINE + FG.yellow + status.slice(0, cols) + STYLE.reset_all;
+
+        // footer
+        const footer = `${this.#readonly ? "" : "F1: Save & Exit | Ctrl+S: Save | "}ESC: Exit`;
+        output += move_to(rows, 1) + BG.white + FG.black + STYLE.bold + centre_bar(footer, cols) + STYLE.reset_all;
+
+        // place the cursor
+        const cursor_screen_row = TOP_RESERVED_ROWS + (this.row - this.scroll_top) + 1;
+        const cursor_screen_col = index_to_visual(this.#current_line, this.col) - this.scroll_left + 1;
+        output += move_to(cursor_screen_row, cursor_screen_col) + SHOW_CURSOR;
+
+        term.write(output);
+    }
+}
+
+const key_matches = (key: string, sequences: string[]) => sequences.includes(key);
 
 export default {
     name: "edit",
@@ -81,337 +424,121 @@ export default {
 
         const path = fs.absolute(args[0]);
 
-
-        let content = "";
+        if (await fs.dir_exists(path)) {
+            term.writeln(`${PREFABS.error}Cannot edit a directory: ${path}${STYLE.reset_all}`);
+            return 1;
+        }
 
         // if the file exists, load it in. otherwise, keep the content empty
+        let content = "";
         let readonly = false;
         if (await fs.exists(path)) {
             content = await fs.read_file(path) as string;
             readonly = await fs.is_readonly(path);
-
-            // lock the file by making it read-only
-            // TODO: the user can lock the file permanently if edit crashes, they close the tab, reload, or their computer loses power! perhaps use a separate flag for this and have the os erase the lock on boot, not the same as readonly
-            // TODO: i'm disabling this for now for my own sanity (when it crashes and dies). its incredibly unlikely the user will concurrent write with fsedit and if they do they're stupid
-            //fs.set_readonly(path, true);
         }
 
-        // temporary note
-        // TODO: remove when scrolling is implemented properly
-        term.writeln(`${FG.yellow}Note: This program is still in development and has numerous issues, including no scrolling!${NEWLINE}Pressing F2 to redraw may help some visual issues, but not any file writing related issues.${NEWLINE}Consider using ${PREFABS.program_name}cat${STYLE.reset_all + FG.yellow} or the ${PREFABS.program_name}fsedit${STYLE.reset_all + FG.yellow} UI for your purposes.${NEWLINE}Please don't report issues in this program unless you know a fix :)${NEWLINE}Press any key to proceed.${STYLE.reset_all}`);
-        await term.wait_for_keypress();
-
-        // setup the screen
-        setup(term, content, path, readonly);
-
-        const split_content = content.split(NEWLINE);
-
-        // wait for keypresses
-        let exit_code: number | null = null;
-        let saved = false;
-        while (exit_code === null) {
-            const key = await term.wait_for_keypress();
-
-            switch (key.domEvent.code) {
-                case "Escape":
-                    // revert the file to its original read-only status
-                    if (await fs.exists(path)) {
-                        await fs.set_readonly(path, readonly);
-                    }
-
-                    exit_code = 0;
-                    break;
-                case "F1":
-                    // if readonly, don't allow saving
-                    if (readonly) {
-                        break;
-                    }
-
-                    await fs.write_file(path, split_content.join(NEWLINE));
-                    saved = true;
-
-                    // revert the file to its original read-only status
-                    await fs.set_readonly(path, readonly);
-
-                    exit_code = 0;
-                    break;
-                case "F2":
-                    term.reset();
-                    setup(term, split_content.join(NEWLINE), path, readonly);
-                    console.log(split_content.join("\n"));
-                    break;
-                case "ArrowUp": {
-                    // determine the current cursor position
-                    const cursor_y = term.cursor_y;
-
-                    if (cursor_y === 2) {
-                        // TODO: scroll file
-                        // we're at the top of the file, so we can't move up
-                        break;
-                    }
-
-                    // pass through to the terminal
-                    term.write(key.key);
-
-                    // determine the current line's length (sub 2 for header, sub 1 for moving up)
-                    const line_length = split_content[cursor_y - HEADER - 1].length;
-
-                    // determine the cursor's x position
-                    const cursor_x = term.cursor_x;
-
-                    // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
-                    if (cursor_x >= line_length) {
-                        term.write("\b".repeat(cursor_x - line_length));
-                    } else {
-                        term.write("\x1b[C".repeat(line_length - cursor_x));
-                    }
-                }
-                    break;
-                case "ArrowDown": {
-                    // determine the current cursor position
-                    const cursor_y = term.cursor_y;
-
-                    if (cursor_y === term.rows - 4) {
-                        // TODO: scroll file
-                        // we're at the bottom of the screen, so we can't move down
-                        break;
-                    }
-
-                    if (cursor_y === split_content.length + HEADER - 1) { // (add 2 for header, sub 1 for 0-indexing)
-                        // we're at the bottom of the file, so we can't move down
-                        break;
-                    }
-
-                    // pass through to the terminal
-                    term.write(key.key);
-
-                    // determine the current line's length (sub 2 for header, add 1 for moving down)
-                    const line_length = split_content[cursor_y - HEADER + 1].length;
-
-                    // determine the cursor's x position
-                    const cursor_x = term.cursor_x;
-
-                    // move cursor to the end of the line, typing backspaces if it is past the end or the right arrow code if it is not
-                    if (cursor_x >= line_length) {
-                        term.write("\b".repeat(cursor_x - line_length));
-                    } else {
-                        term.write("\x1b[C".repeat(line_length - cursor_x));
-                    }
-                }
-                    break;
-                case "ArrowLeft":
-                    // left arrow can always be passed through to the terminal as the terminal will handle the left margin
-                    term.write(key.key);
-                    break;
-                case "ArrowRight": {
-                    // determine cursor position
-                    const cursor_x = term.cursor_x;
-                    const cursor_y = term.cursor_y;
-
-                    // determine the current line's length (sub 2 for header)
-                    const line_length = split_content[cursor_y - HEADER].length;
-
-                    if (cursor_x < line_length) {
-                        // pass through to the terminal
-                        // NOTE: no need to check right margin, because the terminal will handle that
-                        term.write(key.key);
-                    }
-                }
-                    break;
-                case "Enter": {
-                    // if readonly, don't allow editing
-                    if (readonly) {
-                        break;
-                    }
-
-
-                    // determine cursor position
-                    const cursor_x = term.cursor_x;
-                    let cursor_y = term.cursor_y;
-
-                    // split the current line at the cursor position
-                    const line = split_content[cursor_y - HEADER];
-
-                    const before_newline = line.slice(0, cursor_x);
-                    const after_newline = line.slice(cursor_x);
-
-                    const old_split_content = split_content.slice();
-
-                    // insert the new line into the content, between the before_newline and after_newline
-                    split_content.splice(cursor_y - HEADER, 1, before_newline, after_newline);
-
-                    // the code below to redraw selectively is a mess and doesn't work properly for all cases, but is improving
-                    // for now, just to get edit in a somewhat working state, we'll just clear the screen and redraw everything (debug redraw but restoring cursor position)
-
-                    // debug redraw
-                    term.reset();
-                    setup(term, split_content.join(NEWLINE), path, readonly);
-
-                    // move the cursor to the start of the new line
-                    term.write(`\x1b[${cursor_y + 2};1H`);
-
-                    break;
-
-                    // clear text past the cursor
-                    term.write(" ".repeat(line.length - cursor_x));
-
-                    // move the cursor down one line and to the beginning of the line
-                    term.write("\x1b[1B\x1b[1G");
-
-                    // we are now on the new line. clear it using the old line length and write the new content from after_newline
-                    // TODO: could just clear what overruns the new content, but the logic is more confusing. clearing everything is simpler but less efficient
-                    term.write(" ".repeat(old_split_content[cursor_y - HEADER].length)); // doesnt work for all cases, sometime leaves longer line stray
-                    term.write("\x1b[1G")
-                    term.write(after_newline);
-
-                    // adjust cursor y to reflect the real newline being handled
-                    cursor_y++;
-
-                    // clear all the lines below the new cursor position, then write the new content into them
-                    // TODO: could just clear what overruns the new content, but the logic is more confusing. clearing everything is simpler but less efficient
-                    let lines_redrawn = 0;
-                    for (let i = cursor_y - HEADER + 1; i < split_content.length; i++) {
-                        term.write("\x1b[1B\x1b[1G");
-                        if (old_split_content[i]) {
-                            term.write(" ".repeat(old_split_content[i].length));
-                            term.write("\x1b[1G");
-                        }
-                        term.write(split_content[i]);
-                        lines_redrawn++;
-                    }
-
-                    // move the cursor back to the original line at the start of the new line
-                    term.write("\x1b[1G");
-                    if (lines_redrawn > 0) {
-                        term.write(`\x1b[${lines_redrawn}A`);
-                    }
-                }
-                    break;
-                case "Backspace": {
-                    // if readonly, don't allow editing
-                    if (readonly) {
-                        break;
-                    }
-
-                    // get the current cursor position
-                    const cursor_x = term.cursor_x;
-                    const cursor_y = term.cursor_y;
-
-                    // do nothing at the start of the file
-                    if (cursor_x === 0 && cursor_y === 2) {
-                        break;
-                    }
-
-                    // if at the beginning of the line, remove the newline
-                    if (cursor_x === 0) {
-                        // move previous line's content to the end of the current line
-                        const newline_content = split_content[cursor_y - HEADER];
-                        split_content[cursor_y - HEADER - 1] += newline_content;
-
-                        split_content.splice(cursor_y - HEADER, 1);
-
-                        // the code below to handle backspacing a newline ever only partly worked
-                        // for now, just to get edit in a somewhat working state, we'll just clear the screen and redraw everything (debug redraw but restoring cursor position)
-
-                        // debug redraw
-                        term.reset();
-                        setup(term, split_content.join(NEWLINE), path, readonly);
-
-                        // move the cursor to the previous line to the right length across (N from the end where N is the length of the line we just merged, newline_content)
-                        // TODO: why isn't this working in all cases??????????????????????????????????
-                        term.write(`\x1b[${cursor_y};${split_content[cursor_y - HEADER - 1].length - newline_content.length + 1}G`);
-
-                        break;
-
-                        // move the cursor up one line
-                        term.write("\x1b[1A");
-
-                        // move the cursor to the end of the line
-                        term.write(`\x1b[${split_content[cursor_y - HEADER - 1].length + 1}G`);
-
-                        // write the rest of the line
-                        term.write(split_content[cursor_y - HEADER]);
-
-                        // move the cursor back to the original position
-                        term.write(`\x1b[${split_content[cursor_y - HEADER].length + 1}D`);
-
-                        // TODO: redraw following lines properly
-
-                        break;
-                    }
-
-
-                    // otherwise, remove the character to the left of the cursor
-                    const left = split_content[cursor_y - HEADER].slice(0, cursor_x - 1);
-                    const right = split_content[cursor_y - HEADER].slice(cursor_x);
-
-                    split_content[cursor_y - HEADER] = left + right;
-
-                    // move the cursor back one space
-                    term.write("\b");
-
-                    // write the rest of the line
-                    term.write(right + " ");
-
-                    // move the cursor back to the original position
-                    term.write(`\x1b[${right.length + 1}D`);
-
-                    // if the line is now empty, remove it, unless it's the first line
-                    if (cursor_y !== 2 && split_content[cursor_y - HEADER] === "") {
-                        split_content.splice(cursor_y - HEADER, 1);
-                        term.write("\x1b[1M");
-                        break;
-                    }
-
-                    // if the cursor is now past the end of the line, move it to the end of the line
-                    if (cursor_x > split_content[cursor_y - HEADER].length) {
-                        term.write(`\x1b[${split_content[cursor_y - HEADER].length + 1}G`);
-                    }
-                }
-                    break;
-                default: {
-                    // if readonly, don't allow editing
-                    if (readonly) {
-                        break;
-                    }
-
-                    // get the current cursor position
-                    const cursor_x = term.cursor_x;
-                    const cursor_y = term.cursor_y;
-
-                    // if the key is a printable character, write it in
-                    if (!NON_PRINTABLE_REGEX.test(key.key)) {
-                        // if at the end of the line, append to the line
-                        if (cursor_x === split_content[cursor_y - HEADER].length + 1) {
-                            split_content[cursor_y - HEADER] += key.key;
-                            term.write(key.key);
-                        } else {
-                            // otherwise, insert it and shift the rest of the line
-                            const left = split_content[cursor_y - HEADER].slice(0, cursor_x);
-                            const right = split_content[cursor_y - HEADER].slice(cursor_x);
-
-                            split_content[cursor_y - HEADER] = left + key.key + right;
-
-                            // overwrite the line
-                            term.write(key.key + right);
-
-                            // move the cursor back to the correct position + 1
-                            term.write(`\x1b[${cursor_x + 2}G`);
-                        }
-                    }
-                }
+        const filename = path.split("/").pop() || path;
+        const editor = new Editor(term, content, filename, readonly);
+
+        if (readonly) {
+            editor.status_message = "File is read-only, changes cannot be made.";
+        }
+
+        const save = async () => {
+            try {
+                await fs.write_file(path, editor.content);
+                editor.modified = false;
+                editor.status_message = "Saved.";
+                return true;
+            } catch (error) {
+                editor.status_message = `Failed to save: ${error instanceof Error ? error.message : String(error)}`;
+                return false;
             }
         }
 
-        term.reset();
+        term.write(ENTER_ALT_BUFFER);
+        editor.render();
+
+        let saved = false;
+        let running = true;
+
+        try {
+            while (running) {
+                const { key } = await term.wait_for_keypress();
+
+                // clear the status message on any keypress, actions below may set a new one
+                const was_confirming_discard = editor.confirming_discard;
+                editor.confirming_discard = false;
+                editor.status_message = "";
+
+                if (key_matches(key, KEYS.escape)) {
+                    if (editor.modified && !was_confirming_discard) {
+                        editor.confirming_discard = true;
+                        editor.status_message = "Unsaved changes! Press ESC again to discard, or F1 to save & exit.";
+                    } else {
+                        running = false;
+                    }
+                } else if (key_matches(key, KEYS.f1)) {
+                    if (readonly) {
+                        editor.status_message = "File is read-only, cannot save.";
+                    } else if (await save()) {
+                        saved = true;
+                        running = false;
+                    }
+                } else if (key_matches(key, KEYS.ctrl_s)) {
+                    if (readonly) {
+                        editor.status_message = "File is read-only, cannot save.";
+                    } else if (await save()) {
+                        saved = true;
+                    }
+                } else if (key_matches(key, KEYS.up)) {
+                    editor.move_up();
+                } else if (key_matches(key, KEYS.down)) {
+                    editor.move_down();
+                } else if (key_matches(key, KEYS.left)) {
+                    editor.move_left();
+                } else if (key_matches(key, KEYS.right)) {
+                    editor.move_right();
+                } else if (key_matches(key, KEYS.home)) {
+                    editor.move_home();
+                } else if (key_matches(key, KEYS.end)) {
+                    editor.move_end();
+                } else if (key_matches(key, KEYS.page_up)) {
+                    editor.page_up();
+                } else if (key_matches(key, KEYS.page_down)) {
+                    editor.page_down();
+                } else if (key_matches(key, KEYS.enter)) {
+                    editor.insert_newline();
+                } else if (key_matches(key, KEYS.backspace)) {
+                    editor.backspace();
+                } else if (key_matches(key, KEYS.delete)) {
+                    editor.delete_forward();
+                } else if (key_matches(key, KEYS.tab)) {
+                    editor.insert_text("\t");
+                } else if (!key.startsWith("\x1b")) {
+                    // printable text (can be several characters at once over telnet/ssh). drop any control characters, keeping newlines
+                    const printable = Array.from(key)
+                        .filter((char) => char === "\r" || char === "\n" || !NON_PRINTABLE.test(char))
+                        .join("");
+
+                    editor.insert_text(printable);
+                }
+
+                if (running) {
+                    editor.render();
+                }
+            }
+        } finally {
+            // always restore the main screen, even if something throws
+            term.write(LEAVE_ALT_BUFFER + SHOW_CURSOR);
+        }
 
         if (saved) {
             term.writeln(`${FG.green}File saved!${STYLE.reset_all}`);
         } else {
-            // TODO: cant exit without saving, crashes the program when trying to set readonly status
             term.writeln(`${FG.red}Exited without saving!${STYLE.reset_all}`);
         }
 
-        return exit_code;
+        return 0;
     }
 } as Program;
