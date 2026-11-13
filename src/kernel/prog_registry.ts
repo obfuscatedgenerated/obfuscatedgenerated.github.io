@@ -5,7 +5,8 @@
 
 import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
-import {ANSI, AbstractTerminal} from "./term_ctl";
+import {AbstractTerminal} from "./term_ctl";
+import {ANSI} from "../lib/ansi";
 
 const encode_js_to_url = (js_code: string): string => {
     const blob = new Blob([js_code], { type: "application/javascript" });

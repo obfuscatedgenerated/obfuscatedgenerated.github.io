@@ -1,5 +1,5 @@
 import {determine_program_name_from_js} from "../../kernel/prog_registry";
-import { ANSI, NEWLINE } from "../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../lib/ansi";
 import { ProgramMainData } from "../../types"
 import {graph_query, triggers} from "./index";
 

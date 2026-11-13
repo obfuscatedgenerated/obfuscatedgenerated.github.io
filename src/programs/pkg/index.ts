@@ -1,7 +1,8 @@
 import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
-import {ANSI, type AbstractTerminal} from "../../kernel/term_ctl";
+import {type AbstractTerminal} from "../../kernel/term_ctl";
+import {ANSI} from "../../lib/ansi";
 import type {Program} from "../../types";
 import type {UserspaceFileSystem} from "../../kernel/filesystem";
 import {list_subcommand} from "./list";

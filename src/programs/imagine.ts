@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 
 import { image2sixel } from "sixel";
 

@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../kernel/term_ctl";
+import {ANSI, NEWLINE, strip_ansi} from "../lib/ansi";
 
 import { default as img2ascii } from "imgToAscii";
 
@@ -187,7 +187,7 @@ export default {
         const max_lines = Math.max(asc_lines.length, txt_lines.length);
 
         // get the longest length of a line of ascii ignoring ansi characters, and the longest length of a line of text
-        const max_asc_line_length = Math.max(...asc_lines.map(line => line.replace(ANSI_UNESCAPED_REGEX, "").length));
+        const max_asc_line_length = Math.max(...asc_lines.map(line => strip_ansi(line).length));
         const max_txt_line_length = Math.max(...txt_lines.map(line => line.length));
 
         // determine padding around and between text and ascii
@@ -204,7 +204,7 @@ export default {
             const txt_line = txt_lines[i] || "";
 
             // add additional padding so the width of the ascii line is always the same
-            const asc_line_padding = " ".repeat(max_asc_line_length - asc_line.replace(ANSI_UNESCAPED_REGEX, "").length);
+            const asc_line_padding = " ".repeat(max_asc_line_length - strip_ansi(asc_line).length);
 
             // print side by side with padding
             term.writeln(side_padding + asc_line + asc_line_padding + center_padding + txt_line_prefix + txt_line + txt_line_suffix);

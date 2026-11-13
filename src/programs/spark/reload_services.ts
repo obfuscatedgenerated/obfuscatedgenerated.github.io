@@ -1,4 +1,4 @@
-import {ANSI} from "../../kernel/term_ctl";
+import {ANSI} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
 
 import type {IgnitionIPCReply} from "../core/ignition";

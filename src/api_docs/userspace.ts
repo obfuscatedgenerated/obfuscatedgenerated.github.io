@@ -14,6 +14,12 @@ export {AbstractTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifie
 
 /**
  * @group Userspace
+ * @category Terminal
+ */
+export {ANSI, NEWLINE, non_printable_regex, ansi_escape_regex, ansi_unescaped_regex, is_printable, strip_ansi, word_wrap} from "../lib/ansi";
+
+/**
+ * @group Userspace
  * @category Filesystem
  */
 export {

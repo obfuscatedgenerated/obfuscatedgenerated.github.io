@@ -1,5 +1,6 @@
 import type { Program } from "../types";
-import { ANSI, NEWLINE, AbstractTerminal, NON_PRINTABLE_REGEX } from "../kernel/term_ctl";
+import {AbstractTerminal} from "../kernel/term_ctl";
+import {ANSI, NEWLINE, is_printable} from "../lib/ansi";
 
 const TAB_WIDTH = 4;
 
@@ -26,10 +27,6 @@ const KEYS = {
     tab: ["\t"],
     ctrl_s: ["\x13"],
 };
-
-// NON_PRINTABLE_REGEX has the global flag, so .test() is stateful (lastIndex) and gives inconsistent results.
-// use a non-global copy instead
-const NON_PRINTABLE = new RegExp(NON_PRINTABLE_REGEX.source);
 
 const is_high_surrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 const is_low_surrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
@@ -518,7 +515,7 @@ export default {
                 } else if (!key.startsWith("\x1b")) {
                     // printable text (can be several characters at once over telnet/ssh). drop any control characters, keeping newlines
                     const printable = Array.from(key)
-                        .filter((char) => char === "\r" || char === "\n" || !NON_PRINTABLE.test(char))
+                        .filter((char) => char === "\r" || char === "\n" || is_printable(char))
                         .join("");
 
                     editor.insert_text(printable);

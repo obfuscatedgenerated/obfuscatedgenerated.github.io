@@ -1,4 +1,4 @@
-import { ANSI, ANSI_ESCAPE_REGEX, ANSI_UNESCAPED_REGEX } from "../kernel/term_ctl";
+import {ANSI, ansi_escape_regex, ansi_unescaped_regex} from "../lib/ansi";
 import type { Program } from "../types";
 
 export default {
@@ -68,7 +68,7 @@ export default {
 
         for (const file of dir) {
             // check if file will fit on current line
-            const real_length = line.replace(ANSI_ESCAPE_REGEX, "").replace(ANSI_UNESCAPED_REGEX, "").length;
+            const real_length = line.replace(ansi_escape_regex(), "").replace(ansi_unescaped_regex(), "").length;
             if (real_length + file.length + 1 > max_width) {
                 // write line and reset
                 term.writeln(line);

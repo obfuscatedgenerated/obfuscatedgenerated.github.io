@@ -5,7 +5,7 @@ import * as fs_impls from "../fs_impl/@ALL";
 import {AbstractFileSystem} from "../kernel/filesystem";
 
 // other imports
-import {NEWLINE} from "../kernel/term_ctl";
+import {NEWLINE} from "../lib/ansi";
 import Swal from "sweetalert2";
 
 

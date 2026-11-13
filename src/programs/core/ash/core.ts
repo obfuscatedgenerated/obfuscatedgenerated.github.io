@@ -2,7 +2,8 @@ import type {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, SpawnResult} from "../../../kernel";
 import {UserspaceProcessContext} from "../../../kernel/processes";
 
-import {ANSI, NEWLINE, type AbstractTerminal} from "../../../kernel/term_ctl";
+import {type AbstractTerminal} from "../../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../../lib/ansi";
 
 import {AshMemory} from "./memory";
 import {parse_line} from "./parser";

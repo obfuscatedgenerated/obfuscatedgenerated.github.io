@@ -1,6 +1,6 @@
 import type { Program } from "../types";
 
-import { ANSI, NEWLINE } from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 import { convert as convert_html_to_text } from "html-to-text";
 

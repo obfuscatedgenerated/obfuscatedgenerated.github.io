@@ -3,7 +3,7 @@ import type { PrivilegedProgram } from "../../../types";
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../kernel/processes";
 
-import {ANSI} from "../../../kernel/term_ctl";
+import {ANSI} from "../../../lib/ansi";
 
 interface IgnitionIPCMessageBase {
     type: string;

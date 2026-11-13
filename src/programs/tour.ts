@@ -1,5 +1,6 @@
 import type {Program, ProgramMainData} from "../types";
-import { ANSI, NEWLINE, type AbstractTerminal } from "../kernel/term_ctl";
+import {type AbstractTerminal} from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 
 const wait_block = (term: AbstractTerminal) => {

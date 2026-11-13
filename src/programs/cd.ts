@@ -1,4 +1,4 @@
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 import type { Program } from "../types";
 
 export default {

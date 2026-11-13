@@ -1,5 +1,5 @@
 import { AbstractFileSystem } from "./kernel/filesystem";
-import { ANSI, NEWLINE } from "./kernel/term_ctl";
+import {ANSI, NEWLINE} from "./lib/ansi";
 
 const setup_boot = async (fs: AbstractFileSystem) => {
     // create boot directory if it doesn't exist

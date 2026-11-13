@@ -1,5 +1,5 @@
 import type {Program} from "../types";
-import {NEWLINE} from "../kernel/term_ctl";
+import {NEWLINE} from "../lib/ansi";
 
 export default {
     name: "finger",

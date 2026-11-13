@@ -1,4 +1,4 @@
-import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../kernel/term_ctl";
+import {ANSI, NEWLINE, ansi_escape_regex} from "../lib/ansi";
 import type { Program, ArgDescriptions } from "../types";
 
 
@@ -114,7 +114,7 @@ export default {
 
 
                 // compute the length of the longest program name
-                const longest_program_length = Math.max(...programs_fmt.map((program) => program.replace(ANSI_ESCAPE_REGEX, "").length));
+                const longest_program_length = Math.max(...programs_fmt.map((program) => program.replace(ansi_escape_regex(), "").length));
 
                 // compute the smallest padding length
                 const min_padding_length = max_allowable_length - longest_program_length;
@@ -146,8 +146,8 @@ export default {
                 const paired_programs = column1.map((program1, i) => {
                     let program2 = column2[i] ?? "";
 
-                    const program1_real_length = program1.replace(ANSI_ESCAPE_REGEX, "").length;
-                    const program2_real_length = program2.replace(ANSI_ESCAPE_REGEX, "").length;
+                    const program1_real_length = program1.replace(ansi_escape_regex(), "").length;
+                    const program2_real_length = program2.replace(ansi_escape_regex(), "").length;
 
                     // if the program name is too long, truncate it
                     if (program1_real_length > max_allowable_length) {

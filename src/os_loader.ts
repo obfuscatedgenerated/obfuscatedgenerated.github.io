@@ -2,7 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
-import {ANSI, NEWLINE} from "./kernel/term_ctl";
+import {ANSI, NEWLINE, word_wrap} from "./lib/ansi";
 
 import {Kernel} from "./kernel";
 
@@ -93,7 +93,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
 
     // if this is a small screen, show a message
     if (window.innerWidth < 600) {
-        const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
+        const wrapped = word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
         term.writeln(wrapped);
     }
 

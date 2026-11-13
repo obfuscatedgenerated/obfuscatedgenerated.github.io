@@ -16,7 +16,8 @@ import {
 import type {AbstractShell} from "../abstract_shell";
 import {ProgramMainData} from "../types";
 
-import {NEWLINE, type AbstractTerminal} from "./term_ctl";
+import {type AbstractTerminal} from "./term_ctl";
+import {NEWLINE} from "../lib/ansi";
 
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"

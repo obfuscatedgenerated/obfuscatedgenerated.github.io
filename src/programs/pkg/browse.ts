@@ -1,4 +1,4 @@
-import {ANSI, NEWLINE} from "../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../lib/ansi";
 import type { AbstractTerminal } from "../../kernel/term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
