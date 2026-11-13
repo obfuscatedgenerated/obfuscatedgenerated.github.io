@@ -4,4 +4,10 @@ This project is now proprietary but source-available software. You are generally
 
 Historically, versions prior to v2.0.0 were available under the MIT License, which applies only to those earlier versions.
 
-## [Program API Docs](https://ollieg.codes/docs)
+---
+
+## Making your own programs
+
+### [Template repo](https://github.com/obfuscatedgenerated/ollieos_test_pkg)
+
+### [Program API Docs](https://ollieg.codes/docs)
