@@ -1,7 +1,6 @@
 import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
 import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
-import {SoundRegistry} from "./sfx_registry";
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
 import {AbstractNetworkManager, UserspaceNetworkManager} from "./network";
 import {AbstractPlatformAPI, UserspacePlatformAPI} from "./platform";
@@ -57,11 +56,6 @@ export interface UserspaceKernel {
      * Access the {@link UserspaceProgramRegistry} for this kernel.
      */
     get_program_registry(): UserspaceProgramRegistry;
-
-    /**
-     * Access the {@link SoundRegistry} for this kernel.
-     */
-    get_sound_registry(): SoundRegistry;
 
     /**
      * Access the chosen {@link UserspaceFileSystem} for this kernel.
@@ -167,7 +161,6 @@ export class Kernel {
     readonly #term: AbstractTerminal;
     readonly #process_manager: ProcessManager;
     readonly #prog_registry: ProgramRegistry;
-    readonly #sfx_registry: SoundRegistry;
     readonly #fs: AbstractFileSystem;
     readonly #wm: AbstractWindowManager | null = null;
     readonly #net_manager: AbstractNetworkManager | null = null;
@@ -202,13 +195,6 @@ export class Kernel {
      */
     get_program_registry(): ProgramRegistry {
         return this.#prog_registry;
-    }
-
-    /**
-     * Access the {@link SoundRegistry} for this kernel.
-     */
-    get_sound_registry(): SoundRegistry {
-        return this.#sfx_registry;
     }
 
     /**
@@ -694,11 +680,10 @@ export class Kernel {
         }
     }
 
-    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI) {
+    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI) {
         this.#term = term;
         this.#fs = fs;
         this.#prog_registry = prog_registry || new ProgramRegistry();
-        this.#sfx_registry = sound_registry || new SoundRegistry();
         this.#wm = wm || null;
         this.#net_manager = net_manager || null;
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
@@ -732,7 +717,6 @@ export class Kernel {
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },
             get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
-            get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
             get_fs: { value: () => fs_proxy, enumerable: true },
             get_window_manager: { value: () => wm_proxy, enumerable: true },
             has_window_manager: { value: () => self.has_window_manager(), enumerable: true },

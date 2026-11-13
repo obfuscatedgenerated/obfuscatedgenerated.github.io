@@ -194,7 +194,6 @@ As well as the following libraries:
 - @xterm/addon-web-links
 - @xterm/addon-image
 - xterm-link-provider
-- howler.js
 - html-to-text
 - some code from rss-parser (modified)
 

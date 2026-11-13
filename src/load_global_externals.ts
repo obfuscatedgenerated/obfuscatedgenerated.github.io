@@ -1,12 +1,10 @@
 // provides expected externals of pkgbuild programs into global
 
-import * as howler from "howler";
 import * as htmlToText from "html-to-text";
 import * as sixel from "sixel";
 import * as xterm from "@xterm/xterm";
 
 globalThis.ollieos = {};
-globalThis.howler = howler;
 globalThis["html-to-text"] = htmlToText;
 globalThis.sixel = sixel;
 globalThis["@xterm/xterm"] = xterm;

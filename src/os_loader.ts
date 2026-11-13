@@ -9,8 +9,6 @@ import {Kernel} from "./kernel";
 import {ProgramRegistry} from "./kernel/prog_registry";
 import * as programs from "./programs/@ALL";
 
-import { SoundRegistry } from "./kernel/sfx_registry";
-
 import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
 import { OPFSFileSystem } from "./fs_impl/opfs";
@@ -31,13 +29,6 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
             built_in: true,
         });
     }
-
-
-    // create a sound registry
-    const sfx_reg = new SoundRegistry();
-    sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
-    sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
-
 
     // create a filesystem
     // try opfs but use localstorage if not available, or already in use
@@ -112,7 +103,8 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm, net_manager);
+    // TODO: use an opts object rather than pos params as now quite big (will break other platforms)
+    const kernel = new Kernel(term, fs, prog_reg, wm, net_manager);
     kernel.set_env_info(document.body.dataset.version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!

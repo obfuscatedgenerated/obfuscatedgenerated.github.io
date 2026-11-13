@@ -56,12 +56,6 @@ export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEve
 
 /**
  * @group Userspace
- * @category Sound
- */
-export {SoundRegistry} from "../kernel/sfx_registry";
-
-/**
- * @group Userspace
  * @category Shells
  */
 export {AbstractShell, AbstractShellMemory} from "../abstract_shell";
