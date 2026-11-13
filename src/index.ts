@@ -129,3 +129,4 @@ if (localStorage.getItem("nointro") === "true") {
 }
 
 // TODO: better mobile experience
+export {endpoint_from_message_port} from "./isothread_impl/util/message_port_endpoint";
