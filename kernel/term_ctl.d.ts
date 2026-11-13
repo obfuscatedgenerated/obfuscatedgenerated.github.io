@@ -1,64 +1,3 @@
-export declare const NEWLINE = "\r\n";
-export declare const NON_PRINTABLE_REGEX: RegExp;
-export declare const ANSI_ESCAPE_REGEX: RegExp;
-export declare const ANSI_UNESCAPED_REGEX: RegExp;
-export declare const ANSI: {
-    FG: {
-        reset: string;
-        black: string;
-        red: string;
-        green: string;
-        yellow: string;
-        blue: string;
-        magenta: string;
-        cyan: string;
-        white: string;
-        gray: string;
-    };
-    BG: {
-        reset: string;
-        black: string;
-        red: string;
-        green: string;
-        yellow: string;
-        blue: string;
-        magenta: string;
-        cyan: string;
-        white: string;
-        gray: string;
-    };
-    STYLE: {
-        reset_all: string;
-        bold: string;
-        dim: string;
-        no_bold_or_dim: string;
-        italic: string;
-        no_italic: string;
-        underline: string;
-        double_underline: string;
-        no_underline: string;
-        inverse: string;
-        no_inverse: string;
-        hidden: string;
-        no_hidden: string;
-        strikethrough: string;
-        no_strikethrough: string;
-        negative: string;
-        positive: string;
-    };
-    CURSOR: {
-        invisible: string;
-        visible: string;
-    };
-    PREFABS: {
-        program_name: string;
-        error: string;
-        variable_name: string;
-        file_path: string;
-        dir_name: string;
-        secret: string;
-    };
-};
 export interface KeyEvent {
     key: string;
     domEvent: KeyboardEvent;
@@ -81,8 +20,9 @@ export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffe
 export declare abstract class AbstractTerminal {
     #private;
     protected _kernel_has_panicked: boolean;
-    get ansi(): {
-        FG: {
+    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    get ansi(): Readonly<{
+        FG: Readonly<{
             reset: string;
             black: string;
             red: string;
@@ -93,8 +33,8 @@ export declare abstract class AbstractTerminal {
             cyan: string;
             white: string;
             gray: string;
-        };
-        BG: {
+        }>;
+        BG: Readonly<{
             reset: string;
             black: string;
             red: string;
@@ -105,8 +45,8 @@ export declare abstract class AbstractTerminal {
             cyan: string;
             white: string;
             gray: string;
-        };
-        STYLE: {
+        }>;
+        STYLE: Readonly<{
             reset_all: string;
             bold: string;
             dim: string;
@@ -124,23 +64,27 @@ export declare abstract class AbstractTerminal {
             no_strikethrough: string;
             negative: string;
             positive: string;
-        };
-        CURSOR: {
+        }>;
+        CURSOR: Readonly<{
             invisible: string;
             visible: string;
-        };
-        PREFABS: {
+        }>;
+        PREFABS: Readonly<{
             program_name: string;
             error: string;
             variable_name: string;
             file_path: string;
             dir_name: string;
             secret: string;
-        };
-    };
+        }>;
+    }>;
+    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
     get newline(): string;
+    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
     get non_printable_regex(): RegExp;
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
     get ansi_escape_regex(): RegExp;
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
     get ansi_unescaped_regex(): RegExp;
     abstract write(data: string | Uint8Array, callback?: () => void): void;
     abstract writeln(data: string | Uint8Array, callback?: () => void): void;
@@ -192,6 +136,7 @@ export declare abstract class AbstractTerminal {
     protected _simulate_typing(text: string): void;
     wait_for_keypress: () => Promise<KeyEvent>;
     get_text: (max_length?: number) => Promise<string>;
+    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
     word_wrap(text: string, width: number): string;
     copy_or_paste(): void;
     handle_kernel_panic: (message: string, process_info: string, debug_info?: string) => void;
