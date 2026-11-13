@@ -17,6 +17,9 @@ export interface ReadLineBuffer {
 export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 /**
  * Key event as seen by userspace. Plain data only, never a DOM event.
+ *
+ * @group Userspace
+ * @category Terminal
  */
 export interface UserspaceKeyEvent {
     key: string;
@@ -75,6 +78,9 @@ export interface UserspaceTerminal {
 }
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractTerminal} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Terminal
  */
 export declare abstract class AbstractTerminal {
     #private;

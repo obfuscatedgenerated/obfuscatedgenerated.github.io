@@ -50,6 +50,9 @@ export interface UserspaceClientSocket {
 }
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractClientSocket} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
  */
 export declare abstract class AbstractClientSocket {
     #private;
@@ -75,6 +78,9 @@ export interface UserspaceServerSocket {
 }
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractServerSocket} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
  */
 export declare abstract class AbstractServerSocket {
     #private;
@@ -94,6 +100,9 @@ export interface UserspaceNetworkManager {
 }
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractNetworkManager} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
  */
 export declare abstract class AbstractNetworkManager {
     protected _port_map: Map<number, AbstractServerSocket>;
