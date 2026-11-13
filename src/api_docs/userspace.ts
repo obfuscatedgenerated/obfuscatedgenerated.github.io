@@ -10,13 +10,7 @@ export {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
  * @group Userspace
  * @category Terminal
  */
-export {AbstractTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
-
-/**
- * @group Userspace
- * @category Terminal
- */
-export {ANSI, NEWLINE, non_printable_regex, ansi_escape_regex, ansi_unescaped_regex, is_printable, strip_ansi, word_wrap} from "../lib/ansi";
+export {UserspaceTerminal, UserspaceKeyEvent, UserspaceKeyEventHandler, UserspaceKeyHandlerProps, ReadLineBuffer, UserspaceReadLineKeyHandler} from "../kernel/term_ctl";
 
 /**
  * @group Userspace

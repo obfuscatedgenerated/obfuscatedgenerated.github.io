@@ -25,6 +25,9 @@ export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffe
 
 /**
  * Key event as seen by userspace. Plain data only, never a DOM event.
+ *
+ * @group Userspace
+ * @category Terminal
  */
 export interface UserspaceKeyEvent {
     key: string;
@@ -107,6 +110,9 @@ export interface UserspaceTerminal {
 
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractTerminal} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Terminal
  */
 export abstract class AbstractTerminal {
     readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();

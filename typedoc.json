@@ -12,6 +12,7 @@
     "Userspace",
     "Kernel (Privileged)",
     "Program Types",
+    "ANSI",
     "*"
   ],
   "categoryOrder": [
@@ -26,6 +27,7 @@
     "Sound",
     "Shells",
     "Networking",
+    "Platform",
 
     "Completions",
     "Privileged-by-default Programs"

@@ -54,6 +54,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindow} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Windowing
  */
 export abstract class AbstractWindow {
     abstract readonly id: number;
@@ -232,6 +235,9 @@ export interface UserspaceWindowManager {
 
 /**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindowManager} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Windowing
  */
 export abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;

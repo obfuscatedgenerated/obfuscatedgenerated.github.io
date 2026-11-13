@@ -14,6 +14,12 @@ export { AbstractFileSystem } from "../kernel/filesystem";
 
 /**
  * @group Kernel (Privileged)
+ * @category Terminal
+ */
+export {AbstractTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineKeyHandler} from "../kernel/term_ctl";
+
+/**
+ * @group Kernel (Privileged)
  * @category Processes
  */
 export { ProcessManager, ProcessContext, IPCManager } from "../kernel/processes";

@@ -101,31 +101,43 @@ const copy_regex = (regex: RegExp): RegExp => new RegExp(regex.source, regex.fla
 
 /**
  * @returns A fresh global regex matching non-printable characters.
+ *
+ * @group ANSI
  */
 export const non_printable_regex = (): RegExp => copy_regex(NON_PRINTABLE_LITERAL);
 
 /**
  * @returns A fresh global regex matching textual ANSI escape representations.
+ *
+ * @group ANSI
  */
 export const ansi_escape_regex = (): RegExp => copy_regex(ANSI_ESCAPE_LITERAL);
 
 /**
  * @returns A fresh global regex matching raw ANSI SGR sequences.
+ *
+ * @group ANSI
  */
 export const ansi_unescaped_regex = (): RegExp => copy_regex(ANSI_UNESCAPED_LITERAL);
 
 /**
  * Checks whether a string (typically a single key) contains no non-printable characters.
+ *
+ * @group ANSI
  */
 export const is_printable = (text: string): boolean => !NON_PRINTABLE_TESTER.test(text);
 
 /**
  * Removes raw ANSI SGR sequences (colours and styles) from text, e.g. to measure its visible length.
+ *
+ * @group ANSI
  */
 export const strip_ansi = (text: string): string => text.replace(ansi_unescaped_regex(), "");
 
 /**
  * Wraps text to the given width, breaking on spaces and preserving existing newlines.
+ *
+ * @group ANSI
  */
 export const word_wrap = (text: string, width: number): string => {
     const lines = text.split(NEWLINE);
