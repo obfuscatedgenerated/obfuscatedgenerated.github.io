@@ -189,31 +189,38 @@ export const unmarshal = (value: WireValue, hooks: UnmarshalHooks): unknown => {
     return walk(value);
 };
 
-export const serialise_error = (error: unknown): SerialisedError => {
-    if (error instanceof Error) {
+export type ErrorConstructorMap = Record<string, abstract new (...args: never[]) => Error>;
+
+/**
+ * Converts an error to plain data. Known error classes are named by their key in the map, since class names don't survive minification.
+ */
+export const serialise_error = (error: unknown, known_errors: ErrorConstructorMap = {}): SerialisedError => {
+    if (!(error instanceof Error)) {
         return {
-            name: error.name,
-            message: error.message,
-            stack: error.stack,
+            name: "Error",
+            message: String(error),
         };
     }
 
+    const known_name = Object.keys(known_errors).find((name) => error instanceof known_errors[name]);
+
     return {
-        name: "Error",
-        message: String(error),
+        name: known_name ?? error.name,
+        message: error.message,
+        stack: error.stack,
     };
 };
 
-export type ErrorConstructorMap = Record<string, new (message: string) => Error>;
-
 /**
  * Rebuilds an error, using a known class for its name when one is given so instanceof checks keep working.
+ * The constructor isn't called, since known errors build their own message from different arguments.
  */
 export const deserialise_error = (serialised: SerialisedError, known_errors: ErrorConstructorMap = {}): Error => {
     const ErrorClass = Object.hasOwn(known_errors, serialised.name) ? known_errors[serialised.name] : Error;
-    const error = new ErrorClass(serialised.message);
+    const error = Object.create(ErrorClass.prototype) as Error;
 
     error.name = serialised.name;
+    error.message = serialised.message;
     if (serialised.stack) {
         error.stack = serialised.stack;
     }

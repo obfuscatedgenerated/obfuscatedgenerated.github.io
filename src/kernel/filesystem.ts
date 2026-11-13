@@ -1,5 +1,6 @@
 import {ProcessContext} from "./processes";
 import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {absolute_path as resolve_absolute_path, join_path} from "../lib/path";
 
 /**
  * Error thrown when a path is not found.
@@ -382,125 +383,11 @@ export abstract class AbstractFileSystem implements MirrorSource {
     }
 
     absolute(path: string, cwd?: string): string {
-        if (!cwd) {
-            console.warn("Warning: no cwd passed to absolute");
-        }
-
-        // absoluteify cwd if it doesnt begin with root, to prevent weird edge cases
-        if (cwd && !cwd.startsWith(this._root)) {
-            cwd = this.absolute(cwd);
-        }
-
-        // if path is blank, path is root
-        if (path === "") {
-            return this._root;
-        }
-
-        // if path is ., return cwd
-        // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
-        if (path === ".") {
-            if (!cwd) {
-                throw new Error("Cannot resolve relative path without cwd");
-            }
-
-            return cwd;
-        }
-
-        // if path is ~, return home
-        // TODO: again, same for this and the later ~/ check
-        if (path === "~") {
-            return this._home;
-        }
-
-        // if path starts with cwd and doesn't contain .., it is absolute
-        if (cwd && path.startsWith(cwd) && !path.includes("..")) {
-            return path;
-        }
-
-        // if path starts with root and doesn't contain .., it is absolute
-        if (path.startsWith(this._root) && !path.includes("..")) {
-            return path;
-        }
-
-        // drop leading ./
-        if (path.startsWith("./")) {
-            path = path.slice(2);
-        }
-
-        if (!cwd) {
-            cwd = this._root;
-        }
-
-        let effective_cwd = cwd;
-
-        // if path starts with .., step up the cwd
-        while (path.startsWith("..") && effective_cwd !== this._root) {
-            path = path.slice(2);
-
-            // drop leading /
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-        }
-
-        // TODO: doesn't support middle of path ..
-        // if path ends with .., remove the last part of the full path
-        while (path.endsWith("..")) {
-            path = path.slice(0, path.lastIndexOf(".."));
-
-            // drop trailing /
-            if (path.endsWith("/")) {
-                path = path.slice(0, path.length - 1);
-            }
-
-            // slice path, slicing effective_cwd if path is empty
-            if (path === "") {
-                effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-            } else {
-                path = path.slice(0, path.lastIndexOf("/"));
-
-                if (path === "") {
-                    effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-                }
-            }
-        }
-
-        // if path starts with ~/, replace it with home
-        if (path.startsWith("~/")) {
-            path = path.slice(2);
-            effective_cwd = this._home;
-        }
-
-        // if path still starts with /, drop it
-        if (path.startsWith("/")) {
-            path = path.slice(1);
-        }
-
-        return this.join(effective_cwd, path);
+        return resolve_absolute_path(path, {root: this._root, home: this._home, cwd});
     }
 
     join(base_dir: string, ...paths: string[]): string {
-        // drop trailing /
-        if (base_dir.endsWith("/")) {
-            base_dir = base_dir.slice(0, base_dir.length - 1);
-        }
-
-        // join base_dir and path, using slash if path is not empty
-        for (let path of paths) {
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            if (path === "") {
-                continue;
-            }
-
-            base_dir += "/" + path;
-        }
-
-        return base_dir;
+        return join_path(base_dir, ...paths);
     }
 
     protected constructor() {
@@ -619,8 +506,8 @@ export abstract class AbstractFileSystem implements MirrorSource {
             get_cwd: "mirrored",
             get_home: "mirrored",
             get_root: "mirrored",
-            join: "local",
-            absolute: "local",
+            join: { local: "path.join" },
+            absolute: { local: "path.absolute" },
         }, [
             fs,
             process

@@ -14,8 +14,8 @@ export type MemberAnnotation =
     "mirrored" |
     /** A method or property that always returns the same proxy (or always null). The handle is created at startup, so the stub is returned synchronously. */
     "eager_handle" |
-    /** A synchronous pure function that the RPC shim runs itself using shared code, without calling the kernel. */
-    "local";
+    /** A synchronous function that the RPC shim runs itself, using the implementation registered under this id in locals.ts, without calling the kernel. */
+    { readonly local: string };
 
 export type ProxyAnnotations = Readonly<Record<string, MemberAnnotation>>;
 

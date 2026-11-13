@@ -778,12 +778,12 @@ export class ProcessContext implements MirrorSource {
             is_foreground: "mirrored",
             attachment: "mirrored",
             bound_ports: "mirrored",
-            create_timeout: "local",
-            cancel_timeout: "local",
-            wait_for_timeout: "local",
-            has_timeout: "local",
-            create_interval: "local",
-            clear_interval: "local",
+            create_timeout: { local: "timers.create_timeout" },
+            cancel_timeout: { local: "timers.cancel_timeout" },
+            wait_for_timeout: { local: "timers.wait_for_timeout" },
+            has_timeout: { local: "timers.has_timeout" },
+            create_interval: { local: "timers.create_interval" },
+            clear_interval: { local: "timers.clear_interval" },
         }, [
             self
         ]);

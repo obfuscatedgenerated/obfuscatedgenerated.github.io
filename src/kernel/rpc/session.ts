@@ -1,7 +1,7 @@
 import {extract_schema, type APISchema} from "./schema";
 import {get_registered_proxy, is_userspace_proxy, type ProxyAnnotations} from "./registry";
 import {on_mirror_change} from "./mirroring";
-import {marshal, unmarshal, serialise_error, deserialise_error, type MarshalHooks, type UnmarshalHooks} from "./marshal";
+import {marshal, unmarshal, serialise_error, deserialise_error, type ErrorConstructorMap, type MarshalHooks, type UnmarshalHooks} from "./marshal";
 import {
     RPC_PROTOCOL_VERSION,
     type CallbackID,
@@ -19,6 +19,7 @@ export type KernelEndpoint = RPCEndpoint<RPCKernelToProgramMessage, RPCProgramTo
 
 export interface RPCSessionOptions {
     on_exit(exit_code: number, error?: SerialisedError): void;
+    known_errors?: ErrorConstructorMap;
 }
 
 interface HandleEntry {
@@ -453,7 +454,7 @@ export class RPCSession {
                 break;
             }
             case "callback_error":
-                this.#settle_invocation(message.invocation_id, (pending) => pending.reject(deserialise_error(message.error)));
+                this.#settle_invocation(message.invocation_id, (pending) => pending.reject(deserialise_error(message.error, this.#options.known_errors)));
                 break;
             case "exit":
                 this.#options.on_exit(message.exit_code, message.error);
@@ -521,7 +522,7 @@ export class RPCSession {
                 ...(handles.length > 0 ? { handles } : {}),
             });
         } catch (error) {
-            this.#send({ type: "error", call_id, error: serialise_error(error) });
+            this.#send({ type: "error", call_id, error: serialise_error(error, this.#options.known_errors) });
         }
     }
 }

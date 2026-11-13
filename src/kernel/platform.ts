@@ -79,7 +79,7 @@ export abstract class AbstractPlatformAPI {
         return finalise_userspace_proxy(proxy, {
             get_platform_name: "constant",
             get_capabilities: "constant",
-            supports: "local",
+            supports: { local: "platform.supports" },
         });
     }
 }
