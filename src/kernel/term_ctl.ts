@@ -24,6 +24,88 @@ export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffe
 // TODO: add trust flag and privilege agent preference not visible to userspace. a trusted terminal is allowed to have the privilege agent spawned in it
 
 /**
+ * Key event as seen by userspace. Plain data only, never a DOM event.
+ */
+export interface UserspaceKeyEvent {
+    key: string;
+    code?: string;
+
+    /**
+     * @deprecated Plain-object stand-in for the old DOM event. Use `key` and `code` instead.
+     */
+    domEvent: { key: string; code?: string };
+}
+
+export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: UserspaceTerminal) => void | Promise<void>;
+
+export type UserspaceReadLineKeyHandler = (
+    event: UserspaceKeyEvent,
+    term: UserspaceTerminal,
+    buffer: ReadLineBuffer
+) => void | Promise<void> | boolean | Promise<boolean>;
+
+export interface UserspaceKeyHandlerProps {
+    keyString?: string;
+    domEventCode?: string;
+    block?: boolean;
+}
+
+// strips a kernel key event down to plain data, so no DOM object ever reaches userspace
+const to_userspace_key_event = (event: KeyEvent): UserspaceKeyEvent => {
+    const code = (event.domEvent as Partial<KeyboardEvent> | undefined)?.code;
+
+    return Object.freeze({
+        key: event.key,
+        code,
+        domEvent: Object.freeze({ key: event.key, code }),
+    });
+};
+
+/**
+ * The terminal as seen by userspace programs.
+ *
+ * @group Userspace
+ * @category Terminal
+ */
+export interface UserspaceTerminal {
+    readonly cols: number;
+    readonly rows: number;
+
+    write(data: string | Uint8Array, callback?: () => void): void;
+    writeln(data: string | Uint8Array, callback?: () => void): void;
+    clear(): void;
+    reset(): void;
+
+    wait_for_keypress(): Promise<UserspaceKeyEvent>;
+    read_line(
+        custom_key_handlers?: { [key_string: string]: UserspaceReadLineKeyHandler },
+        custom_printable_handler?: UserspaceReadLineKeyHandler
+    ): Promise<string>;
+
+    /** @returns A function that unregisters the handler. */
+    register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
+    /** @returns A function that unregisters the handler. */
+    register_on_printable_key_event_handler(handler: UserspaceKeyEventHandler): () => void;
+
+    get_custom_flag(flag: string): unknown;
+    set_custom_flag(flag: string, value: unknown): void;
+    supports_custom_flag(flag: string): boolean;
+
+    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    readonly ansi: typeof ANSI;
+    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
+    readonly newline: string;
+    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. */
+    readonly non_printable_regex: RegExp;
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. */
+    readonly ansi_escape_regex: RegExp;
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. */
+    readonly ansi_unescaped_regex: RegExp;
+    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
+    word_wrap(text: string, width: number): string;
+}
+
+/**
  * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractTerminal} passed via program main data.
  */
 export abstract class AbstractTerminal {
@@ -537,11 +619,84 @@ export abstract class AbstractTerminal {
 
         this.writeln(ANSI.STYLE.reset_all);
     }
+
+    create_userspace_proxy(): UserspaceTerminal {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        const proxy = Object.create(null) as UserspaceTerminal;
+
+        // handlers must never see the raw terminal or a DOM event, so every callback is rewrapped
+        const wrap_key_handler = (handler: UserspaceKeyEventHandler): KeyEventHandler =>
+            (event) => handler(to_userspace_key_event(event), proxy);
+
+        const wrap_read_line_handler = (handler: UserspaceReadLineKeyHandler): ReadLineKeyHandler =>
+            (event, _term, buffer) => handler(to_userspace_key_event(event), proxy, buffer);
+
+        Object.defineProperties(proxy, {
+            cols: { get: () => self.cols, enumerable: true },
+            rows: { get: () => self.rows, enumerable: true },
+
+            write: { value: (data: string | Uint8Array, callback?: () => void) => self.write(data, callback), enumerable: true },
+            writeln: { value: (data: string | Uint8Array, callback?: () => void) => self.writeln(data, callback), enumerable: true },
+            clear: { value: () => self.clear(), enumerable: true },
+            reset: { value: () => self.reset(), enumerable: true },
+
+            wait_for_keypress: {
+                value: async () => to_userspace_key_event(await self.wait_for_keypress()),
+                enumerable: true,
+            },
+            read_line: {
+                value: (
+                    custom_key_handlers: { [key_string: string]: UserspaceReadLineKeyHandler } = {},
+                    custom_printable_handler?: UserspaceReadLineKeyHandler
+                ) => {
+                    // null prototype so read_line's "key in handlers"" check can't hit inherited members
+                    const wrapped_handlers: { [key_string: string]: ReadLineKeyHandler } = Object.create(null);
+                    for (const [key_string, handler] of Object.entries(custom_key_handlers)) {
+                        wrapped_handlers[key_string] = wrap_read_line_handler(handler);
+                    }
+
+                    const wrapped_printable = custom_printable_handler
+                        ? wrap_read_line_handler(custom_printable_handler)
+                        : undefined;
+
+                    return self.read_line(wrapped_handlers, wrapped_printable);
+                },
+                enumerable: true,
+            },
+
+            register_key_event_handler: {
+                // rebuild props explicitly so high_priority can't be smuggled in by a plain JS caller
+                value: (handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps) =>
+                    self.register_key_event_handler(wrap_key_handler(handler), {
+                        keyString: props.keyString,
+                        domEventCode: props.domEventCode,
+                        block: props.block,
+                    }),
+                enumerable: true,
+            },
+            register_on_printable_key_event_handler: {
+                value: (handler: UserspaceKeyEventHandler) =>
+                    self.register_on_printable_key_event_handler(wrap_key_handler(handler), false),
+                enumerable: true,
+            },
+
+            get_custom_flag: { value: (flag: string): unknown => self.get_custom_flag(flag), enumerable: true },
+            set_custom_flag: { value: (flag: string, value: unknown) => self.set_custom_flag(flag, value), enumerable: true },
+            supports_custom_flag: { value: (flag: string) => self.supports_custom_flag(flag), enumerable: true },
+
+            ansi: { get: () => self.ansi, enumerable: true },
+            newline: { get: () => self.newline, enumerable: true },
+            non_printable_regex: { get: () => self.non_printable_regex, enumerable: true },
+            ansi_escape_regex: { get: () => self.ansi_escape_regex, enumerable: true },
+            ansi_unescaped_regex: { get: () => self.ansi_unescaped_regex, enumerable: true },
+            word_wrap: { value: (text: string, width: number) => self.word_wrap(text, width), enumerable: true },
+        });
+
+        return Object.freeze(proxy);
+    }
 }
 
-// TODO: term needs hardening and possibly userspace protection to ensure programs cant dispatch keys to auto accept elevation prompts
-// TODO: have now made key dispatch methods private, but need to prevent stuff like handle_kernel_panic being called by userspace programs
-// TODO: main thing is that when writing the proxy we need to think what xterm methods we expose to userspace programs
 // TODO: emit resize events
 
 // as of 09/01/2026, the god class of WrappedTerminal is no more!

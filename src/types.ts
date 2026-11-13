@@ -1,5 +1,5 @@
 import type {Kernel, UserspaceKernel} from "./kernel";
-import type {AbstractTerminal} from "./kernel/term_ctl";
+import type {AbstractTerminal, UserspaceTerminal} from "./kernel/term_ctl";
 import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
 import type {AbstractShell} from "./abstract_shell";
 import type {sdk} from "./kernel/program_sdk";
@@ -16,7 +16,7 @@ export interface ProgramMainData<K = UserspaceKernel> {
     /**
      * Terminal I/O methods.
      */
-    term: AbstractTerminal,
+    term: K extends Kernel ? AbstractTerminal : UserspaceTerminal;
 
     /**
      * The shell that invoked the program, if any.
@@ -152,7 +152,7 @@ export interface Program<K = UserspaceKernel> {
 export type PrivilegedProgram = Program<Kernel>;
 
 export interface CompletionData {
-    term: AbstractTerminal,
+    term: UserspaceTerminal,
     kernel: UserspaceKernel,
     shell?: AbstractShell,
 

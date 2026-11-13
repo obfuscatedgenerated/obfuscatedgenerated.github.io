@@ -8,7 +8,7 @@ import {
     UserspaceClientSocket,
     UserspaceServerSocket
 } from "./network";
-import {AbstractTerminal} from "./term_ctl";
+import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
 
 export interface IPCMessage {
     from: number;
@@ -334,7 +334,7 @@ export interface UserspaceOtherProcessContext {
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     cwd: string;
-    readonly terminal: AbstractTerminal;
+    readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
@@ -711,7 +711,7 @@ export class ProcessContext {
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
             cwd: { get: () => self.cwd, set: (new_cwd: string) => { self.cwd = new_cwd; }, enumerable: true },
-            terminal: { get: () => self.terminal, enumerable: true },
+            terminal: { get: () => self.terminal.create_userspace_proxy(), enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
             is_background: { get: () => self.is_background, enumerable: true },
