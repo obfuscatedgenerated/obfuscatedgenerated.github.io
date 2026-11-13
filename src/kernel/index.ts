@@ -1,4 +1,3 @@
-import {ProgramRegistry, recurse_mount_and_register_with_output, UserspaceProgramRegistry} from "./prog_registry";
 import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
@@ -13,7 +12,7 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import type {AbstractShell} from "../abstract_shell";
-import {ProgramMainData} from "../types";
+import {BaseProgram, ProgramMainData} from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
 import {NEWLINE} from "../lib/ansi";
@@ -51,11 +50,6 @@ export interface UserspaceKernel {
      * Whether this kernel interface has privileged access (false for UserspaceKernel interface).
      */
     readonly privileged: boolean;
-
-    /**
-     * Access the {@link UserspaceProgramRegistry} for this kernel.
-     */
-    get_program_registry(): UserspaceProgramRegistry;
 
     /**
      * Access the chosen {@link UserspaceFileSystem} for this kernel.
@@ -160,7 +154,6 @@ interface EnqueuedPrivilegeRequest {
 export class Kernel {
     readonly #term: AbstractTerminal;
     readonly #process_manager: ProcessManager;
-    readonly #prog_registry: ProgramRegistry;
     readonly #fs: AbstractFileSystem;
     readonly #wm: AbstractWindowManager | null = null;
     readonly #net_manager: AbstractNetworkManager | null = null;
@@ -188,13 +181,6 @@ export class Kernel {
      */
     get panicked(): boolean {
         return this.#panicked;
-    }
-
-    /**
-     * Access the {@link ProgramRegistry} for this kernel.
-     */
-    get_program_registry(): ProgramRegistry {
-        return this.#prog_registry;
     }
 
     /**
@@ -351,7 +337,7 @@ export class Kernel {
         const process = this.#process_manager.create_process(term, parsed_line, shell, spawning_process ? spawning_process.cwd : "/");
 
         // protect from pollution
-        const data = Object.create(null) as ProgramMainData<unknown>;
+        const data = Object.create(null) as ProgramMainData<UserspaceKernel | Kernel>;
 
         // provide either privileged or userspace kernel access
         if (start_privileged) {
@@ -374,7 +360,7 @@ export class Kernel {
         // create a promise that resolves when the program completes
         let result_promise: Promise<number>;
         if ("main" in program) {
-            result_promise = Promise.resolve(program.main(data as ProgramMainData));
+            result_promise = Promise.resolve((program as BaseProgram).main(data));
         } else {
             throw new Error("Invalid program type");
         }
@@ -449,13 +435,6 @@ export class Kernel {
         this.#after_panic = after_panic || null;
 
         const fs = this.get_fs();
-
-        // mount all programs in any subdirectory of /usr/bin
-        // TODO: get rid of the concept of a programregistry being the sole way to run programs. mounting is a bad concept. it should be a cache, not the sole execution method. may need to redesign how programs are stored to have it be more part of the filesystem
-        // TODO: smarter system that has files to be mounted so any stray js files don't get mounted? or maybe it doesn't matter and is better mounting everything for hackability!
-        if (await fs.exists("/usr/bin/")) {
-            await recurse_mount_and_register_with_output(fs, "/usr/bin/", this.get_program_registry(), this.#term);
-        }
 
         // read /boot/init to determine init system
         let init_program: string;
@@ -680,14 +659,13 @@ export class Kernel {
         }
     }
 
-    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI) {
-        this.#term = term;
-        this.#fs = fs;
-        this.#prog_registry = prog_registry || new ProgramRegistry();
-        this.#wm = wm || null;
-        this.#net_manager = net_manager || null;
+    constructor(opts: {term: AbstractTerminal, fs: AbstractFileSystem, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI}) {
+        this.#term = opts.term;
+        this.#fs = opts.fs;
+        this.#wm = opts.wm || null;
+        this.#net_manager = opts.net_manager || null;
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
-        this.#platform = platform || null;
+        this.#platform = opts.platform || null;
     }
 
     /**
@@ -703,7 +681,6 @@ export class Kernel {
         const kernel_fs = self.get_fs();
 
         const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
-        const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, kernel_fs);
         const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs, process);
 
         // managers are fixed at construction, so each proxy is built once and the same one is always returned
@@ -716,7 +693,6 @@ export class Kernel {
 
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },
-            get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
             get_fs: { value: () => fs_proxy, enumerable: true },
             get_window_manager: { value: () => wm_proxy, enumerable: true },
             has_window_manager: { value: () => self.has_window_manager(), enumerable: true },

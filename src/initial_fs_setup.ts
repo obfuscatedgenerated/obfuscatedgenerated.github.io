@@ -1,6 +1,9 @@
 import { AbstractFileSystem } from "./kernel/filesystem";
 import {ANSI, NEWLINE} from "./lib/ansi";
 
+import * as builtin_programs from "./programs/@ALL";
+import {Program} from "./types";
+
 const setup_boot = async (fs: AbstractFileSystem) => {
     // create boot directory if it doesn't exist
     const absolute_boot = fs.absolute("/boot");
@@ -539,10 +542,45 @@ const setup_program_icons = async (fs: AbstractFileSystem) => {
     }
 }
 
+const setup_bin = async (fs: AbstractFileSystem) => {
+    // create bin directory if it doesn't exist
+    const absolute_bin = fs.absolute("/bin");
+    if (!(await fs.dir_exists(absolute_bin))) {
+        await fs.make_dir(absolute_bin);
+    }
+
+    // for each builtin program, put the json metadata in /bin/<program_name>.json
+    // TODO: make builtins real js files, for now we save metadata but still hold main in memory
+    for (const [program_name, prog] of Object.entries(builtin_programs)) {
+        const program = prog as Program;
+        const program_metadata = {
+            ...program,
+            main: undefined,
+            completion: undefined,
+        };
+
+        const program_metadata_json = JSON.stringify(program_metadata, null, 2);
+        const program_metadata_file = fs.join(absolute_bin, `${program_name}.json`);
+        await fs.write_file(program_metadata_file, program_metadata_json, true);
+    }
+
+    // remove any files in /bin that are not in the builtin programs list
+    const bin_files = await fs.list_dir(absolute_bin);
+    for (const file of bin_files) {
+        const file_name = file.split("/").pop() || "";
+        const program_name = file_name.replace(/\.json$/, "");
+        if (!(program_name in builtin_programs)) {
+            await fs.delete_file(fs.join(absolute_bin, file_name));
+        }
+    }
+};
+
 export const initial_fs_setup = async (fs: AbstractFileSystem) => {
     // TODO: parallelise these if they are independent (check first)
 
     await setup_boot(fs);
+    await setup_bin(fs);
+
     await setup_motd(fs);
     await migrate_rc_profile(fs);
     await setup_credits(fs);

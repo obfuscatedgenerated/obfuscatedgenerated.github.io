@@ -44,12 +44,6 @@ export {
 
 /**
  * @group Userspace
- * @category Programs
- */
-export {UserspaceProgramRegistry, ProgramRegistrant} from "../kernel/prog_registry";
-
-/**
- * @group Userspace
  * @category Windowing
  */
 export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent, UserspaceAccessibleCompositionLayer} from "../kernel/windowing";

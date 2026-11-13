@@ -1,4 +1,4 @@
-import type { PrivilegedProgram } from "../../../types";
+import type { Program } from "../../../types";
 
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../kernel/processes";
@@ -55,6 +55,8 @@ export type IgnitionIPCReply =
 export default {
     name: "ignition",
     description: "System init process",
+    space: "kernel",
+    reason: "System init process.",
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
@@ -339,6 +341,6 @@ export default {
 
         return final_code;
     }
-} as PrivilegedProgram;
+} as Program;
 
 // TODO: implement graceful shutdown, stops programs, stops services in reverse order etc as well as move the actual final shutdown/reboot logic to kern`

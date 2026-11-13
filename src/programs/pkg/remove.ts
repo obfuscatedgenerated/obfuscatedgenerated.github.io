@@ -1,4 +1,3 @@
-import {determine_program_name_from_js} from "../../kernel/prog_registry";
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import { ProgramMainData } from "../../types"
 import {graph_query, triggers} from "./index";
@@ -43,7 +42,6 @@ export const remove_subcommand = async (data: ProgramMainData) => {
     // returns 0 for success, 1 for failure, 2 for fatal error
 
     const fs = kernel.get_fs();
-    const prog_reg = kernel.get_program_registry();
 
     // iter over remaining args
     const total_pkgs = unique_args.length;
@@ -109,41 +107,6 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             error_count++;
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
             continue;
-        }
-
-        term.writeln(`${FG.cyan}Unmounting programs...${STYLE.reset_all}`);
-
-        const files = await fs.list_dir(pkg_dir);
-
-        for (const file of files) {
-            if (!file.endsWith(".js")) {
-                continue;
-            }
-
-            const file_path = fs.join(pkg_dir, file);
-
-            let program_name: string;
-            try {
-                const content = await fs.read_file(file_path) as string;
-                program_name = await determine_program_name_from_js(content);
-            } catch (e) {
-                if (e.message.endsWith("is not compatible with Node.js.")) {
-                    // silently skip node.js incompatible programs (they wouldn't have been mounted anyway)
-                    // yes this is a weird way to do it, but better than changing how build_registrant works
-                    continue;
-                }
-
-                term.writeln(`${PREFABS.error}Error determining program name for ${file}: ${e.message}${STYLE.reset_all}`);
-                term.writeln(`${FG.yellow}Skipping program (will remain mounted until restart)...${STYLE.reset_all}`);
-                continue;
-            }
-
-            try {
-                await prog_reg.unregister(program_name);
-                term.writeln(`${FG.cyan}(-) ${program_name}${STYLE.reset_all}`);
-            } catch (e) {
-                term.writeln(`${FG.yellow + STYLE.bold}Warning: Program ${program_name} was never registered.${STYLE.reset_all}`);
-            }
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);

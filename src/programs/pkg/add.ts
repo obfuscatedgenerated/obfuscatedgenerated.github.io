@@ -30,7 +30,6 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
     // returns 0 for success, 1 for failure, 2 for fatal error
 
     const fs = kernel.get_fs();
-    const prog_reg = kernel.get_program_registry();
 
     // iter over remaining args
     const total_pkgs = unique_args.length;
@@ -231,23 +230,6 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         }
 
         // TODO: check if this fails somehow, and if it does, rollback the graph
-
-        term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
-
-        term.writeln(`${FG.cyan}Mounting package ${pkg_name}...${STYLE.reset_all}`);
-
-        // it doesn't matter if mounting fails, the graph is fine and the files are downloaded properly, so no rollback needed
-
-        // mount each program
-        const decoder = new TextDecoder();
-        for (const [filename, value] of file_map) {
-            if (!filename.endsWith(".js")) {
-                continue;
-            }
-
-            // TODO: accept uint8 directly
-            await prog_reg.mount_and_register_with_output(filename, decoder.decode(value), term, true);
-        }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
 

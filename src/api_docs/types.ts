@@ -20,13 +20,3 @@ export {
     CompletionGenerator,
     CompletionData,
 } from "../types";
-
-/**
- * @group Program Types
- * @category Privileged-by-default Programs
- */
-export {
-    PrivilegedProgram,
-    PrivilegedProgramMain,
-    PrivilegedProgramMainData
-} from "../types";

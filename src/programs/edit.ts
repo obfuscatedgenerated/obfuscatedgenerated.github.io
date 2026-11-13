@@ -515,7 +515,7 @@ export default {
                 } else if (!key.startsWith("\x1b")) {
                     // printable text (can be several characters at once over telnet/ssh). drop any control characters, keeping newlines
                     const printable = Array.from(key)
-                        .filter((char) => char === "\r" || char === "\n" || is_printable(char))
+                        .filter((char: string) => char === "\r" || char === "\n" || is_printable(char))
                         .join("");
 
                     editor.insert_text(printable);

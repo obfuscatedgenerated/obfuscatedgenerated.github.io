@@ -1,4 +1,4 @@
-import type {PrivilegedProgram} from "../../types";
+import type {Program} from "../../types";
 import {AbstractTerminal, KeyEvent} from "../../kernel/term_ctl";
 import {UserspaceClientSocket} from "../../kernel/network";
 
@@ -176,6 +176,8 @@ export default {
     name: "telnetd",
     description: "Telnet service",
     usage_suffix: "",
+    space: "kernel",
+    reason: "Telnet service: to create a virtual terminal for each session.",
     arg_descriptions: {},
     compat: "2.0.0",
     hide_from_help: true,
@@ -252,4 +254,4 @@ export default {
         process.detach();
         return 0;
     }
-} as PrivilegedProgram;
+} as Program;

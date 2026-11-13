@@ -1,10 +1,12 @@
-import type {PrivilegedProgram} from "../../types";
+import type {Program} from "../../types";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 
 export default {
     name: "recovery",
     description: "Emergency recovery environment",
+    space: "kernel",
+    reason: "Emergency recovery environment.",
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
@@ -149,4 +151,4 @@ export default {
 
         return 0;
     }
-} as PrivilegedProgram;
+} as Program;

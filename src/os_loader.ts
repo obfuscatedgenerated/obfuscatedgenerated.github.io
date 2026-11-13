@@ -6,9 +6,6 @@ import {ANSI, NEWLINE, word_wrap} from "./lib/ansi";
 
 import {Kernel} from "./kernel";
 
-import {ProgramRegistry} from "./kernel/prog_registry";
-import * as programs from "./programs/@ALL";
-
 import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
 import { OPFSFileSystem } from "./fs_impl/opfs";
@@ -21,15 +18,6 @@ import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
-    // create a program registry by importing all programs
-    const prog_reg = new ProgramRegistry();
-    for (const prog of Object.values(programs)) {
-        await prog_reg.registerProgram({
-            program: prog,
-            built_in: true,
-        });
-    }
-
     // create a filesystem
     // try opfs but use localstorage if not available, or already in use
     // TODO migrate from localstorage to opfs automatically
@@ -103,8 +91,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    // TODO: use an opts object rather than pos params as now quite big (will break other platforms)
-    const kernel = new Kernel(term, fs, prog_reg, wm, net_manager);
+    const kernel = new Kernel({term, fs, wm, net_manager});
     kernel.set_env_info(document.body.dataset.version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!

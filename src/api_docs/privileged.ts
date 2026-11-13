@@ -26,12 +26,6 @@ export { ProcessManager, ProcessContext, IPCManager } from "../kernel/processes"
 
 /**
  * @group Kernel (Privileged)
- * @category Programs
- */
-export { ProgramRegistry } from "../kernel/prog_registry";
-
-/**
- * @group Kernel (Privileged)
  * @category Windowing
  */
 export { AbstractWindow, AbstractWindowManager, WindowCompositionLayer, PrivilegedCompositionLayer } from "../kernel/windowing";

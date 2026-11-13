@@ -4,7 +4,9 @@ import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
 import type {AbstractShell} from "./abstract_shell";
 import type {sdk} from "./kernel/program_sdk";
 
-export interface ProgramMainData<K = UserspaceKernel> {
+type EitherKernel = Kernel | UserspaceKernel;
+
+export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
     /**
       Methods to interact with the kernel.<br />
       By default, this is the {@link UserspaceKernel} interface.<br />
@@ -49,11 +51,7 @@ export interface ProgramMainData<K = UserspaceKernel> {
     sdk: typeof sdk
 }
 
-export type PrivilegedProgramMainData = ProgramMainData<Kernel>;
-
-export type ProgramMain<K = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
-
-export type PrivilegedProgramMain = ProgramMain<Kernel>;
+export type ProgramMain<K extends EitherKernel = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
 
 /**
  * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
@@ -96,60 +94,87 @@ export interface ProgramGUIProps {
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions };
 
 
-export interface Program<K = UserspaceKernel> {
+export interface BaseProgram<K extends EitherKernel = EitherKernel> {
     /**
      * Command to execute the program, should ideally match the filename for consistency.
      */
-    name: string,
+    name: string;
 
     /**
      * A short description of the program, shown in help listings
      */
-    description: string,
+    description: string;
 
     /**
      * The suffix to show in usage, e.g. "file [options]", where the suffix is "[options]"
      */
-    usage_suffix: string,
+    usage_suffix: string;
 
     /**
      * Descriptions of each argument the program takes, shown in help <program>
      */
-    arg_descriptions: ArgDescriptions,
+    arg_descriptions: ArgDescriptions;
 
     /**
      * Default false, if true it will not be registered if running in node.js environments (useful for web specific or incompatible programs)
      */
-    node_opt_out?: boolean,
+    node_opt_out?: boolean;
 
     /**
      * Default false, if true it will be hidden from the program listing in help, but can still be found by typing help <program>. Useful for services and triggers.
      */
-    hide_from_help?: boolean,
+    hide_from_help?: boolean;
+
+    /**
+     * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
+     * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
+     */
+    space?: "user" | "kernel";
 
     /**
      * Async entry point of the program, returning the exit code.
      */
-    main: ProgramMain<K>,
+    main: ProgramMain<K>;
 
     /**
      * Optional tab completion generator.
      */
-    completion?: CompletionGenerator,
+    completion?: CompletionGenerator;
 
     /**
      * Should be set to "2.0.0" for programs that have been ported to the 2.0.0+ API. if not set, considered to be "1.x" legacy program that will not run.
      */
-    compat?: string
+    compat?: string;
 
     /**
      * Optional GUI properties. If set, the program may be displayed in 3rd party GUI listings, such as start menus, search, etc with the provided display name and icon, and launched with the provided args.<br/>
      * If left blank, GUIs may not list the program as a user launchable program, but it can still be launched by typing its name in the terminal.
      */
-    gui?: ProgramGUIProps,
+    gui?: ProgramGUIProps;
 }
 
-export type PrivilegedProgram = Program<Kernel>;
+interface UserspaceProgram extends BaseProgram<UserspaceKernel> {
+    /**
+     * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
+     * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
+     */
+    space?: "user";
+}
+
+interface KernelspaceProgram extends BaseProgram<Kernel> {
+    /**
+     * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
+     * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
+     */
+    space: "kernel";
+
+    /**
+     * The reason the program is privileged and requires kernel space. This will be shown to the user when requesting permission to run the program.
+     */
+    reason: string;
+}
+
+export type Program = UserspaceProgram | KernelspaceProgram;
 
 export interface CompletionData {
     term: UserspaceTerminal,
@@ -177,3 +202,7 @@ export interface CompletionData {
  * @category Programs
  */
 export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion">;

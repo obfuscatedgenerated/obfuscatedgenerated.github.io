@@ -1,4 +1,4 @@
-import type {PrivilegedProgram} from "../../types";
+import type {Program} from "../../types";
 import {AbstractTerminal, KeyEvent} from "../../kernel/term_ctl";
 import {UserspaceClientSocket} from "../../kernel/network";
 import {SpawnResult} from "../../kernel";
@@ -599,6 +599,8 @@ const HOST_KEY_PUB = `${HOST_KEY_DIR}ssh_host_ed25519_key.pub`;
 export default {
     name: "sshd",
     description: "SSH service",
+    space: "kernel",
+    reason: "SSH service: to create a virtual terminal for each session.",
     usage_suffix: "",
     arg_descriptions: {},
     compat: "2.0.0",
@@ -1495,6 +1497,6 @@ export default {
         process.detach();
         return 0;
     }
-} as PrivilegedProgram;
+} as Program;
 
 // TODO: clean up! use separate files with a state and command pattern!
