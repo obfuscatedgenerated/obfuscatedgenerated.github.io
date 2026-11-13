@@ -218,7 +218,7 @@ export default {
 
                 // spawn ash shell running with our virtual terminal
                 try {
-                    const spawn_result = kernel.spawn(
+                    const spawn_result = await kernel.spawn(
                         process,
                         "ash",
                         ["--login"],
@@ -237,7 +237,7 @@ export default {
             });
         };
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
 
         // start immediately if network already up
         if (await net_manager.is_up()) {

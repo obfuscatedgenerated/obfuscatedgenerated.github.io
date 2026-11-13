@@ -418,7 +418,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
 
         // remove from readonly list if it is there
-        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
         if (readonly_list.includes(path)) {
             readonly_list.splice(readonly_list.indexOf(path), 1);
             localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));

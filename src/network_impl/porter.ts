@@ -237,7 +237,7 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
     // sock_id -> client
     readonly #client_map = new Map<string, PorterBridgeClientSocket>();
 
-    #ws: WebSocket | null = null;
+    #ws: WebSocket;
     #reconnect_attempts = 0;
     #reconnect_timer: ReturnType<typeof setTimeout> | null = null;
     #permission_state: LoopbackPermissionState = "unsupported";

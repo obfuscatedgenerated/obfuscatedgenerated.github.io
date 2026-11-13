@@ -48,7 +48,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
     while (unique_args.length >= 1) {
         term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
 
-        const pkg = unique_args.shift();
+        const pkg = unique_args.shift()!;
 
         term.writeln(`${FG.yellow}Checking for ${pkg}...${STYLE.reset_all}`);
 

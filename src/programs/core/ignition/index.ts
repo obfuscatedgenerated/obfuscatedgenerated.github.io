@@ -137,7 +137,7 @@ export default {
                         const service_msg = payload as IgnitionIPCServiceMessage;
                         switch (service_msg.action) {
                             case "start": {
-                                const [success, message] = svc_mgr.start_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.start_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
                                     type: success ? "response" : "error",
                                     message
@@ -153,7 +153,7 @@ export default {
                                 break;
                             }
                             case "restart": {
-                                const [success, message] = svc_mgr.restart_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.restart_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
                                     type: success ? "response" : "error",
                                     message
@@ -277,7 +277,7 @@ export default {
 
         // execute boot target in a respawn loop
         while (running) {
-            const boot_target_proc = kernel.spawn(process, boot_target, boot_args);
+            const boot_target_proc = await kernel.spawn(process, boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
             let exit_code: number;
@@ -315,7 +315,7 @@ export default {
                 if (key.key.toLowerCase() === "r") {
                     term.writeln("Entering recovery mode...");
 
-                    const recovery_proc = kernel.spawn(process, "recovery", [], undefined, true);
+                    const recovery_proc = await kernel.spawn(process, "recovery", [], undefined, true);
                     let recovery_exit_code: number;
                     try {
                         recovery_exit_code = await recovery_proc.completion;

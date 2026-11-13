@@ -1,7 +1,6 @@
 import { AbstractFileSystem } from "./kernel/filesystem";
 import {ANSI, NEWLINE} from "./lib/ansi";
 
-import * as builtin_programs from "./programs/@ALL";
 import {Program} from "./types";
 
 const setup_boot = async (fs: AbstractFileSystem) => {
@@ -542,7 +541,7 @@ const setup_program_icons = async (fs: AbstractFileSystem) => {
     }
 }
 
-const setup_bin = async (fs: AbstractFileSystem) => {
+const setup_bin = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
     // create bin directory if it doesn't exist
     const absolute_bin = fs.absolute("/bin");
     if (!(await fs.dir_exists(absolute_bin))) {
@@ -575,11 +574,11 @@ const setup_bin = async (fs: AbstractFileSystem) => {
     }
 };
 
-export const initial_fs_setup = async (fs: AbstractFileSystem) => {
+export const initial_fs_setup = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
     // TODO: parallelise these if they are independent (check first)
 
     await setup_boot(fs);
-    await setup_bin(fs);
+    await setup_bin(fs, builtin_programs);
 
     await setup_motd(fs);
     await migrate_rc_profile(fs);

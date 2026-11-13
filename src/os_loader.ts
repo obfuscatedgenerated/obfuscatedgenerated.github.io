@@ -17,6 +17,8 @@ import "./load_global_externals";
 import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
+import * as builtin_programs from "./programs/@ALL";
+
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a filesystem
     // try opfs but use localstorage if not available, or already in use
@@ -41,7 +43,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     }
 
     // create initial files
-    await initial_fs_setup(fs);
+    await initial_fs_setup(fs, builtin_programs);
 
     // create a dom window manager
     const wm = new DOMWindowManager();
@@ -91,8 +93,8 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    const kernel = new Kernel({term, fs, wm, net_manager});
-    kernel.set_env_info(document.body.dataset.version, "web");
+    const kernel = new Kernel({term, fs, wm, net_manager, virtual_programs: new Map(Object.entries(builtin_programs))});
+    kernel.set_env_info(document.body.dataset.version || "unknown", "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
     return await kernel.boot(on_init_spawned);

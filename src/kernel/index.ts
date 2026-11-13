@@ -12,7 +12,7 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import type {AbstractShell} from "../abstract_shell";
-import {BaseProgram, ProgramMainData} from "../types";
+import {CompletionGenerator, Program, ProgramMain, ProgramMainData, ProgramMetadata} from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
 import {NEWLINE} from "../lib/ansi";
@@ -108,7 +108,7 @@ export interface UserspaceKernel {
      * @param shell The shell that is spawning this process, if any.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): SpawnResult; // TODO: how safe will this be to expose?
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): Promise<SpawnResult>;
 
     /**
      * Request privileged access from the kernel.
@@ -116,6 +116,10 @@ export interface UserspaceKernel {
      * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
      */
     request_privilege(reason: string): Promise<Kernel | false>;
+
+    find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
+    list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
+    load_program_code(found: {code_path?: string, metadata: ProgramMetadata}): Promise<ProgramCode>;
 }
 
 /**
@@ -143,6 +147,29 @@ interface EnqueuedPrivilegeRequest {
     resolve: (value: Kernel | false) => void;
 }
 
+// TODO: make it a class property if adding custom PATH support
+const PROGRAM_SEARCH_DIRS: { dir: string, builtin: boolean }[] = [
+    { dir: "/bin", builtin: true },
+    { dir: "/usr/bin", builtin: false },
+];
+
+export interface FoundProgram {
+    code_path: string | null;
+    metadata: ProgramMetadata;
+}
+
+export interface ProgramCode {
+    main: ProgramMain;
+    completion?: CompletionGenerator;
+}
+
+/**
+ * Where program code is evaluated. Only kernelspace exists until isothreads are implemented; an isothread host will be added as another kind.
+ */
+export type ProgramCodeHost = { readonly kind: "kernel" };
+
+export const KERNEL_HOST: ProgramCodeHost = Object.freeze({ kind: "kernel" });
+
 /**
  * Interface for interacting with the kernel.
  *
@@ -160,7 +187,7 @@ export class Kernel {
     readonly #platform: AbstractPlatformAPI | null = null;
 
     #panicked = false;
-    #after_panic: (message: string, debug_info?: string) => void | null = null;
+    #after_panic: ((message: string, debug_info?: string) => void) | null = null;
 
     #env_info = {
         version: "unknown",
@@ -263,6 +290,102 @@ export class Kernel {
         this.#env_info.env = env;
     }
 
+    async find_program(name: string): Promise<FoundProgram | null> {
+        // names are single path segments, so they can never escape the search directories
+        if (name === "" || name === "." || name === ".." || name.includes("/")) {
+            return null;
+        }
+
+        const fs = this.get_fs();
+
+        for (const { dir, builtin } of PROGRAM_SEARCH_DIRS) {
+            const metadata_path = `${dir}/${name}.json`;
+            if (!(await fs.exists(metadata_path))) {
+                continue;
+            }
+
+            try {
+                const metadata = JSON.parse(await fs.read_file(metadata_path) as string) as ProgramMetadata;
+                return {code_path: builtin ? null : `${dir}/${name}.js`, metadata};
+            } catch (e) {
+                console.error(`Failed to parse metadata for program ${name} in ${dir}:`, e);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    async list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]> {
+        const fs = this.get_fs();
+
+        const programs: {name: string, metadata: ProgramMetadata, builtin: boolean}[] = [];
+
+        for (const { dir, builtin } of PROGRAM_SEARCH_DIRS) {
+            const files = await fs.list_dir(dir);
+
+            for (const file of files) {
+                if (!file.endsWith(".json")) {
+                    continue;
+                }
+
+                const name = file.slice(0, -5); // remove .json
+                try {
+                    const metadata = JSON.parse(await fs.read_file(`${dir}/${file}`) as string) as ProgramMetadata;
+                    programs.push({name, metadata, builtin});
+                } catch (e) {
+                    console.error(`Failed to parse metadata for program ${name} in ${dir}:`, e);
+                }
+            }
+        }
+
+        return programs;
+    }
+
+    #virtual_programs: Map<string, Program> = new Map();
+
+    /**
+     * Loads a program's code in the given host. Builtins always come from the virtual program store.
+     */
+    async load_program_code(found: FoundProgram, host: ProgramCodeHost): Promise<ProgramCode> {
+        const {code_path, metadata} = found;
+
+        try {
+            if (!code_path) {
+                const builtin = this.#virtual_programs.get(metadata.name);
+                if (!builtin) {
+                    throw new Error("not in the virtual program store");
+                }
+
+                return builtin as ProgramCode;
+            }
+
+            switch (host.kind) {
+                case "kernel": {
+                    const code_str = await this.#fs.read_file(code_path) as string;
+
+                    // imported as a module so the code gets its own scope, with no access to anything in the kernel
+                    const data_url = `data:text/javascript;base64,${btoa(unescape(encodeURIComponent(code_str)))}`;
+                    const exports = await import(/* webpackIgnore: true */ data_url);
+
+                    const main = exports.main ?? exports.default?.main;
+                    if (typeof main !== "function") {
+                        throw new Error("program does not export a main function");
+                    }
+
+                    return { main, completion: exports.completion ?? exports.default?.completion };
+                }
+                default: {
+                    // adding a host kind without handling it here is a compile error
+                    const unhandled: never = host.kind;
+                    throw new Error(`Unsupported program code host: ${unhandled}`);
+                }
+            }
+        } catch (e) {
+            throw new Error(`Failed to load program code for ${metadata.name}: ${e}`);
+        }
+    }
+
     // TODO: cleaner spawn interface, shame theres no function overloading (but could make two more methods)
 
     /**
@@ -275,7 +398,7 @@ export class Kernel {
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn = (spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): SpawnResult => {
+    async spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult> {
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
         // TODO: now collecting spawning process for the cwd inheritance stuff so can now trivially add ownership
@@ -305,29 +428,31 @@ export class Kernel {
         // shallow clone args to avoid mutation exploits (you never know)
         const args = parsed_line.args.slice();
 
-        // search for the command in the registry
-        const program = this.#prog_registry.getProgram(command);
-        if (program === undefined) {
+        // search for the command
+        const program_search = await this.find_program(command);
+        if (!program_search) {
             throw new Error(`Command not found: ${command}`);
         }
 
+        const program_metadata = program_search.metadata;
+
         // validate that the name stored in the program matches the command called
         // under normal circumstances this should always be true, but doing this prevents obscure spoofing exploits
-        if (program.name !== command) {
-            throw new Error(`Program name mismatch for command ${command}: expected ${command}, got ${program.name}`);
+        if (program_metadata.name !== command) {
+            throw new Error(`Program name mismatch for command ${command}: expected ${command}, got ${program_metadata.name}`);
         }
 
         let compat = "1.0.0";
-        if (typeof program.compat === "string") {
-            compat = program.compat;
+        if (typeof program_metadata.compat === "string") {
+            compat = program_metadata.compat;
         }
 
         if (!semver_validate(compat)) {
-            throw new Error(`Program ${program.name} has an invalid compat SemVer: ${compat}`);
+            throw new Error(`Program ${program_metadata.name} has an invalid compat SemVer: ${compat}`);
         }
 
         if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
-            throw new Error(`Program ${program.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
+            throw new Error(`Program ${program_metadata.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
         }
 
         // select the terminal to assign to the process
@@ -357,13 +482,20 @@ export class Kernel {
 
         Object.freeze(data);
 
-        // create a promise that resolves when the program completes
-        let result_promise: Promise<number>;
-        if ("main" in program) {
-            result_promise = Promise.resolve((program as BaseProgram).main(data));
-        } else {
-            throw new Error("Invalid program type");
+        // TODO: anything in this section below would run on an isothread when implemented if userspace
+
+        // load program code from fs, or from the virtual store for builtins
+        let program_code: ProgramCode;
+        try {
+            program_code = await this.load_program_code(program_search, KERNEL_HOST);
+        } catch (e) {
+            // don't leave a process behind for a program that never started
+            process.kill(1);
+            throw e;
         }
+
+        // create a promise that resolves when the program completes
+        const result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
 
         // TODO: expose function equivalent to process.kill(await result_promise) as a shorthand for programs calling others
 
@@ -409,7 +541,7 @@ export class Kernel {
         terminals.add(this.#term);
 
         for (const pid of pids) {
-            const proc = proc_mgr.get_process(pid);
+            const proc = proc_mgr.get_process(pid)!;
             terminals.add(proc.terminal);
         }
 
@@ -463,7 +595,7 @@ export class Kernel {
 
         // run init program
         try {
-            const init = this.spawn(null, init_program, init_args, undefined, true);
+            const init = await this.spawn(null, init_program, init_args, undefined, true);
 
             this.#init_program_name = init_program;
             this.#term.focus();
@@ -525,7 +657,7 @@ export class Kernel {
         // spawn the privilege agent program, passing the channel id, and assign the channel to it
         // make sure it is displayed on the requesting process' terminal
         // vital that it passes the terminal, not the full shell, as a userspace program can manipulate the shell to pass a malicious terminal that autoaccepts
-        const agent_proc = this.spawn(process, agent_program, [channel_id.toString()], undefined, false, process.terminal);
+        const agent_proc = await this.spawn(process, agent_program, [channel_id.toString()], undefined, false, process.terminal);
         ipc.assign_kernel_channel(channel_id, agent_proc.process.pid);
 
         let handling_request = false;
@@ -641,7 +773,7 @@ export class Kernel {
         const pids = proc_mgr.list_pids();
 
         for (const pid of pids) {
-            const proc = proc_mgr.get_process(pid);
+            const proc = proc_mgr.get_process(pid)!;
             proc.terminal.dispose();
         }
 
@@ -659,13 +791,21 @@ export class Kernel {
         }
     }
 
-    constructor(opts: {term: AbstractTerminal, fs: AbstractFileSystem, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI}) {
+    constructor(opts: {
+        term: AbstractTerminal,
+        fs: AbstractFileSystem,
+        wm?: AbstractWindowManager,
+        net_manager?: AbstractNetworkManager,
+        platform?: AbstractPlatformAPI,
+        virtual_programs?: Map<string, Program>
+    }) {
         this.#term = opts.term;
         this.#fs = opts.fs;
         this.#wm = opts.wm || null;
         this.#net_manager = opts.net_manager || null;
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
         this.#platform = opts.platform || null;
+        this.#virtual_programs = opts.virtual_programs || new Map();
     }
 
     /**
@@ -712,7 +852,12 @@ export class Kernel {
             request_privilege: {
                 value: (reason: string) => self.request_privilege(reason, process),
                 enumerable: true
-            }
+            },
+            find_program: { value: (name: string) => self.find_program(name), enumerable: true },
+            list_programs: { value: () => self.list_programs(), enumerable: true },
+
+            // TODO: when isothreads implemented, program code MUST load in the same isothread as the calling process
+            load_program_code: { value: (found: FoundProgram) => self.load_program_code(found, KERNEL_HOST), enumerable: true },
         });
 
         return finalise_userspace_proxy(proxy, {

@@ -39,7 +39,7 @@ export default {
         const fs = kernel.get_fs();
 
         if (args[0] === "-h") {
-            const spawn_result = kernel.spawn("help", ["webget"], shell);
+            const spawn_result = await kernel.spawn("help", ["webget"], shell);
             const exit_code = await spawn_result.completion;
             spawn_result.process.kill(exit_code);
             return exit_code;
@@ -52,7 +52,7 @@ export default {
         }
 
         // parse url
-        const url = args.shift();
+        const url = args.shift()!;
 
         // validate url
         try {
@@ -71,7 +71,7 @@ export default {
         let binary = false;
         let method = "GET";
         const headers: Map<string, string> = new Map();
-        let body = null;
+        let body: string | null = null;
 
         for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
             const arg = args[arg_idx];

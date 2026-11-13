@@ -61,7 +61,7 @@ export const parse_line = (line: string, memory?: AshMemory): LineParseResult =>
         }
     }
 
-    const skip_variable_sub_idxs = [];
+    const skip_variable_sub_idxs: number[] = [];
 
     // remove quotes from arguments if starting and ending with quotes
     // if they are single quotes then disable substitution

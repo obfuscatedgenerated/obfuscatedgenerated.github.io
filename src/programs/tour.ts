@@ -11,7 +11,7 @@ const wait_block = (term: UserspaceTerminal) => {
 
 const run_cmd = async (data: ProgramMainData, cmd: string, args: string[] = []) => {
     data.term.writeln(`${ANSI.STYLE.bold}$ ${cmd}${ANSI.STYLE.reset_all}${NEWLINE}`);
-    await data.kernel.spawn(cmd, args, data.shell).completion;
+    await (await data.kernel.spawn(cmd, args, data.shell)).completion;
     data.term.write(NEWLINE);
 };
 

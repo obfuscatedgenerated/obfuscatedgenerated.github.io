@@ -12,7 +12,7 @@ const username_to_avatar_url = (username: string): string => {
 }
 
 type GHInfo = { name: string, bio: string, location: string, blog: string, followers: number, following: number, twitter: string };
-const get_github_info = async (username: string): Promise<GHInfo> => {
+const get_github_info = async (username: string): Promise<GHInfo | null> => {
     const url = `https://api.github.com/users/${username}`;
     const res = await fetch(url);
 
@@ -61,8 +61,8 @@ ${data.websites ? Object.entries(data.websites).map(
     ([name, url]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${url}`
 ).join(NEWLINE) : ""}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.following || 0}
 
 ${data.extra ? Object.entries(data.extra).map(
     ([name, value]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${value}`
@@ -75,7 +75,7 @@ const stranger_info = (username: string, gh_info: GHInfo | null, cols: number, v
     const { STYLE, FG } = ANSI;
 
     // line wrap the bio and make sure newlines ARE NOT CRLF (to retain columns)
-    if (gh_info.bio) {
+    if (gh_info && gh_info.bio) {
         gh_info.bio = gh_info.bio.replace(/\r\n/g, "\n").replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n");
     }
 
@@ -86,17 +86,17 @@ ${STYLE.bold}${username}
 ${"-".repeat(username.length)}
 ${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
-${gh_info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${gh_info.name}` : "\x1b[1A"}
-${gh_info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${gh_info.location}` : "\x1b[1A"}
-${gh_info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${gh_info.bio}` : "\x1b[1A"}
+${gh_info && gh_info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${gh_info.name}` : "\x1b[1A"}
+${gh_info && gh_info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${gh_info.location}` : "\x1b[1A"}
+${gh_info && gh_info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${gh_info.bio}` : "\x1b[1A"}
 
-${gh_info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${gh_info.blog}` : "\x1b[1A"}
+${gh_info && gh_info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${gh_info.blog}` : "\x1b[1A"}
 
 ${STYLE.bold}GitHub${STYLE.reset_all + FG.cyan}: https://github.com/${username}
-${gh_info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${gh_info.twitter}` : "\x1b[1A"}
+${gh_info && gh_info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${gh_info.twitter}` : "\x1b[1A"}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.following || 0}
     `.replace(/\n/g, NEWLINE);
 }
 

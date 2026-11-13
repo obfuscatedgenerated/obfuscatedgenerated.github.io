@@ -212,11 +212,11 @@ export abstract class AbstractFileSystem implements MirrorSource {
         }
 
         // add callback to array
-        this.#callbacks.get(event_type).push(callback);
+        this.#callbacks.get(event_type)!.push(callback);
 
         // return function to remove callback
         return () => {
-            this.#callbacks.get(event_type).splice(this.#callbacks.get(event_type).indexOf(callback), 1);
+            this.#callbacks.get(event_type)!.splice(this.#callbacks.get(event_type)!.indexOf(callback), 1);
         }
     }
 
@@ -245,7 +245,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
         // check if file is in cache and still exists, as well as if it's the correct type
         const cached = this.#cache.get(path);
         if (cached && await this.exists(path) && cached.as_uint === as_uint) {
-            return this.#cache.get(path).content;
+            return this.#cache.get(path)!.content;
         }
 
         // if not, read it from disk and cache it
@@ -283,7 +283,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
     // does not check if destination exists
     async move_file(path: string, new_path: string): Promise<void> {
         // move in cache and disk
-        this.#cache.set(new_path, this.#cache.get(path));
+        this.#cache.set(new_path, this.#cache.get(path)!);
         this.#cache.delete(path);
         await this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);

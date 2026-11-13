@@ -258,7 +258,7 @@ export class ServiceManager {
         }
     }
 
-    start_service(service_id: string) {
+    async start_service(service_id: string) {
         // TODO: check dependencies are running, start them if not (be careful of circular deps, could use calculate_service_start_order for this with a subset of 1)
 
         if (this.#running_services.has(service_id)) {
@@ -275,7 +275,7 @@ export class ServiceManager {
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this.#kernel.spawn(this.#process, service.exec, service.args || [], undefined, service.privileged);
+            spawn_result = await this.#kernel.spawn(this.#process, service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
             return [false, `Error starting service ${service_id}.`];
@@ -328,14 +328,14 @@ export class ServiceManager {
         return [true, `Service ${service_id} stopped successfully.`];
     }
 
-    restart_service(service_id: string) {
+    async restart_service(service_id: string) {
         const [stop_success, stop_msg] = this.stop_service(service_id);
 
         if (!stop_success) {
             return [false, stop_msg];
         }
 
-        const [start_success, start_msg] = this.start_service(service_id); // TODO: will this conflict with the exit listener?
+        const [start_success, start_msg] = await this.start_service(service_id); // TODO: will this conflict with the exit listener?
         if (!start_success) {
             return [false, start_msg];
         }
@@ -367,6 +367,8 @@ export class ServiceManager {
                 };
             }
         }
+
+        return null;
     }
 
     #handle_service_exit(service_id: string, exit_code: number) {

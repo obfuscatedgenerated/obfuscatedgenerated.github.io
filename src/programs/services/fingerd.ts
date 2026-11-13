@@ -56,7 +56,7 @@ export default {
             });
         };
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
 
         // start immediately if network already up
         if (await net_manager.is_up()) {

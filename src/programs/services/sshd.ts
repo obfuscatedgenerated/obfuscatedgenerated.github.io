@@ -515,7 +515,12 @@ const serialise_ssh_message = (message: SSHMessage): Uint8Array | null => {
 }
 
 const wrap_ssh_message = (message: SSHMessage): Uint8Array => {
-    return pad_ssh_message(serialise_ssh_message(message));
+    const payload = serialise_ssh_message(message);
+    if (!payload) {
+        throw new Error(`Cannot serialise message of type ${message.type}`);
+    }
+
+    return pad_ssh_message(payload);
 }
 
 const unpad_ssh_message = (data: Uint8Array): { payload: Uint8Array, remaining: Uint8Array } | null => {
@@ -560,7 +565,11 @@ const unwrap_ssh_message = (data: Uint8Array): { message: SSHMessage, remaining:
     }
 
     const message = deserialise_ssh_message(payload);
-    return { message, remaining };
+    if (!message) {
+        return null; // failed to deserialise message
+    }
+
+    return { message, remaining: remaining! };
 }
 
 // TODO: add bufferring to these wait funcs (local to each socket ofc)
@@ -736,8 +745,8 @@ export default {
                 const hash_data = new MessageWriter();
                 hash_data.write_string(client_banner.trim());
                 hash_data.write_string(SERVER_BANNER);
-                hash_data.write_string(unpad_ssh_message(client_kexinit.raw).payload);
-                hash_data.write_string(unpad_ssh_message(server_kexinit_raw).payload);
+                hash_data.write_string(unpad_ssh_message(client_kexinit.raw)!.payload);
+                hash_data.write_string(unpad_ssh_message(server_kexinit_raw)!.payload);
                 hash_data.write_string(host_key_blob);
                 hash_data.write_string(client_public_key);
                 hash_data.write_string(ephemeral_public_key);
@@ -852,6 +861,9 @@ export default {
 
                 const encrypt_message = async (message: SSHMessage): Promise<Uint8Array> => {
                     const payload = serialise_ssh_message(message);
+                    if (!payload) {
+                        throw new Error(`Cannot serialise message of type ${message.type}`);
+                    }
 
                     let padding_len = 16 - ((1 + payload.length) % 16);
                     if (padding_len < 4) {
@@ -908,10 +920,10 @@ export default {
                 // TODO: could just pass key dict rather than defining new funcs
 
                 // enter encrypted session
-                let client_newkeys: SSHMessage;
+                let client_newkeys: SSHMessage | null = null;
                 await Promise.all([socket.send(wrap_ssh_message({type: "NEWKEYS"})), (async () => client_newkeys = (await wait_for_next_ssh_message(socket)).message)()]);
 
-                if (client_newkeys.type !== "NEWKEYS") {
+                if (client_newkeys!.type !== "NEWKEYS") {
                     socket.close();
                     return;
                 }
@@ -1291,7 +1303,7 @@ export default {
                                     return;
                                 }
 
-                                channel.shell = kernel.spawn(
+                                channel.shell = await kernel.spawn(
                                     process,
                                     "ash",
                                     ["--login"],
@@ -1346,7 +1358,7 @@ export default {
                                 // TODO: when piping exists then pipe channel data to process stdin
                                 let spawn_result: SpawnResult;
                                 try {
-                                    spawn_result = kernel.spawn(
+                                    spawn_result = await kernel.spawn(
                                         process,
                                         command,
                                         [],
@@ -1480,7 +1492,7 @@ export default {
             });
         };
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
 
         // start immediately if network already up
         if (await net_manager.is_up()) {

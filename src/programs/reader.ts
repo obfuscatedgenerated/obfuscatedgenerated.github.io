@@ -60,7 +60,7 @@ export default {
 
         switch (args[0]) {
             case "-h": {
-                const spawn_result = kernel.spawn("help", ["reader"], shell);
+                const spawn_result = await kernel.spawn("help", ["reader"], shell);
                 const exit_code = await spawn_result.completion;
                 spawn_result.process.kill(exit_code);
                 return exit_code;
@@ -104,7 +104,7 @@ export default {
         }
 
         // save into local storage
-        localStorage.setItem("reader", term.get_custom_flag("reader_support").toString());
+        localStorage.setItem("reader", term.get_custom_flag("reader_support")!.toString());
 
         return 0;
     }

@@ -57,7 +57,7 @@ export default {
                     // TODO: this doesnt make much difference being privileged as the programs are separate processes
                     // TODO: bypass the privilege agent instead
                     let exit_code: number;
-                    const shell = kernel.spawn(process, "ash", ["--no-scripts"], undefined, true);
+                    const shell = await kernel.spawn(process, "ash", ["--no-scripts"], undefined, true);
                     try {
                         exit_code = await shell.completion;
                     } catch (e) {
@@ -151,4 +151,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

@@ -67,7 +67,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn(default_shell, default_shell_args);
+            const shell_proc = await kernel.spawn(default_shell, default_shell_args);
             current_shell_process = shell_proc.process;
 
             let exit_code: number;

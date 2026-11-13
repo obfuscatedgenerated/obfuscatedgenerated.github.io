@@ -85,16 +85,21 @@ export default {
 
         wind.title = `Terminal - ${command}`;
 
-        const prog_reg = kernel.get_program_registry();
-
         let close_exit_code = 0;
-        const subproc = kernel.spawn(process, command, command_args, undefined, false, subterm);
+        const subproc = await kernel.spawn(process, command, command_args, undefined, false, subterm);
         subproc.completion.then(async (code) => {
             close_exit_code = code;
             subproc.process.kill(code);
 
             // get the gui props of the command
-            const program = prog_reg.getProgram(command);
+            const program_search = await kernel.find_program(command);
+            if (!program_search) {
+                // program no longer exists, just close the window
+                wind.close();
+                return;
+            }
+
+            const program = program_search.metadata;
 
             // determine whether to keep the terminal open based on the program's gui props and exit code (default: on_error)
             const keep_open_value = program?.gui?.keep_terminal_open_after_run || "on_error";
@@ -123,6 +128,6 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: worth moving to skylight?

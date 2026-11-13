@@ -107,7 +107,7 @@ export default {
         const { PREFABS, STYLE, FG } = ANSI;
 
         if (args.includes("-h")) {
-            const spawn_result = kernel.spawn("help", ["rss"], shell);
+            const spawn_result = await kernel.spawn("help", ["rss"], shell);
             const exit_code = await spawn_result.completion;
             spawn_result.process.kill(exit_code);
             return exit_code;
@@ -140,7 +140,7 @@ export default {
         // check if the user provided a URL
         let url = "https://blog.ollieg.codes/rss/feed.xml";
         if (args.length !== 0) {
-            url = args.shift();
+            url = args.shift()!;
         }
 
         // validate url

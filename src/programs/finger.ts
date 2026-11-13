@@ -30,7 +30,7 @@ export default {
             return 1;
         }
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
         if (!await net_manager.is_up(true)) {
             term.writeln(`${term.ansi.PREFABS.error}Network is down!${term.ansi.STYLE.reset_all}`);
             return 1;

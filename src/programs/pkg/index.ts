@@ -95,7 +95,7 @@ export const repo_query = {
     },
 
     // returns null if not found, otherwise returns the meta.json file as an object
-    get_pkg_meta: async (pkg: string, version: string): Promise<PackageMeta> => {
+    get_pkg_meta: async (pkg: string, version: string): Promise<PackageMeta | null> => {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
         pkg = pkg.replace(/\./g, "%2E");
@@ -469,10 +469,10 @@ export const triggers = {
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult;
+        let spawn_result: SpawnResult | null = null;
 
         try {
-            spawn_result =  kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
+            spawn_result = await kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -508,10 +508,10 @@ export const triggers = {
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult;
+        let spawn_result: SpawnResult | null = null;
 
         try {
-            spawn_result =  kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
+            spawn_result = await kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -614,7 +614,7 @@ export default {
         }
 
         if (args.includes("-h")) {
-            const spawn_result = kernel.spawn("help", ["pkg"], shell);
+            const spawn_result = await kernel.spawn("help", ["pkg"], shell);
             const exit_code = await spawn_result.completion;
             spawn_result.process.kill(exit_code);
             return exit_code;

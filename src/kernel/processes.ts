@@ -346,7 +346,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): UserspaceWindow | null;
+    create_window(): UserspaceWindow;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
@@ -536,10 +536,10 @@ export class ProcessContext implements MirrorSource {
         return timers.wait_for_timeout.call(this, id);
     }
 
-    create_window(): AbstractWindow | null {
+    create_window(): AbstractWindow {
         const wm = this.#manager.window_manager;
         if (!wm) {
-            return null;
+            throw new Error("No window manager available");
         }
 
         const win = new wm.Window(this.#pid);

@@ -36,7 +36,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
     while (unique_args.length >= 1) {
         term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
 
-        const pkg_at_version = unique_args.shift();
+        const pkg_at_version = unique_args.shift()!;
 
         // if in the format of pkg@version, split it up
         const pkg_split = pkg_at_version.split("@");
