@@ -1,4 +1,5 @@
 import {AbstractWindow, AbstractWindowManager, WindowCompositionLayer, WindowEvent} from "../kernel/windowing";
+import {notify_mirror_change} from "../kernel/rpc";
 
 interface LayerZRange {
     min_z: number;
@@ -297,6 +298,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_root.style.zIndex = manager.#get_next_z(new_layer).toString();
 
                 this._window_root.dataset.layer = new_layer;
+                notify_mirror_change(this);
             }
 
             force_z_index(new_z: number) {
@@ -409,6 +411,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_top_bar_title.innerText = new_title;
                 this._title_text = new_title;
 
+                notify_mirror_change(this);
                 this._emit_event("rename");
             }
 
@@ -418,6 +421,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             set width(css_width: string) {
                 this._window_root.style.width = css_width;
+                notify_mirror_change(this);
             }
 
             get height() {
@@ -426,6 +430,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             set height(css_height: string) {
                 this._window_root.style.height = css_height;
+                notify_mirror_change(this);
             }
 
             get maximisable() {
@@ -435,6 +440,7 @@ export class DOMWindowManager extends AbstractWindowManager {
             set maximisable(value: boolean) {
                 this._maximisable = value;
                 this._window_top_bar_maximise_button.disabled = !value;
+                notify_mirror_change(this);
             }
 
             get maximised() {
@@ -456,6 +462,8 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                     this._emit_event("restore");
                 }
+
+                notify_mirror_change(this);
             }
 
             get x() {
@@ -468,6 +476,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
 
                 this._window_root.style.left = css_pos;
+                notify_mirror_change(this);
             }
 
             get y() {
@@ -480,6 +489,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
 
                 this._window_root.style.top = css_pos;
+                notify_mirror_change(this);
             }
 
             center() {
@@ -503,6 +513,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this.focus();
 
                 this._emit_event("show");
+                notify_mirror_change(this);
             }
 
             hide() {
@@ -515,6 +526,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }, 200);
 
                 this._emit_event("hide");
+                notify_mirror_change(this);
             }
 
             toggle() {

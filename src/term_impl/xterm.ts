@@ -2,6 +2,7 @@ import {AbstractTerminal, KeyEvent} from "../kernel/term_ctl";
 import {IDisposable, ITerminalAddon, ITerminalOptions, Terminal} from "@xterm/xterm";
 
 import xterm_css from "@xterm/xterm/css/xterm.css?raw";
+import {notify_mirror_change} from "../kernel/rpc";
 
 export class XTermTerminal extends AbstractTerminal {
     #xterm: Terminal;
@@ -151,6 +152,10 @@ export class XTermTerminal extends AbstractTerminal {
         super();
 
         this.#xterm = new Terminal(xterm_opts);
+        this.#xterm.onResize((_size) => {
+            notify_mirror_change(this);
+        });
+
         this.resume_input_processing();
     }
 }

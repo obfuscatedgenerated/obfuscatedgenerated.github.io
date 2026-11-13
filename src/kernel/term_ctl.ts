@@ -1,5 +1,5 @@
 import {ANSI, NEWLINE, ansi_escape_regex, ansi_unescaped_regex, is_printable, non_printable_regex, word_wrap} from "../lib/ansi";
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
 
 export interface KeyEvent {
     key: string;
@@ -115,7 +115,9 @@ export interface UserspaceTerminal {
  * @group Kernel (Privileged)
  * @category Terminal
  */
-export abstract class AbstractTerminal {
+export abstract class AbstractTerminal implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     readonly #on_printable_handlers: KeyEventHandler[] = [];
 
@@ -717,7 +719,9 @@ export abstract class AbstractTerminal {
             ansi_escape_regex: "local",
             ansi_unescaped_regex: "local",
             word_wrap: "local",
-        });
+        }, [
+            this
+        ]);
     }
 }
 

@@ -9,7 +9,7 @@ import {
     UserspaceServerSocket
 } from "./network";
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
 
 export interface IPCMessage {
     from: number;
@@ -353,7 +353,9 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     get bound_ports(): number[];
 }
 
-export class ProcessContext {
+export class ProcessContext implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #pid: number;
     readonly #manager: ProcessManager;
 
@@ -417,6 +419,8 @@ export class ProcessContext {
         }
 
         this.#cwd = path;
+
+        notify_mirror_change(this);
     }
 
     get terminal(): AbstractTerminal {
@@ -458,6 +462,8 @@ export class ProcessContext {
     detach(silently = false): void {
         this.#attachment = ProcessAttachment.DETACHED;
         this.#detach_silently = silently;
+
+        notify_mirror_change(this);
     }
 
     dispose_resources(): void {
@@ -632,8 +638,10 @@ export class ProcessContext {
         // clean up on close
         socket.add_event_listener("close", () => {
             this.#port_map.delete(port);
+            notify_mirror_change(this);
         });
 
+        notify_mirror_change(this);
         return socket;
     }
 
@@ -709,7 +717,9 @@ export class ProcessContext {
             is_background: "mirrored",
             is_foreground: "mirrored",
             attachment: "mirrored",
-        });
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy(): UserspaceProcessContext {
@@ -739,7 +749,7 @@ export class ProcessContext {
             has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window().create_userspace_proxy_as_full_window(),  enumerable: true },
+            create_window: { value: () => self.create_window()?.create_userspace_proxy_as_full_window() ?? null, enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();
@@ -774,7 +784,9 @@ export class ProcessContext {
             has_timeout: "local",
             create_interval: "local",
             clear_interval: "local",
-        });
+        }, [
+            self
+        ]);
     }
 }
 

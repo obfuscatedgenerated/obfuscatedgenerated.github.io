@@ -1,4 +1,4 @@
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
 
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 
@@ -75,7 +75,9 @@ export interface UserspaceClientSocket {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export abstract class AbstractClientSocket {
+export abstract class AbstractClientSocket implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly id: string;
     ready_state: SocketReadyState = SocketReadyState.CONNECTING;
 
@@ -130,6 +132,7 @@ export abstract class AbstractClientSocket {
         }
 
         this.ready_state = SocketReadyState.CLOSING;
+        notify_mirror_change(this);
         await this._handle_close_internal(passive);
 
         // invoke close listeners
@@ -142,6 +145,7 @@ export abstract class AbstractClientSocket {
         }
 
         this.ready_state = SocketReadyState.CLOSED;
+        notify_mirror_change(this);
     }
 
     create_userspace_proxy(): UserspaceClientSocket {
@@ -169,7 +173,9 @@ export abstract class AbstractClientSocket {
         return finalise_userspace_proxy(proxy, {
             id: "constant",
             ready_state: "mirrored",
-        });
+        }, [
+            this
+        ]);
     }
 }
 
@@ -321,7 +327,9 @@ export interface UserspaceNetworkManager {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export abstract class AbstractNetworkManager {
+export abstract class AbstractNetworkManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     protected _port_map: Map<number, AbstractServerSocket> = new Map();
 
     get bound_ports(): number[] {
@@ -360,21 +368,25 @@ export abstract class AbstractNetworkManager {
 
         // forcibly claim the port to avoid race condition
         this._port_map.set(port, null as unknown as AbstractServerSocket);
+        notify_mirror_change(this);
 
         try {
             // invoke implementation class to create the server socket, then store it in the port map
             const server_socket = await this._handle_listen_internal(port);
             this._port_map.set(port, server_socket);
+            notify_mirror_change(this);
 
             // remove once the server socket is closed
             server_socket.add_event_listener("close", () => {
                 this._port_map.delete(port);
+                notify_mirror_change(this);
             });
 
             return server_socket;
         } catch (err) {
             // if there was an error, remove the port from the map so it can be retried
             this._port_map.delete(port);
+            notify_mirror_change(this);
             throw err;
         }
     }
@@ -391,7 +403,9 @@ export abstract class AbstractNetworkManager {
         return finalise_userspace_proxy(proxy, {
             get_unique_manager_type_name: "constant",
             bound_ports: "mirrored",
-        });
+        }, [
+            this
+        ]);
     }
 }
 

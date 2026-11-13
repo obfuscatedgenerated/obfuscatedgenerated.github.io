@@ -1,4 +1,4 @@
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
 
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
@@ -20,6 +20,7 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+    readonly maximisable: boolean;
 
     readonly layer: WindowCompositionLayer;
 }
@@ -36,6 +37,7 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     visible: boolean;
     maximised: boolean;
+    maximisable: boolean;
 
     readonly layer: WindowCompositionLayer;
     request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
@@ -60,7 +62,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export abstract class AbstractWindow {
+export abstract class AbstractWindow implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract readonly id: number;
 
     // TODO: more generic type somehow? depends if we ever need implementations that dont use shadow DOM
@@ -151,6 +155,7 @@ export abstract class AbstractWindow {
             y: { get: () => self.y, enumerable: true },
             visible: { get: () => self.visible, enumerable: true },
             maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
             layer: { get: () => self.layer, enumerable: true }
         });
 
@@ -165,8 +170,11 @@ export abstract class AbstractWindow {
             y: "mirrored",
             visible: "mirrored",
             maximised: "mirrored",
+            maximisable: "mirrored",
             layer: "mirrored",
-        });
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy_as_full_window(): UserspaceWindow {
@@ -212,6 +220,7 @@ export abstract class AbstractWindow {
                 enumerable: true
             },
             maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
             center: { value: () => { self.center(); }, enumerable: true },
             focus: { value: () => { self.focus(); }, enumerable: true },
             show: { value: () => { self.show(); }, enumerable: true },
@@ -251,8 +260,11 @@ export abstract class AbstractWindow {
             y: "mirrored",
             visible: "mirrored",
             maximised: "mirrored",
+            maximisable: "mirrored",
             layer: "mirrored",
-        });
+        }, [
+            self
+        ]);
     }
 }
 

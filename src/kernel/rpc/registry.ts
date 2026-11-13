@@ -1,3 +1,5 @@
+import {MirrorSource} from "./mirroring";
+
 /**
  * Describes how RPC should access members of the proxy.
  * If omitted, the member is assumed to be an asynchronous call.
@@ -17,17 +19,36 @@ export type MemberAnnotation =
 
 export type ProxyAnnotations = Readonly<Record<string, MemberAnnotation>>;
 
-// WeakMap rather than a property on the proxy so userspace can't see or tamper with it, and it doesn't show up in the descriptors the extractor walks
-const registered_proxies = new WeakMap<object, ProxyAnnotations>();
+interface RegisteredProxy {
+    annotations: ProxyAnnotations;
+    sources: readonly MirrorSource[];
+}
 
-export const finalise_userspace_proxy = <T extends object>(proxy: T, annotations: ProxyAnnotations = {}): T => {
+// WeakMap rather than a property on the proxy so userspace can't see or tamper with it, and it doesn't show up in the descriptors the extractor walks
+const registered_proxies = new WeakMap<object, RegisteredProxy>();
+
+export const finalise_userspace_proxy = <T extends object>(proxy: T, annotations: ProxyAnnotations = {}, sources: MirrorSource[] = []): T => {
+    const has_mirrored = Object.values(annotations).includes("mirrored");
+    if (has_mirrored && sources.length === 0) {
+        throw new Error("Proxy has mirrored members but no mirror sources, so they could never update");
+    }
+
     const frozen = Object.freeze(proxy);
-    registered_proxies.set(frozen, Object.freeze({...annotations}));
+    registered_proxies.set(frozen, Object.freeze({
+        annotations: Object.freeze({...annotations}),
+        sources: Object.freeze([...sources]),
+    }));
     return frozen;
 };
 
 export const is_userspace_proxy = (value: unknown): value is object =>
     typeof value === "object" && value !== null && registered_proxies.has(value);
 
-export const get_proxy_annotations = (proxy: object): ProxyAnnotations | undefined =>
+export const get_registered_proxy = (proxy: object): RegisteredProxy | undefined =>
     registered_proxies.get(proxy);
+
+export const get_proxy_annotations = (proxy: object): ProxyAnnotations | undefined =>
+    registered_proxies.get(proxy)?.annotations;
+
+export const get_proxy_sources = (proxy: object): readonly MirrorSource[] | undefined =>
+    registered_proxies.get(proxy)?.sources;

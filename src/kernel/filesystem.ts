@@ -1,5 +1,5 @@
 import {ProcessContext} from "./processes";
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
 
 /**
  * Error thrown when a path is not found.
@@ -144,7 +144,9 @@ export interface UserspaceFileSystem {
  * @group Kernel (Privileged)
  * @category Filesystem
  */
-export abstract class AbstractFileSystem {
+export abstract class AbstractFileSystem implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     //TODO: dry
 
     // note some members are conventionally private with _ prefix to allow implementations to access them
@@ -349,6 +351,7 @@ export abstract class AbstractFileSystem {
 
     set_home(path: string): void {
         this._home = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_HOME, path);
     }
 
@@ -359,6 +362,7 @@ export abstract class AbstractFileSystem {
 
     set_root(path: string): void {
         this._root = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_ROOT, path);
     }
 
@@ -617,7 +621,10 @@ export abstract class AbstractFileSystem {
             get_root: "mirrored",
             join: "local",
             absolute: "local",
-        });
+        }, [
+            fs,
+            process
+        ]);
     }
 }
 
