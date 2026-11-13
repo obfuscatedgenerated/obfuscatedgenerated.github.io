@@ -79,7 +79,16 @@ export abstract class AbstractClientSocket implements MirrorSource {
     readonly [mirror_source] = true as const;
 
     readonly id: string;
-    ready_state: SocketReadyState = SocketReadyState.CONNECTING;
+    #ready_state: SocketReadyState = SocketReadyState.CONNECTING;
+
+    get ready_state(): SocketReadyState {
+        return this.#ready_state;
+    }
+
+    protected set_ready_state(state: SocketReadyState): void {
+        this.#ready_state = state;
+        notify_mirror_change(this);
+    }
 
     // the implementation needs to invoke these when data is received
     protected readonly _data_listeners: Set<SocketDataListener> = new Set();
@@ -131,8 +140,7 @@ export abstract class AbstractClientSocket implements MirrorSource {
             return;
         }
 
-        this.ready_state = SocketReadyState.CLOSING;
-        notify_mirror_change(this);
+        this.set_ready_state(SocketReadyState.CLOSING);
         await this._handle_close_internal(passive);
 
         // invoke close listeners
@@ -144,7 +152,7 @@ export abstract class AbstractClientSocket implements MirrorSource {
             }
         }
 
-        this.ready_state = SocketReadyState.CLOSED;
+        this.set_ready_state(SocketReadyState.CLOSED);
         notify_mirror_change(this);
     }
 

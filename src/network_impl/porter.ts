@@ -1,4 +1,5 @@
 import {AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, SocketReadyState} from "../kernel/network";
+import {notify_mirror_change} from "../kernel/rpc";
 
 interface BaseMessage {
     type: string;
@@ -94,7 +95,7 @@ export class PorterBridgeClientSocket extends AbstractClientSocket {
     constructor(id: string, manager: PorterBridgeNetworkManager) {
         super(id);
         this.#manager = manager;
-        this.ready_state = SocketReadyState.OPEN;
+        this.set_ready_state(SocketReadyState.OPEN);
     }
 
     protected async _handle_close_internal(passive: boolean): Promise<void> {
@@ -468,10 +469,13 @@ export class PorterBridgeNetworkManager extends AbstractNetworkManager {
                 await Promise.allSettled(client_close_promises);
                 this.#client_map.clear();
 
-                // close all servers and clear map
-                const server_close_promises = Array.from(this._port_map.values()).map(server => server.close());
+                // close all servers and clear map (skipping placeholders from listens still in progress)
+                const server_close_promises = Array.from(this._port_map.values())
+                    .filter((server): server is AbstractServerSocket => server !== null)
+                    .map(server => server.close());
                 await Promise.allSettled(server_close_promises);
                 this._port_map.clear();
+                notify_mirror_change(this);
             }
 
             if (!this.#should_auto_retry()) {

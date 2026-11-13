@@ -356,6 +356,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                     this._window_root.style.top = `${move_event.clientY - offset_y}px`;
 
                     this._emit_event("move");
+                    notify_mirror_change(this);
                 };
 
                 const mouse_up = (up_event: MouseEvent) => {
@@ -376,6 +377,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                     // if the rect is out of the top when released, snap it back in
                     if (this._window_root.getBoundingClientRect().top < 0) {
                         this._window_root.style.top = "0px";
+                        notify_mirror_change(this);
                     }
                 };
 
