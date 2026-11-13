@@ -2,7 +2,7 @@ import type { AbstractWindow, AbstractWindowManager, UserspaceWindow } from "./w
 import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
 import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener, UserspaceClientSocket, UserspaceServerSocket } from "./network";
-import { AbstractTerminal } from "./term_ctl";
+import { AbstractTerminal, UserspaceTerminal } from "./term_ctl";
 export interface IPCMessage {
     from: number;
     to: number;
@@ -54,7 +54,7 @@ export interface UserspaceOtherProcessContext {
 }
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     cwd: string;
-    readonly terminal: AbstractTerminal;
+    readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;

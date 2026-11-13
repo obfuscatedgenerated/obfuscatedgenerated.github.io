@@ -1,14 +1,14 @@
 import type { Program } from "../types";
 import type { AbstractFileSystem } from "./filesystem";
-import { AbstractTerminal } from "./term_ctl";
+import { type UserspaceTerminal } from "./term_ctl";
 export interface ProgramRegistrant {
     program: Program<unknown>;
     built_in: boolean;
 }
 export declare const build_registrant_from_js: (js_code: string, built_in?: boolean) => Promise<ProgramRegistrant>;
 export declare const determine_program_name_from_js: (js_code: string) => Promise<string>;
-export declare const mount_and_register_with_output: (filename: string, content: string, prog_reg: ProgramRegistry | UserspaceProgramRegistry, term: AbstractTerminal, output_success?: boolean) => Promise<void>;
-export declare const recurse_mount_and_register_with_output: (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry | UserspaceProgramRegistry, term: AbstractTerminal) => Promise<void>;
+export declare const mount_and_register_with_output: (filename: string, content: string, prog_reg: ProgramRegistry | UserspaceProgramRegistry, term: UserspaceTerminal, output_success?: boolean) => Promise<void>;
+export declare const recurse_mount_and_register_with_output: (fs: AbstractFileSystem, dir_path: string, prog_registry: ProgramRegistry | UserspaceProgramRegistry, term: UserspaceTerminal) => Promise<void>;
 export interface UserspaceProgramRegistry {
     getProgram(name: string): Program | undefined;
     listProgramNames(includes_builtin?: boolean, includes_mounted?: boolean): string[];
@@ -17,8 +17,8 @@ export interface UserspaceProgramRegistry {
     forceUnregister(name: string): Promise<void>;
     build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
     determine_program_name_from_js(js_code: string): Promise<string>;
-    mount_and_register_with_output(filename: string, content: string, term: AbstractTerminal, output_success?: boolean): Promise<void>;
-    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: AbstractTerminal): Promise<void>;
+    mount_and_register_with_output(filename: string, content: string, term: UserspaceTerminal, output_success?: boolean): Promise<void>;
+    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: UserspaceTerminal): Promise<void>;
 }
 export declare class ProgramRegistry {
     #private;
@@ -32,7 +32,7 @@ export declare class ProgramRegistry {
     unregister(name: string): Promise<void>;
     build_registrant_from_js(js_code: string, built_in?: boolean): Promise<ProgramRegistrant>;
     determine_program_name_from_js(js_code: string): Promise<string>;
-    mount_and_register_with_output(filename: string, content: string, term: AbstractTerminal, output_success?: boolean): Promise<void>;
-    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: AbstractTerminal): Promise<void>;
+    mount_and_register_with_output(filename: string, content: string, term: UserspaceTerminal, output_success?: boolean): Promise<void>;
+    recurse_mount_and_register_with_output(fs: AbstractFileSystem, dir_path: string, term: UserspaceTerminal): Promise<void>;
     create_userspace_proxy(init_program: string, fs: AbstractFileSystem): UserspaceProgramRegistry;
 }
