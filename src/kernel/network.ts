@@ -1,3 +1,5 @@
+import {finalise_userspace_proxy} from "./rpc";
+
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
@@ -143,7 +145,7 @@ export abstract class AbstractClientSocket {
     }
 
     create_userspace_proxy(): UserspaceClientSocket {
-        const proxy = {} as UserspaceClientSocket;
+        const proxy = Object.create(null) as UserspaceClientSocket;
 
         Object.defineProperty(proxy, "id", { get: () => this.id });
         Object.defineProperty(proxy, "ready_state", { get: () => this.ready_state });
@@ -164,7 +166,10 @@ export abstract class AbstractClientSocket {
             return this.close();
         }
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            ready_state: "mirrored",
+        });
     }
 }
 
@@ -244,7 +249,7 @@ export abstract class AbstractServerSocket {
     }
 
     create_userspace_proxy(): UserspaceServerSocket {
-        const proxy = {} as UserspaceServerSocket;
+        const proxy = Object.create(null) as UserspaceServerSocket;
 
         Object.defineProperty(proxy, "port", { get: () => this.port });
 
@@ -293,7 +298,9 @@ export abstract class AbstractServerSocket {
             return this.close();
         };
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            port: "constant",
+        });
     }
 }
 
@@ -375,13 +382,16 @@ export abstract class AbstractNetworkManager {
     abstract connect(host: string, port: number): Promise<AbstractClientSocket>;
 
     create_userspace_proxy(): UserspaceNetworkManager {
-        const proxy = {} as UserspaceNetworkManager;
+        const proxy = Object.create(null) as UserspaceNetworkManager;
 
         Object.defineProperty(proxy, "bound_ports", { get: () => this.bound_ports });
         Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
         Object.defineProperty(proxy, "is_up", { value: (try_waiting = false) => this.is_up(try_waiting), enumerable: true });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+            bound_ports: "mirrored",
+        });
     }
 }
 

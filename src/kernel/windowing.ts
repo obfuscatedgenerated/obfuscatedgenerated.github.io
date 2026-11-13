@@ -1,3 +1,5 @@
+import {finalise_userspace_proxy} from "./rpc";
+
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
 export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
@@ -135,9 +137,12 @@ export abstract class AbstractWindow {
         const self = this;
         const proxy = Object.create(null);
 
+        // a window's manager never changes, so the same proxy is always returned
+        const manager_proxy = self.manager.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             id: { get: () => self.id, enumerable: true },
-            manager: { get: () => self.manager.create_userspace_proxy(), enumerable: true },
+            manager: { get: () => manager_proxy, enumerable: true },
             owner_pid: { get: () => self.owner_pid, enumerable: true },
             title: { get: () => self.title, enumerable: true },
             width: { get: () => self.width, enumerable: true },
@@ -149,7 +154,19 @@ export abstract class AbstractWindow {
             layer: { get: () => self.layer, enumerable: true }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            layer: "mirrored",
+        });
     }
 
     create_userspace_proxy_as_full_window(): UserspaceWindow {
@@ -223,7 +240,19 @@ export abstract class AbstractWindow {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            layer: "mirrored",
+        });
     }
 }
 
@@ -270,7 +299,9 @@ export abstract class AbstractWindowManager {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+        });
     }
 }
 

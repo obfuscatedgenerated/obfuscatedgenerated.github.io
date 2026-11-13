@@ -1,3 +1,5 @@
+import {finalise_userspace_proxy} from "./rpc";
+
 /**
  * Describes a platform specific capability (e.g. haptics, share sheet).
  * @property name The unique name used to call the capability.
@@ -58,7 +60,7 @@ export abstract class AbstractPlatformAPI {
     }
 
     create_userspace_proxy(): UserspacePlatformAPI {
-        const proxy = {} as UserspacePlatformAPI;
+        const proxy = Object.create(null) as UserspacePlatformAPI;
 
         Object.defineProperty(proxy, "get_platform_name", { value: () => this.get_platform_name(), enumerable: true });
         Object.defineProperty(proxy, "get_capabilities", { value: () => this.get_capabilities().map(capability => ({...capability})), enumerable: true });
@@ -74,6 +76,10 @@ export abstract class AbstractPlatformAPI {
             enumerable: true
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_platform_name: "constant",
+            get_capabilities: "constant",
+            supports: "local",
+        });
     }
 }

@@ -1,4 +1,5 @@
 import {ANSI, NEWLINE, ansi_escape_regex, ansi_unescaped_regex, is_printable, non_printable_regex, word_wrap} from "../lib/ansi";
+import {finalise_userspace_proxy} from "./rpc";
 
 export interface KeyEvent {
     key: string;
@@ -707,7 +708,16 @@ export abstract class AbstractTerminal {
             word_wrap: { value: (text: string, width: number) => self.word_wrap(text, width), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            cols: "mirrored",
+            rows: "mirrored",
+            ansi: "constant",
+            newline: "constant",
+            non_printable_regex: "local",
+            ansi_escape_regex: "local",
+            ansi_unescaped_regex: "local",
+            word_wrap: "local",
+        });
     }
 }
 

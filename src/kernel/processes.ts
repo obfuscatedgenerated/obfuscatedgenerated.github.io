@@ -9,6 +9,7 @@ import {
     UserspaceServerSocket
 } from "./network";
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
+import {finalise_userspace_proxy} from "./rpc";
 
 export interface IPCMessage {
     from: number;
@@ -310,7 +311,7 @@ export class IPCManager {
             }, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy);
     }
 }
 
@@ -700,7 +701,15 @@ export class ProcessContext {
             source_command: { get: () => self.source_command, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+        });
     }
 
     create_userspace_proxy(): UserspaceProcessContext {
@@ -708,10 +717,13 @@ export class ProcessContext {
         const self = this;
         const proxy = Object.create(null);
 
+        // the terminal never changes for a process, so the same proxy is always returned
+        const terminal_proxy = self.terminal.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
             cwd: { get: () => self.cwd, set: (new_cwd: string) => { self.cwd = new_cwd; }, enumerable: true },
-            terminal: { get: () => self.terminal.create_userspace_proxy(), enumerable: true },
+            terminal: { get: () => terminal_proxy, enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
             is_background: { get: () => self.is_background, enumerable: true },
@@ -745,7 +757,24 @@ export class ProcessContext {
             bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            terminal: "eager_handle",
+            cwd: "mirrored",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+            bound_ports: "mirrored",
+            create_timeout: "local",
+            cancel_timeout: "local",
+            wait_for_timeout: "local",
+            has_timeout: "local",
+            create_interval: "local",
+            clear_interval: "local",
+        });
     }
 }
 
@@ -837,7 +866,9 @@ export class ProcessManager {
             kill: { value: (pid: number, exit_code?: number) => self.kill(pid, exit_code), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            ipc_manager: "eager_handle",
+        });
     }
 }
 

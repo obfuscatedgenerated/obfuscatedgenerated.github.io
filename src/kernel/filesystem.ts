@@ -1,4 +1,5 @@
 import {ProcessContext} from "./processes";
+import {finalise_userspace_proxy} from "./rpc";
 
 /**
  * Error thrown when a path is not found.
@@ -609,7 +610,14 @@ export abstract class AbstractFileSystem {
             get_cwd: { value: () => self.absolute(process.cwd), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_fs_type_name: "constant",
+            get_cwd: "mirrored",
+            get_home: "mirrored",
+            get_root: "mirrored",
+            join: "local",
+            absolute: "local",
+        });
     }
 }
 

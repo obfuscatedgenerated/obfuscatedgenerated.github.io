@@ -7,6 +7,7 @@ import type {Program} from "../types";
 import type {AbstractFileSystem} from "./filesystem";
 import {type UserspaceTerminal} from "./term_ctl";
 import {ANSI} from "../lib/ansi";
+import {finalise_userspace_proxy} from "./rpc";
 
 const encode_js_to_url = (js_code: string): string => {
     const blob = new Blob([js_code], { type: "application/javascript" });
@@ -401,7 +402,7 @@ export class ProgramRegistry {
             },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy);
     }
 }
 

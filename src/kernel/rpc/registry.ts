@@ -10,7 +10,7 @@ export type MemberAnnotation =
     "constant" |
     /** A value, or a method with no arguments, that can change. It is read once at startup, then kept up to date by the kernel. */
     "mirrored" |
-    /** A method that always returns the same proxy. The handle is created at startup, so the method returns its stub synchronously. */
+    /** A method or property that always returns the same proxy (or always null). The handle is created at startup, so the stub is returned synchronously. */
     "eager_handle" |
     /** A synchronous pure function that the RPC shim runs itself using shared code, without calling the kernel. */
     "local";

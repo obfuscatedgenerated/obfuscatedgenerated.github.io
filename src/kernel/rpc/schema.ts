@@ -12,6 +12,9 @@ export const extract_schema = (proxy: object): APISchema => {
             schema[name] = { kind: "method" };
         } else if (descriptor.get) {
             schema[name] = { kind: "property", writable: Boolean(descriptor.set) };
+        } else if ("value" in descriptor) {
+            // plain data property (e.g. the kernel's `privileged` flag). frozen proxies make these read-only
+            schema[name] = { kind: "property", writable: false };
         }
     }
 

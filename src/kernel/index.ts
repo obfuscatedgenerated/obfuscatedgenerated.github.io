@@ -22,6 +22,7 @@ import {NEWLINE} from "../lib/ansi";
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
 import {sdk} from "./program_sdk";
+import {finalise_userspace_proxy} from "./rpc";
 
 const CURRENT_API_COMPAT = "2.0.0";
 
@@ -720,34 +721,24 @@ export class Kernel {
         const prog_reg_proxy = self.get_program_registry().create_userspace_proxy(this.#init_program_name, kernel_fs);
         const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs, process);
 
+        // managers are fixed at construction, so each proxy is built once and the same one is always returned
+        const wm = self.get_window_manager();
+        const wm_proxy = wm ? wm.create_userspace_proxy() : null;
+        const net_mgr = self.get_network_manager();
+        const net_mgr_proxy = net_mgr ? net_mgr.create_userspace_proxy() : null;
+        const platform = self.get_platform();
+        const platform_proxy = platform ? platform.create_userspace_proxy() : null;
+
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },
             get_program_registry: { value: () => prog_reg_proxy, enumerable: true },
             get_sound_registry: { value: () => self.get_sound_registry(), enumerable: true },
             get_fs: { value: () => fs_proxy, enumerable: true },
-            get_window_manager: {
-                value: () => {
-                    const wm = self.get_window_manager();
-                    return wm ? wm.create_userspace_proxy() : null;
-                },
-                enumerable: true
-            },
+            get_window_manager: { value: () => wm_proxy, enumerable: true },
             has_window_manager: { value: () => self.has_window_manager(), enumerable: true },
-            get_network_manager: {
-                value: () => {
-                    const net_mgr = self.get_network_manager();
-                    return net_mgr ? net_mgr.create_userspace_proxy() : null;
-                },
-                enumerable: true
-            },
+            get_network_manager: { value: () => net_mgr_proxy, enumerable: true },
             has_network_manager: { value: () => self.has_network_manager(), enumerable: true },
-            get_platform: {
-                value: () => {
-                    const platform = self.get_platform();
-                    return platform ? platform.create_userspace_proxy() : null;
-                },
-                enumerable: true
-            },
+            get_platform: { value: () => platform_proxy, enumerable: true },
             has_platform: { value: () => self.has_platform(), enumerable: true },
             get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
@@ -764,7 +755,20 @@ export class Kernel {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            privileged: "constant",
+            get_program_registry: "eager_handle",
+            get_fs: "eager_handle",
+            get_window_manager: "eager_handle",
+            has_window_manager: "constant",
+            get_network_manager: "eager_handle",
+            has_network_manager: "constant",
+            get_platform: "eager_handle",
+            has_platform: "constant",
+            get_process_manager: "eager_handle",
+            get_ipc: "eager_handle",
+            get_env_info: "constant",
+        });
     }
 }
 
