@@ -7,6 +7,8 @@
  * @module
  */
 
+import {define_local} from "./locals";
+
 export const NEWLINE = "\r\n";
 
 // freezes a table of escape codes while keeping its values typed as string (Object.freeze alone narrows them to literals)
@@ -104,21 +106,21 @@ const copy_regex = (regex: RegExp): RegExp => new RegExp(regex.source, regex.fla
  *
  * @group ANSI
  */
-export const non_printable_regex = (): RegExp => copy_regex(NON_PRINTABLE_LITERAL);
+export const non_printable_regex = define_local("ansi.non_printable_regex", (): RegExp => copy_regex(NON_PRINTABLE_LITERAL));
 
 /**
  * @returns A fresh global regex matching textual ANSI escape representations.
  *
  * @group ANSI
  */
-export const ansi_escape_regex = (): RegExp => copy_regex(ANSI_ESCAPE_LITERAL);
+export const ansi_escape_regex = define_local("ansi.ansi_escape_regex", (): RegExp => copy_regex(ANSI_ESCAPE_LITERAL));
 
 /**
  * @returns A fresh global regex matching raw ANSI SGR sequences.
  *
  * @group ANSI
  */
-export const ansi_unescaped_regex = (): RegExp => copy_regex(ANSI_UNESCAPED_LITERAL);
+export const ansi_unescaped_regex = define_local("ansi.ansi_unescaped_regex", (): RegExp => copy_regex(ANSI_UNESCAPED_LITERAL));
 
 /**
  * Checks whether a string (typically a single key) contains no non-printable characters.
@@ -139,7 +141,7 @@ export const strip_ansi = (text: string): string => text.replace(ansi_unescaped_
  *
  * @group ANSI
  */
-export const word_wrap = (text: string, width: number): string => {
+export const word_wrap = define_local("ansi.word_wrap", (text: string, width: number): string => {
     const lines = text.split(NEWLINE);
     const wrapped_lines: string[] = [];
 
@@ -166,4 +168,4 @@ export const word_wrap = (text: string, width: number): string => {
     }
 
     return wrapped_lines.join(NEWLINE);
-};
+});

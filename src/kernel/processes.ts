@@ -10,6 +10,7 @@ import {
 } from "./network";
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
 import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import * as timers from "../lib/timers";
 
 export interface IPCMessage {
     from: number;
@@ -369,12 +370,6 @@ export class ProcessContext implements MirrorSource {
     #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     #detach_silently = false;
 
-    readonly #timeouts: Set<number> = new Set();
-    readonly #timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
-    readonly #timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
-
-    readonly #intervals: Set<number> = new Set();
-
     readonly #windows: Set<AbstractWindow> = new Set();
 
     readonly #port_map: Map<number, AbstractServerSocket> = new Map();
@@ -467,16 +462,7 @@ export class ProcessContext implements MirrorSource {
     }
 
     dispose_resources(): void {
-        this.#intervals.forEach((id) => {
-            clearInterval(id);
-        });
-
-        this.#timeouts.forEach((id) => {
-            clearTimeout(id);
-        });
-
-        this.#timeout_promises.clear();
-        this.#timeout_cancel_callbacks.clear();
+        timers.dispose_timers(this);
 
         this.#windows.forEach((win) => {
             win.dispose();
@@ -522,91 +508,32 @@ export class ProcessContext implements MirrorSource {
         this.#exit_listeners.add(listener);
     }
 
-    create_timeout(callback: () => void, delay: number, on_cancel? : () => void): number {
-        const id = window.setTimeout(() => {
-            this.#timeouts.delete(id);
-
-            // resolve any waiters
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const { resolve } of resolvers) {
-                    resolve(true);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            callback();
-
-            if (on_cancel) {
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }, delay);
-
-        this.#timeouts.add(id);
-
-        if (on_cancel) {
-            this.#timeout_cancel_callbacks.set(id, on_cancel);
-        }
-
-        return id;
+    create_timeout(callback: () => void, delay: number, on_cancel?: () => void): number {
+        return timers.create_timeout.call(this, callback, delay, on_cancel);
     }
 
     cancel_timeout(id: number): void {
-        if (this.#timeouts.has(id)) {
-            clearTimeout(id);
-            this.#timeouts.delete(id);
-
-            // resolve any waiters as cancelled
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const {resolve} of resolvers) {
-                    resolve(false);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            // call cancel callback if exists
-            if (this.#timeout_cancel_callbacks.has(id)) {
-                const cancel_callback = this.#timeout_cancel_callbacks.get(id)!;
-                cancel_callback();
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }
+        timers.cancel_timeout.call(this, id);
     }
 
     has_timeout(id: number): boolean {
-        return this.#timeouts.has(id);
+        return timers.has_timeout.call(this, id);
     }
 
     create_interval(callback: () => void, interval: number): number {
-        const id = window.setInterval(callback, interval);
-        this.#intervals.add(id);
-        return id;
+        return timers.create_interval.call(this, callback, interval);
     }
 
     has_interval(id: number): boolean {
-        return this.#intervals.has(id);
+        return timers.has_interval.call(this, id);
     }
 
     clear_interval(id: number): void {
-        if (this.#intervals.has(id)) {
-            clearInterval(id);
-            this.#intervals.delete(id);
-        }
+        timers.clear_interval.call(this, id);
     }
 
-    async wait_for_timeout(id: number): Promise<boolean> {
-        if (!this.#timeouts.has(id)) {
-            throw new Error(`Timeout ID ${id} does not exist.`);
-        }
-
-        return new Promise<boolean>((resolve) => {
-            if (!this.#timeout_promises.has(id)) {
-                this.#timeout_promises.set(id, new Set());
-            }
-
-            this.#timeout_promises.get(id)!.add({ resolve });
-        });
+    wait_for_timeout(id: number): Promise<boolean> {
+        return timers.wait_for_timeout.call(this, id);
     }
 
     create_window(): AbstractWindow | null {
@@ -778,12 +705,12 @@ export class ProcessContext implements MirrorSource {
             is_foreground: "mirrored",
             attachment: "mirrored",
             bound_ports: "mirrored",
-            create_timeout: { local: "timers.create_timeout" },
-            cancel_timeout: { local: "timers.cancel_timeout" },
-            wait_for_timeout: { local: "timers.wait_for_timeout" },
-            has_timeout: { local: "timers.has_timeout" },
-            create_interval: { local: "timers.create_interval" },
-            clear_interval: { local: "timers.clear_interval" },
+            create_timeout: timers.create_timeout,
+            cancel_timeout: timers.cancel_timeout,
+            wait_for_timeout: timers.wait_for_timeout,
+            has_timeout: timers.has_timeout,
+            create_interval: timers.create_interval,
+            clear_interval: timers.clear_interval,
         }, [
             self
         ]);

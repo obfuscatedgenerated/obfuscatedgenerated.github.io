@@ -715,10 +715,10 @@ export abstract class AbstractTerminal implements MirrorSource {
             rows: "mirrored",
             ansi: "constant",
             newline: "constant",
-            non_printable_regex: { local: "ansi.non_printable_regex" },
-            ansi_escape_regex: { local: "ansi.ansi_escape_regex" },
-            ansi_unescaped_regex: { local: "ansi.ansi_unescaped_regex" },
-            word_wrap: { local: "ansi.word_wrap" },
+            non_printable_regex,
+            ansi_escape_regex,
+            ansi_unescaped_regex,
+            word_wrap,
         }, [
             this
         ]);

@@ -4,13 +4,15 @@
  * @module
  */
 
+import {define_local} from "./locals";
+
 export interface PathContext {
     root: string;
     home: string;
     cwd?: string;
 }
 
-export const join_path = (base_dir: string, ...paths: string[]): string => {
+export const join_path = define_local("path.join", (base_dir: string, ...paths: string[]): string => {
     // drop trailing /
     if (base_dir.endsWith("/")) {
         base_dir = base_dir.slice(0, base_dir.length - 1);
@@ -30,7 +32,7 @@ export const join_path = (base_dir: string, ...paths: string[]): string => {
     }
 
     return base_dir;
-};
+});
 
 export const absolute_path = (path: string, context: PathContext): string => {
     const {root, home} = context;
@@ -134,3 +136,19 @@ export const absolute_path = (path: string, context: PathContext): string => {
 
     return join_path(effective_cwd, path);
 };
+
+/**
+ * Anything that can report the root, home and current directory, e.g. a filesystem proxy or its stub.
+ */
+export interface PathSource {
+    get_root(): string;
+    get_home(): string;
+    get_cwd(): string;
+}
+
+/**
+ * Resolves a path using the root, home and cwd of `this`. Lets filesystem stubs resolve paths without calling the kernel.
+ */
+export const absolute_from_source = define_local("path.absolute", function (this: PathSource, path: string): string {
+    return absolute_path(path, {root: this.get_root(), home: this.get_home(), cwd: this.get_cwd()});
+});

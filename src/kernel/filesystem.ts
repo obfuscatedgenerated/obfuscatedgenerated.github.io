@@ -1,6 +1,6 @@
 import {ProcessContext} from "./processes";
 import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
-import {absolute_path as resolve_absolute_path, join_path} from "../lib/path";
+import {absolute_from_source, absolute_path as resolve_absolute_path, join_path} from "../lib/path";
 
 /**
  * Error thrown when a path is not found.
@@ -506,8 +506,8 @@ export abstract class AbstractFileSystem implements MirrorSource {
             get_cwd: "mirrored",
             get_home: "mirrored",
             get_root: "mirrored",
-            join: { local: "path.join" },
-            absolute: { local: "path.absolute" },
+            join: join_path,
+            absolute: absolute_from_source,
         }, [
             fs,
             process

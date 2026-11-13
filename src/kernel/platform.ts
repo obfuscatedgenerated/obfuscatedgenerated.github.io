@@ -1,3 +1,4 @@
+import {supports_capability} from "../lib/capabilities";
 import {finalise_userspace_proxy} from "./rpc";
 
 /**
@@ -79,7 +80,7 @@ export abstract class AbstractPlatformAPI {
         return finalise_userspace_proxy(proxy, {
             get_platform_name: "constant",
             get_capabilities: "constant",
-            supports: { local: "platform.supports" },
+            supports: supports_capability,
         });
     }
 }

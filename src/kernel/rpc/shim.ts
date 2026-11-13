@@ -21,7 +21,7 @@ import {
     type MarshalHooks,
     type UnmarshalHooks,
 } from "./marshal";
-import {LOCAL_IMPLEMENTATIONS, type LocalContext} from "./locals";
+import {dispose_local_owner, get_local} from "../../lib/locals";
 import type {ProgramMainData} from "../../types";
 
 export type ProgramEndpoint = RPCEndpoint<RPCProgramToKernelMessage, RPCKernelToProgramMessage>;
@@ -66,9 +66,6 @@ export class RPCShim {
     readonly #callbacks = new Map<CallbackID, Callable>();
     #next_callback_id = 1;
 
-    // shared by all local implementations of this program
-    readonly #local_state = new Map<string, unknown>();
-    readonly #exit_cleanups: (() => void)[] = [];
 
     #finished = false;
 
@@ -118,19 +115,15 @@ export class RPCShim {
 
         this.#stop_listening();
 
-        for (const cleanup of this.#exit_cleanups) {
-            try {
-                cleanup();
-            } catch (cleanup_error) {
-                console.error("Local cleanup failed:", cleanup_error);
-            }
+        // e.g. stops timers the program started through its process stub
+        for (const stub of this.#stubs.values()) {
+            dispose_local_owner(stub);
         }
 
         for (const pending of this.#pending_calls.values()) {
             pending.reject(new Error("Program has exited"));
         }
 
-        this.#exit_cleanups.length = 0;
         this.#pending_calls.clear();
     }
 
@@ -232,11 +225,15 @@ export class RPCShim {
             const annotation = descriptor.annotations[member];
 
             if (typeof annotation === "object") {
-                const implementation = this.#local_implementation(annotation.local, stub);
+                const implementation = get_local(annotation.local);
+                if (!implementation) {
+                    throw new Error(`No local function defined as "${annotation.local}"`);
+                }
 
+                // called with the stub as this, so it can read other members (e.g. absolute reads get_cwd)
                 properties[member] = is_method
-                    ? { value: implementation, enumerable: true }
-                    : { get: implementation, enumerable: true };
+                    ? { value: (...args: unknown[]) => implementation.apply(stub, args), enumerable: true }
+                    : { get: () => implementation.call(stub), enumerable: true };
                 continue;
             }
 
@@ -358,22 +355,6 @@ export class RPCShim {
                 console.error("Callback failed:", error);
             }
         }
-    }
-
-    // local implementations
-
-    #local_implementation(local_id: string, stub: Stub): Callable {
-        if (!Object.hasOwn(LOCAL_IMPLEMENTATIONS, local_id)) {
-            throw new Error(`No local implementation registered for "${local_id}"`);
-        }
-
-        const context: LocalContext = {
-            stub,
-            state: this.#local_state,
-            on_exit: (cleanup) => this.#exit_cleanups.push(cleanup),
-        };
-
-        return LOCAL_IMPLEMENTATIONS[local_id](context);
     }
 
     // incoming messages

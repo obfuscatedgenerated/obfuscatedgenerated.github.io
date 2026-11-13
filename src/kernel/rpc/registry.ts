@@ -1,4 +1,5 @@
 import {MirrorSource} from "./mirroring";
+import {get_local_id, type LocalFunction} from "../../lib/locals";
 
 /**
  * Describes how RPC should access members of the proxy.
@@ -14,10 +15,13 @@ export type MemberAnnotation =
     "mirrored" |
     /** A method or property that always returns the same proxy (or always null). The handle is created at startup, so the stub is returned synchronously. */
     "eager_handle" |
-    /** A synchronous function that the RPC shim runs itself, using the implementation registered under this id in locals.ts, without calling the kernel. */
-    { readonly local: string };
+    /** A function defined with define_local. The RPC shim runs it itself, with the stub as `this`, without calling the kernel. */
+    LocalFunction;
 
-export type ProxyAnnotations = Readonly<Record<string, MemberAnnotation>>;
+/** How an annotation is stored and sent: local functions are replaced by their id. */
+export type RegisteredMemberAnnotation = Exclude<MemberAnnotation, LocalFunction> | { readonly local: string };
+
+export type ProxyAnnotations = Readonly<Record<string, RegisteredMemberAnnotation>>;
 
 interface RegisteredProxy {
     annotations: ProxyAnnotations;
@@ -27,7 +31,20 @@ interface RegisteredProxy {
 // WeakMap rather than a property on the proxy so userspace can't see or tamper with it, and it doesn't show up in the descriptors the extractor walks
 const registered_proxies = new WeakMap<object, RegisteredProxy>();
 
-export const finalise_userspace_proxy = <T extends object>(proxy: T, annotations: ProxyAnnotations = {}, sources: MirrorSource[] = []): T => {
+const register_annotation = (member: string, annotation: MemberAnnotation): RegisteredMemberAnnotation => {
+    if (typeof annotation !== "function") {
+        return annotation;
+    }
+
+    const local_id = get_local_id(annotation);
+    if (local_id === undefined) {
+        throw new Error(`Local annotation for "${member}" must be a function defined with define_local`);
+    }
+
+    return { local: local_id };
+};
+
+export const finalise_userspace_proxy = <T extends object>(proxy: T, annotations: Readonly<Record<string, MemberAnnotation>> = {}, sources: MirrorSource[] = []): T => {
     const has_mirrored = Object.values(annotations).includes("mirrored");
     if (has_mirrored && sources.length === 0) {
         throw new Error("Proxy has mirrored members but no mirror sources, so they could never update");
@@ -35,7 +52,9 @@ export const finalise_userspace_proxy = <T extends object>(proxy: T, annotations
 
     const frozen = Object.freeze(proxy);
     registered_proxies.set(frozen, Object.freeze({
-        annotations: Object.freeze({...annotations}),
+        annotations: Object.freeze(Object.fromEntries(
+            Object.entries(annotations).map(([member, annotation]) => [member, register_annotation(member, annotation)])
+        )),
         sources: Object.freeze([...sources]),
     }));
     return frozen;
