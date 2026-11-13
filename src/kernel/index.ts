@@ -375,7 +375,7 @@ export class Kernel {
             data.process = process.create_userspace_proxy();
         }
 
-        data.term = term.create_userspace_proxy();
+        data.term = start_privileged ? term : term.create_userspace_proxy();
         data.args = args;
         data.shell = shell;
         data.unsubbed_args = parsed_line.unsubbed_args;

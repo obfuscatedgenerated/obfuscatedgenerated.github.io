@@ -432,6 +432,14 @@ export abstract class AbstractTerminal {
         } else {
             this.#on_printable_handlers.push(handler);
         }
+
+        // return a function to unregister the handler
+        return () => {
+            const index = this.#on_printable_handlers.indexOf(handler);
+            if (index !== -1) {
+                this.#on_printable_handlers.splice(index, 1);
+            }
+        };
     }
 
     protected _enqueue_key_event = (e: KeyEvent) => {

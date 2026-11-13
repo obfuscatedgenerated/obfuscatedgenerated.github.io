@@ -1,9 +1,9 @@
 import type {Program, ProgramMainData} from "../types";
-import {type AbstractTerminal} from "../kernel/term_ctl";
+import {type UserspaceTerminal} from "../kernel/term_ctl";
 import {ANSI, NEWLINE} from "../lib/ansi";
 
 
-const wait_block = (term: AbstractTerminal) => {
+const wait_block = (term: UserspaceTerminal) => {
     term.write(NEWLINE);
     term.writeln(`${ANSI.STYLE.italic}Press any key to continue...${ANSI.STYLE.reset_all}`)
     return term.wait_for_keypress();

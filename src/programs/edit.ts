@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import {AbstractTerminal} from "../kernel/term_ctl";
+import {type UserspaceTerminal} from "../kernel/term_ctl";
 import {ANSI, NEWLINE, is_printable} from "../lib/ansi";
 
 const TAB_WIDTH = 4;
@@ -143,11 +143,11 @@ class Editor {
     // set after the first escape press with unsaved changes, so a second press confirms discarding
     confirming_discard = false;
 
-    readonly #term: AbstractTerminal;
+    readonly #term: UserspaceTerminal;
     readonly #filename: string;
     readonly #readonly: boolean;
 
-    constructor(term: AbstractTerminal, content: string, filename: string, readonly: boolean) {
+    constructor(term: UserspaceTerminal, content: string, filename: string, readonly: boolean) {
         this.#term = term;
         this.#filename = filename;
         this.#readonly = readonly;

@@ -1,5 +1,5 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
-import type { AbstractTerminal } from "../../kernel/term_ctl";
+import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
 
@@ -15,7 +15,7 @@ interface PkgInfo {
     long_desc?: string;
 }
 
-const print_info = (term: AbstractTerminal, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
+const print_info = (term: UserspaceTerminal, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
     term.write(NEWLINE);
 
     term.writeln(`Package: ${STYLE.bold}${pkg_name}${STYLE.no_bold_or_dim}`);

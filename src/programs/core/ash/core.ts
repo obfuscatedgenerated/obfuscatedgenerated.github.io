@@ -2,7 +2,7 @@ import type {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, SpawnResult} from "../../../kernel";
 import {UserspaceProcessContext} from "../../../kernel/processes";
 
-import {type AbstractTerminal} from "../../../kernel/term_ctl";
+import {type UserspaceTerminal} from "../../../kernel/term_ctl";
 import {ANSI, NEWLINE} from "../../../lib/ansi";
 
 import {AshMemory} from "./memory";
@@ -12,7 +12,7 @@ const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
     readonly #kernel: UserspaceKernel;
-    readonly #term: AbstractTerminal;
+    readonly #term: UserspaceTerminal;
     readonly #process: UserspaceProcessContext;
 
     readonly #memory = new AshMemory();
@@ -22,7 +22,7 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: AbstractTerminal, kernel: UserspaceKernel, process: UserspaceProcessContext) {
+    constructor(term: UserspaceTerminal, kernel: UserspaceKernel, process: UserspaceProcessContext) {
         this.#term = term;
         this.#kernel = kernel;
         this.#process = process;

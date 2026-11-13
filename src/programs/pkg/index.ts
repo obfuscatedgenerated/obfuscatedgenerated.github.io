@@ -1,7 +1,7 @@
 import {add_subcommand} from "./add";
 import {remove_subcommand} from "./remove";
 
-import {type AbstractTerminal} from "../../kernel/term_ctl";
+import {type UserspaceTerminal} from "../../kernel/term_ctl";
 import {ANSI} from "../../lib/ansi";
 import type {Program} from "../../types";
 import type {UserspaceFileSystem} from "../../kernel/filesystem";
@@ -452,7 +452,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: AbstractTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -491,7 +491,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: AbstractTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
