@@ -322,6 +322,10 @@ export class Kernel {
         const programs: {name: string, metadata: ProgramMetadata, builtin: boolean}[] = [];
 
         for (const { dir, builtin } of PROGRAM_SEARCH_DIRS) {
+            if (!(await fs.dir_exists(dir))) {
+                continue;
+            }
+
             const files = await fs.list_dir(dir);
 
             for (const file of files) {
