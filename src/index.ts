@@ -1,6 +1,6 @@
 import "@xterm/xterm/css/xterm.css";
 
-const boot_screen = document.getElementById("boot_screen");
+const boot_screen = document.getElementById("boot_screen")!;
 
 // insert boot loader bars depending on screen size (each bar should take 1/15th of the loader's width, ignoring margins)
 const loader = document.getElementById("boot_loader") as HTMLDivElement;
@@ -129,3 +129,4 @@ if (localStorage.getItem("nointro") === "true") {
 }
 
 // TODO: better mobile experience
+export {endpoint_from_message_port} from "./isothread_impl/util/message_port_endpoint";

@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 
 import { image2sixel } from "sixel";
 
@@ -9,6 +9,10 @@ const convert_to_image_data = async (url: string) => {
     // create a canvas to draw the image on
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+        return null;
+    }
 
     // create an image to draw the png data on
     const img = new Image();
@@ -82,7 +86,7 @@ export default {
         const is_web_url = args.includes("-u");
 
         let url: string;
-        let mime: string;
+        let mime: string | null = null;
         if (!is_web_url) {
             // process the path
             url = fs.absolute(path);
@@ -145,6 +149,11 @@ export default {
                     mime = get_req.headers.get("content-type");
                 } else {
                     mime = head_req.headers.get("content-type");
+                }
+
+                if (!mime) {
+                    term.writeln(`${PREFABS.error}Could not determine mime type of URL: ${url}${STYLE.reset_all}`);
+                    return 1;
                 }
 
                 // check the mime type is valid

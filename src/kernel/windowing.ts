@@ -1,4 +1,12 @@
+import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
+
+export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
+const PRIVILEGED_LAYERS = ["overlay", "administrative"] as const;
+export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
+
+export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
 
 export interface UserspaceOtherWindow {
     readonly id: number;
@@ -12,6 +20,9 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+    readonly maximisable: boolean;
+
+    readonly layer: WindowCompositionLayer;
 }
 
 export interface UserspaceWindow extends UserspaceOtherWindow {
@@ -26,6 +37,10 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     visible: boolean;
     maximised: boolean;
+    maximisable: boolean;
+
+    readonly layer: WindowCompositionLayer;
+    request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
 
     center(): void;
     focus(): void;
@@ -36,9 +51,20 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     add_event_listener(event: WindowEvent, callback: () => void): void;
     wait_for_event(event: WindowEvent): Promise<void>;
+
+    get_custom_flag(flag: string): boolean;
+    set_custom_flag(flag: string, value: boolean): void;
 }
 
-export abstract class AbstractWindow {
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindow} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Windowing
+ */
+export abstract class AbstractWindow implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract readonly id: number;
 
     // TODO: more generic type somehow? depends if we ever need implementations that dont use shadow DOM
@@ -105,14 +131,22 @@ export abstract class AbstractWindow {
 
     abstract wait_for_event(event: WindowEvent): Promise<void>;
 
+    abstract get layer(): WindowCompositionLayer;
+    abstract request_layer(new_layer: WindowCompositionLayer): void;
+
+    abstract force_z_index(new_z_index: number): void;
+
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
         const proxy = Object.create(null);
 
+        // a window's manager never changes, so the same proxy is always returned
+        const manager_proxy = self.manager.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             id: { get: () => self.id, enumerable: true },
-            manager: { get: () => self.manager.create_userspace_proxy(), enumerable: true },
+            manager: { get: () => manager_proxy, enumerable: true },
             owner_pid: { get: () => self.owner_pid, enumerable: true },
             title: { get: () => self.title, enumerable: true },
             width: { get: () => self.width, enumerable: true },
@@ -120,10 +154,27 @@ export abstract class AbstractWindow {
             x: { get: () => self.x, enumerable: true },
             y: { get: () => self.y, enumerable: true },
             visible: { get: () => self.visible, enumerable: true },
-            maximised: { get: () => self.maximised, enumerable: true }
+            maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
+            layer: { get: () => self.layer, enumerable: true }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            maximisable: "mirrored",
+            layer: "mirrored",
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy_as_full_window(): UserspaceWindow {
@@ -169,6 +220,7 @@ export abstract class AbstractWindow {
                 enumerable: true
             },
             maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
             center: { value: () => { self.center(); }, enumerable: true },
             focus: { value: () => { self.focus(); }, enumerable: true },
             show: { value: () => { self.show(); }, enumerable: true },
@@ -176,10 +228,43 @@ export abstract class AbstractWindow {
             toggle: { value: () => { self.toggle(); }, enumerable: true },
             close: { value: () => { self.close(); }, enumerable: true },
             add_event_listener: { value: (event: WindowEvent, callback: () => void) => { self.add_event_listener(event, callback); }, enumerable: true },
-            wait_for_event: { value: (event: WindowEvent) => self.wait_for_event(event), enumerable: true }
+            wait_for_event: { value: (event: WindowEvent) => self.wait_for_event(event), enumerable: true },
+            layer: { get: () => self.layer, enumerable: true },
+            request_layer: {
+                value: (new_layer: UserspaceAccessibleCompositionLayer) => {
+                    if (PRIVILEGED_LAYERS.includes(new_layer as PrivilegedCompositionLayer)) {
+                        throw new Error(`Cannot request privileged layer ${new_layer} from userspace window`);
+                    }
+                    self.request_layer(new_layer);
+                },
+                enumerable: true
+            },
+            get_custom_flag: {
+                value: (flag: string) => self.get_custom_flag(flag),
+                enumerable: true
+            },
+            set_custom_flag: {
+                value: (flag: string, value: boolean) => self.set_custom_flag(flag, value),
+                enumerable: true
+            }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            maximisable: "mirrored",
+            layer: "mirrored",
+        }, [
+            self
+        ]);
     }
 }
 
@@ -189,6 +274,12 @@ export interface UserspaceWindowManager {
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
 
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractWindowManager} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Windowing
+ */
 export abstract class AbstractWindowManager {
     abstract get_unique_manager_type_name(): string;
 
@@ -220,8 +311,9 @@ export abstract class AbstractWindowManager {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+        });
     }
 }
 
-// TODO: use separate interfaces so that only the process registry can create windows

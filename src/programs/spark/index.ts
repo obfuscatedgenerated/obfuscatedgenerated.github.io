@@ -1,4 +1,4 @@
-import {ANSI} from "../../kernel/term_ctl";
+import {ANSI} from "../../lib/ansi";
 import type {Program} from "../../types";
 import {helper_completion_options} from "../core/ash/tab_completion";
 
@@ -47,7 +47,10 @@ export default {
         }
 
         if (args.includes("-h")) {
-            return await kernel.spawn("help", ["spark"], shell).completion;
+            const spawn_result = await kernel.spawn("help", ["spark"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         switch (args[0]) {

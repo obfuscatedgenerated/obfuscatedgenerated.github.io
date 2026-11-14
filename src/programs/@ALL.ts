@@ -38,13 +38,18 @@ export { default as unalias } from "./unalias";
 export { default as ps } from "./ps";
 export { default as kill } from "./kill";
 export { default as spark } from "./spark";
+export { default as hello_http } from "./hello_http";
+export { default as finger } from "./finger";
 
-export { default as ipc_bg_test } from "./ipc_bg_test";
-export { default as ipc_fg_test } from "./ipc_fg_test";
+export { default as telnetd } from "./services/telnetd";
+export { default as fingerd } from "./services/fingerd";
+export { default as sshd } from "./services/sshd";
 
 // shhhhh!
-export { default as tb_test } from "./taskbar_test";
 export { default as vm_test } from "./vm_test";
+export { default as ipc_bg_test } from "./ipc_bg_test";
+export { default as ipc_fg_test } from "./ipc_fg_test";
+export { default as windowed_terminal } from "./windowed_terminal";
 
 export { default as trigger_create_trigger } from "./pkg/triggers/create_trigger";
 export { default as trigger_remove_trigger } from "./pkg/triggers/remove_trigger";

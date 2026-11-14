@@ -1,5 +1,5 @@
-import {ANSI, NEWLINE} from "../../kernel/term_ctl";
-import type { WrappedTerminal } from "../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../lib/ansi";
+import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
 import type {UserspaceKernel} from "../../kernel";
@@ -10,9 +10,19 @@ const { STYLE, FG, CURSOR } = ANSI;
 
 const ROWS = 10;
 
-const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+const view_pkg_info = async (pkg_name: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
     const pkg_data = await repo_query.get_pkg_json(pkg_name);
     const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
+
+    if (!pkg_data) {
+        term.writeln(`${FG.red}Failed to fetch package data for '${pkg_name}'.${STYLE.reset_all}`);
+        return;
+    }
+
+    if (!pkg_versions) {
+        term.writeln(`${FG.red}Failed to fetch package versions for '${pkg_name}'.${STYLE.reset_all}`);
+        return;
+    }
 
     term.clear();
 
@@ -63,18 +73,18 @@ const view_pkg_info = async (pkg_name: string, term: WrappedTerminal, kernel: Us
 
     const key = await term.wait_for_keypress();
 
-    if (key.domEvent.key === "i") {
+    if (key.key.toLowerCase() === "i") {
         // double check installation
         term.write(NEWLINE);
         term.write(`${STYLE.bold}Are you sure you want to install '${pkg_name}'? (y/N)${STYLE.no_bold_or_dim}`);
 
         const confirm_key = await term.wait_for_keypress();
 
-        if (confirm_key.domEvent.key.toLowerCase() === "y") {
+        if (confirm_key.key.toLowerCase() === "y") {
             term.write(" yes");
             term.write(NEWLINE);
 
-            await kernel.spawn("pkg", ["add", pkg_name], shell).completion;
+            await (await kernel.spawn("pkg", ["add", pkg_name], shell)).completion;
 
             term.write(NEWLINE);
             term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
@@ -99,6 +109,11 @@ export const browse_subcommand = async (data: ProgramMainData) => {
     args.shift();
 
     const provided = await repo_query.get_provided_list();
+
+    if (!provided) {
+        term.writeln(`${FG.red}Failed to fetch provided package list.${STYLE.reset_all}`);
+        return 1;
+    }
 
     let offset = 0;
     let selected_index = 0;

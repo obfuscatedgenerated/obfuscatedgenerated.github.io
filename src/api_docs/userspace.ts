@@ -10,7 +10,7 @@ export {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
  * @group Userspace
  * @category Terminal
  */
-export {WrappedTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineBuffer, ReadLineKeyHandler} from "../kernel/term_ctl";
+export {UserspaceTerminal, UserspaceKeyEvent, UserspaceKeyEventHandler, UserspaceKeyHandlerProps, ReadLineBuffer, UserspaceReadLineKeyHandler} from "../kernel/term_ctl";
 
 /**
  * @group Userspace
@@ -23,7 +23,8 @@ export {
     PathNotFoundError,
     MoveDestinationDirectoryNotEmptyError,
     NonRecursiveDirectoryError,
-    ReadOnlyError
+    ReadOnlyError,
+    ProtectedFileReadError
 } from "../kernel/filesystem";
 
 /**
@@ -43,24 +44,24 @@ export {
 
 /**
  * @group Userspace
- * @category Programs
- */
-export {UserspaceProgramRegistry, ProgramRegistrant} from "../kernel/prog_registry";
-
-/**
- * @group Userspace
  * @category Windowing
  */
-export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent} from "../kernel/windowing";
-
-/**
- * @group Userspace
- * @category Sound
- */
-export {SoundRegistry} from "../kernel/sfx_registry";
+export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent, UserspaceAccessibleCompositionLayer} from "../kernel/windowing";
 
 /**
  * @group Userspace
  * @category Shells
  */
 export {AbstractShell, AbstractShellMemory} from "../abstract_shell";
+
+/**
+ * @group Userspace
+ * @category Networking
+ */
+export {UserspaceNetworkManager, UserspaceClientSocket, UserspaceServerSocket, PortInUseError, SocketReadyState, SocketCloseListener, SocketDataListener, UserspaceSocketConnectionListener, NetworkStateChangeListener} from "../kernel/network";
+
+/**
+ * @group Userspace
+ * @category Platform
+ */
+export {UserspacePlatformAPI, PlatformCapability} from "../kernel/platform";

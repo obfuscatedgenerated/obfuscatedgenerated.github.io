@@ -1,4 +1,4 @@
-import {ANSI} from "../../kernel/term_ctl";
+import {ANSI} from "../../lib/ansi";
 import type {Program} from "../../types";
 
 import {info_subcommand} from "./info";
@@ -73,7 +73,10 @@ export default {
         }
 
         if (args.includes("-h")) {
-            return await kernel.spawn("help", ["window"], shell).completion;
+            const spawn_result = await kernel.spawn("help", ["window"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         if (!kernel.has_window_manager()) {

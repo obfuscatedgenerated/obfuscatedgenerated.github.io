@@ -1,8 +1,9 @@
 import type {Program, ProgramMainData} from "../types";
-import { ANSI, NEWLINE, type WrappedTerminal } from "../kernel/term_ctl";
+import {type UserspaceTerminal} from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 
-const wait_block = (term: WrappedTerminal) => {
+const wait_block = (term: UserspaceTerminal) => {
     term.write(NEWLINE);
     term.writeln(`${ANSI.STYLE.italic}Press any key to continue...${ANSI.STYLE.reset_all}`)
     return term.wait_for_keypress();
@@ -10,7 +11,7 @@ const wait_block = (term: WrappedTerminal) => {
 
 const run_cmd = async (data: ProgramMainData, cmd: string, args: string[] = []) => {
     data.term.writeln(`${ANSI.STYLE.bold}$ ${cmd}${ANSI.STYLE.reset_all}${NEWLINE}`);
-    await data.kernel.spawn(cmd, args, data.shell).completion;
+    await (await data.kernel.spawn(cmd, args, data.shell)).completion;
     data.term.write(NEWLINE);
 };
 
@@ -183,12 +184,11 @@ const end = async (data: ProgramMainData,) => {
     term.write(NEWLINE);
 
     term.writeln("Thanks for using OllieOS.");
-    term.writeln("The OS will now restart.");
     term.write(NEWLINE);
 
     await wait_block(term);
 
-    await run_cmd(data, "shutdown", ["-r", "-t", "0"]);
+    term.reset();
 };
 
 

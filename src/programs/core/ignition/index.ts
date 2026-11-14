@@ -1,9 +1,9 @@
-import type { PrivilegedProgram } from "../../../types";
+import type { Program } from "../../../types";
 
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../kernel/processes";
 
-import {ANSI} from "../../../kernel/term_ctl";
+import {ANSI} from "../../../lib/ansi";
 
 interface IgnitionIPCMessageBase {
     type: string;
@@ -55,6 +55,8 @@ export type IgnitionIPCReply =
 export default {
     name: "ignition",
     description: "System init process",
+    space: "kernel",
+    reason: "System init process.",
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
@@ -108,7 +110,7 @@ export default {
         }
 
         // create service manager
-        const svc_mgr = new ServiceManager(kernel);
+        const svc_mgr = new ServiceManager(kernel, process);
 
         // load service files but don't start them yet
         await svc_mgr.load_service_files();
@@ -135,26 +137,26 @@ export default {
                         const service_msg = payload as IgnitionIPCServiceMessage;
                         switch (service_msg.action) {
                             case "start": {
-                                svc_mgr.start_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.start_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} started.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }
                             case "stop": {
-                                svc_mgr.stop_service(service_msg.service_id);
+                                const [success, message] = svc_mgr.stop_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} stopped.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }
                             case "restart": {
-                                svc_mgr.restart_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.restart_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
-                                    type: "response",
-                                    message: `Service ${service_msg.service_id} restarted.`
+                                    type: success ? "response" : "error",
+                                    message
                                 });
                                 break;
                             }
@@ -183,11 +185,69 @@ export default {
                         }
                     }
                         break;
-                    default:
-                        ipc.channel_send(channel_id, process.pid, {
-                            type: "error",
-                            message: `Unknown message type: ${payload.type}`
-                        });
+                    case "power": {
+                        const power_msg = payload as IgnitionIPCPowerMessage;
+                        switch (power_msg.action) {
+                            case "shutdown": {
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: power_msg.hard ? "Hard shutdown initiated." : "Shutdown initiated."
+                                });
+
+                                // TODO: stop services in reverse order
+
+                                // kill all processes except for init in reverse order of creation
+                                // TODO: polite shutdown signal first (need to add) then force kill after timeout (or instantly based on force flag)
+                                const proc_mgr = kernel.get_process_manager();
+                                const pids = proc_mgr.list_pids().reverse();
+                                for (const pid of pids) {
+                                    if (pid !== process.pid) {
+                                        const proc = proc_mgr.get_process(pid);
+                                        if (proc) {
+                                            proc.kill();
+                                        }
+                                    }
+                                }
+
+                                kernel.power_off();
+                                break;
+                            }
+                            case "reboot": {
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "response",
+                                    message: power_msg.hard ? "Hard reboot initiated." : "Reboot initiated."
+                                });
+
+                                // TODO: stop services in reverse order
+
+                                // kill all processes except for init in reverse order of creation
+                                const proc_mgr = kernel.get_process_manager();
+                                const pids = proc_mgr.list_pids().reverse();
+                                for (const pid of pids) {
+                                    if (pid !== process.pid) {
+                                        const proc = proc_mgr.get_process(pid);
+                                        if (proc) {
+                                            proc.kill();
+                                        }
+                                    }
+                                }
+
+                                kernel.reboot();
+                                break;
+                            }
+                            default:
+                                ipc.channel_send(channel_id, process.pid, {
+                                    type: "error",
+                                    message: `Unknown power action: ${power_msg.action}`
+                                });
+                        }
+                        break;
+                    }
+                    // default:
+                    //     ipc.channel_send(channel_id, process.pid, {
+                    //         type: "error",
+                    //         message: `Unknown message type: ${payload.type}`
+                    //     });
                 }
             });
         });
@@ -209,14 +269,15 @@ export default {
         });
 
         // start initial services
-        svc_mgr.start_initial_services();
+        // TODO: should it be awaited or not
+        await svc_mgr.start_initial_services();
 
         let window_start: number | null = null;
         let deaths_in_window = 0;
 
         // execute boot target in a respawn loop
         while (running) {
-            const boot_target_proc = kernel.spawn(boot_target, boot_args);
+            const boot_target_proc = await kernel.spawn(process, boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
             let exit_code: number;
@@ -254,7 +315,7 @@ export default {
                 if (key.key.toLowerCase() === "r") {
                     term.writeln("Entering recovery mode...");
 
-                    const recovery_proc = kernel.spawn("recovery", [], undefined, true);
+                    const recovery_proc = await kernel.spawn(process, "recovery", [], undefined, true);
                     let recovery_exit_code: number;
                     try {
                         recovery_exit_code = await recovery_proc.completion;
@@ -280,6 +341,6 @@ export default {
 
         return final_code;
     }
-} as PrivilegedProgram;
+} as Program;
 
 // TODO: implement graceful shutdown, stops programs, stops services in reverse order etc as well as move the actual final shutdown/reboot logic to kern`

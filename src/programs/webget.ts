@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI, NEWLINE } from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 export default {
     name: "webget",
@@ -39,7 +39,10 @@ export default {
         const fs = kernel.get_fs();
 
         if (args[0] === "-h") {
-            return await kernel.spawn("help", ["webget"], shell).completion;
+            const spawn_result = await kernel.spawn("help", ["webget"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         // check if the user provided a URL
@@ -49,7 +52,7 @@ export default {
         }
 
         // parse url
-        const url = args.shift();
+        const url = args.shift()!;
 
         // validate url
         try {
@@ -68,7 +71,7 @@ export default {
         let binary = false;
         let method = "GET";
         const headers: Map<string, string> = new Map();
-        let body = null;
+        let body: string | null = null;
 
         for (let arg_idx = 0; arg_idx < args.length; arg_idx++) {
             const arg = args[arg_idx];
@@ -149,22 +152,23 @@ export default {
 
         // check if the file already exists
         const abs_path = fs.absolute(file_path);
+        const exists = await fs.exists(abs_path);
 
-        if (await fs.exists(abs_path) && !overwrite) {
+        if (exists && !overwrite) {
             term.writeln(`${PREFABS.error}File already exists.${STYLE.reset_all}`);
             return 1;
         }
 
         // if overwriting, run initial check of readonly status
         if (overwrite) {
-            if (await fs.is_readonly(abs_path)) {
+            if (exists && await fs.is_readonly(abs_path)) {
                 term.writeln(`${PREFABS.error}File is readonly.${STYLE.reset_all}`);
                 return 1;
             }
         }
 
         // lock the file, creating it if it does not exist
-        if (!(await fs.exists(abs_path))) {
+        if (!exists) {
             await fs.write_file(abs_path, "");
         }
         await fs.set_readonly(abs_path, true);

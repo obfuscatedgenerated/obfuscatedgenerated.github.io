@@ -1,6 +1,14 @@
 import type {Kernel, SpawnResult} from "../../../kernel";
+import {ProcessContext} from "../../../kernel/processes";
 
 const SERVICES_DIR = "/etc/services/";
+const PRIVILEGED_SERVICES_DIR = "/etc/services/privileged/";
+
+// enables services with auto_start: false (applies to startup only, overrides disable file)
+const ENABLE_FILE = "/etc/enable_services";
+
+// forcibly disables services with auto_start: true (applies to startup only)
+const DISABLE_FILE = "/etc/disable_services";
 
 interface ServiceRestartPolicyBase {
     on: "failure" | "always" | "never";
@@ -21,14 +29,16 @@ interface ServiceFile {
     args?: string[];
     oneshot?: boolean;
     restart?: ServiceRestartPolicy;
+    auto_start?: boolean;
 }
 
 // TODO: support oneshot
 // TODO: do something with name
 // TODO: do something with max_retries
 
-interface ServiceFileWithId extends ServiceFile {
+interface ServiceFileWithExtra extends ServiceFile {
     id: string;
+    privileged: boolean;
 }
 
 const CLEAN_EXIT_CODES = new Set([0, 143]); // 0 = success, 143 = SIGTERM
@@ -53,14 +63,16 @@ export type ServiceStatus = ServiceStatusRunning | ServiceStatusNotRunning;
 
 export class ServiceManager {
     readonly #kernel: Kernel;
+    readonly #process: ProcessContext;
 
-    readonly #service_files: Map<string, ServiceFileWithId> = new Map();
+    readonly #service_files: Map<string, ServiceFileWithExtra> = new Map();
     readonly #running_services: Map<string, SpawnResult> = new Map(); // service ID to spawn result
     readonly #should_be_running_services: Set<string> = new Set();
     readonly #failed_services: Set<string> = new Set();
 
-    constructor(kernel: Kernel) {
+    constructor(kernel: Kernel, process: ProcessContext) {
         this.#kernel = kernel;
+        this.#process = process;
     }
 
     async load_service_files() {
@@ -73,6 +85,38 @@ export class ServiceManager {
 
         const service_files = await fs.list_dir(SERVICES_DIR);
 
+        // TODO: DRY
+
+        let privileged_service_files: string[] | null = null;
+        if(await fs.exists(PRIVILEGED_SERVICES_DIR)) {
+            privileged_service_files = await fs.list_dir(PRIVILEGED_SERVICES_DIR);
+
+            for (const file_name of privileged_service_files) {
+                if (file_name.endsWith(".service.json")) {
+                    const file_path = fs.join(PRIVILEGED_SERVICES_DIR, file_name);
+                    const file_content = await fs.read_file(file_path) as string;
+
+                    try {
+                        const service_data = JSON.parse(file_content) as ServiceFile;
+                        const service_id = file_name.substring(0, file_name.length - ".service.json".length);
+
+                        // TODO: validate service_data here
+
+                        const service: ServiceFileWithExtra = {
+                            id: service_id,
+                            ...service_data,
+                            privileged: true
+                        };
+
+                        // add or update service file
+                        this.#service_files.set(service_id, service);
+                    } catch (e) {
+                        console.error(`Failed to parse service file ${file_name}:`, e);
+                    }
+                }
+            }
+        }
+
         // load each service file
         for (const file_name of service_files) {
             if (file_name.endsWith(".service.json")) {
@@ -83,11 +127,17 @@ export class ServiceManager {
                     const service_data = JSON.parse(file_content) as ServiceFile;
                     const service_id = file_name.substring(0, file_name.length - ".service.json".length);
 
+                    if ("privileged" in service_data) {
+                        // dont let them try to bypass it by putting privileged in the service file
+                        delete service_data.privileged;
+                    }
+
                     // TODO: validate service_data here
 
-                    const service: ServiceFileWithId = {
+                    const service: ServiceFileWithExtra = {
                         id: service_id,
-                        ...service_data
+                        ...service_data,
+                        privileged: false
                     };
 
                     // add or update service file
@@ -100,16 +150,18 @@ export class ServiceManager {
 
         // remove any services that no longer exist
         for (const existing_service_id of this.#service_files.keys()) {
-            if (!service_files.includes(existing_service_id + ".service.json")) {
+            if (!service_files.includes(existing_service_id + ".service.json") && !(privileged_service_files && privileged_service_files.includes(existing_service_id + ".service.json"))) {
                 this.#service_files.delete(existing_service_id);
             }
         }
     }
 
-    private _calculate_service_start_order(): string[] {
+    #calculate_service_start_order(service_ids: Iterable<string> = this.#service_files.keys()): string[] {
         const visited: Set<string> = new Set();
         const temp_mark: Set<string> = new Set();
         const result: string[] = [];
+
+        // TODO: should privileged have priority?
 
         const visit = (service_id: string) => {
             if (visited.has(service_id)) {
@@ -133,32 +185,89 @@ export class ServiceManager {
             result.push(service_id);
         };
 
-        for (const service_id of this.#service_files.keys()) {
+        for (const service_id of service_ids) {
             visit(service_id);
         }
 
         return result;
     }
 
-    start_initial_services() {
-        const start_order = this._calculate_service_start_order();
+    async start_initial_services() {
+        // read enable and disable file
+        const fs = this.#kernel.get_fs();
+
+        const enabled_services = new Set<string>();
+        const disabled_services = new Set<string>();
+
+        // TODO: dry
+
+        if (await fs.exists(ENABLE_FILE)) {
+            const enable_content = await fs.read_file(ENABLE_FILE) as string;
+
+            for (const line of enable_content.split("\n")) {
+                const trimmed = line.trim();
+
+                // ignore empty lines and comments
+                if (trimmed && !trimmed.startsWith("#")) {
+                    // check service id exists before adding to enabled services
+                    if (!this.#service_files.has(trimmed)) {
+                        console.warn(`Service ${trimmed} in ${ENABLE_FILE} does not exist. Ignoring.`);
+                        continue;
+                    }
+
+                    enabled_services.add(trimmed);
+                }
+            }
+        }
+
+        if (await fs.exists(DISABLE_FILE)) {
+            const disable_content = await fs.read_file(DISABLE_FILE) as string;
+
+            for (const line of disable_content.split("\n")) {
+                const trimmed = line.trim();
+
+                // ignore empty lines and comments
+                if (trimmed && !trimmed.startsWith("#")) {
+                    // check service id exists before adding to disabled services
+                    if (!this.#service_files.has(trimmed)) {
+                        console.warn(`Service ${trimmed} in ${DISABLE_FILE} does not exist. Ignoring.`);
+                        continue;
+                    }
+
+                    disabled_services.add(trimmed);
+                }
+            }
+        }
+
+        // collect autostart services
+        for (const [service_id, service] of this.#service_files.entries()) {
+            // if the service is forcibly disabled, skip it
+            if (disabled_services.has(service_id)) {
+                continue;
+            }
+
+            if (service.auto_start) {
+                enabled_services.add(service_id);
+            }
+        }
+
+        // calc start order for enabled services and their dependencies, then start them in that order
+        const start_order = this.#calculate_service_start_order(enabled_services);
         for (const service_id of start_order) {
             this.start_service(service_id);
         }
     }
 
-    start_service(service_id: string) {
-        // TODO: check dependencies are running
+    async start_service(service_id: string) {
+        // TODO: check dependencies are running, start them if not (be careful of circular deps, could use calculate_service_start_order for this with a subset of 1)
 
         if (this.#running_services.has(service_id)) {
-            console.warn(`Service ${service_id} is already running.`);
-            return;
+            return [false, `Service ${service_id} is already running.`];
         }
 
         const service = this.#service_files.get(service_id);
         if (!service) {
-            console.error(`Service ${service_id} not found.`);
-            return;
+            return [false, `Service ${service_id} not found.`];
         }
 
         // mark service as should be running, so exit handlers know to restart it
@@ -166,10 +275,10 @@ export class ServiceManager {
 
         let spawn_result: SpawnResult;
         try {
-            spawn_result = this.#kernel.spawn(service.exec, service.args || []);
+            spawn_result = await this.#kernel.spawn(this.#process, service.exec, service.args || [], undefined, service.privileged);
         } catch (e) {
             console.error(`Failed to start service ${service_id}:`, e);
-            return;
+            return [false, `Error starting service ${service_id}.`];
         }
 
         this.#running_services.set(service_id, spawn_result);
@@ -185,26 +294,26 @@ export class ServiceManager {
             console.error(`Service ${service_id} encountered an error:`, e);
             this.#running_services.delete(service_id);
             this.#failed_services.add(service_id);
-            this._handle_service_exit(service_id, -1);
+            this.#handle_service_exit(service_id, -1);
         });
 
         // handle normal exit
         process.add_exit_listener((exit_code) => {
             this.#running_services.delete(service_id);
-            this._handle_service_exit(service_id, exit_code);
+            this.#handle_service_exit(service_id, exit_code);
         });
+
+        return [true, `Service ${service_id} started successfully.`];
     }
 
     stop_service(service_id: string) {
         if (!this.#running_services.has(service_id)) {
-            console.warn(`Service ${service_id} is not running.`);
-            return;
+            return [false, `Service ${service_id} is not running.`];
         }
 
         const spawn_result = this.#running_services.get(service_id);
         if (!spawn_result) {
-            console.error(`Service ${service_id} spawn result not found.`);
-            return;
+            return [false, `Service ${service_id} process not found.`];
         }
 
         const { process } = spawn_result;
@@ -216,11 +325,22 @@ export class ServiceManager {
         process.kill(143);
 
         // removal from running services will be handled in exit listener
+        return [true, `Service ${service_id} stopped successfully.`];
     }
 
-    restart_service(service_id: string) {
-        this.stop_service(service_id);
-        this.start_service(service_id); // TODO: will this conflict with the exit listener?
+    async restart_service(service_id: string) {
+        const [stop_success, stop_msg] = this.stop_service(service_id);
+
+        if (!stop_success) {
+            return [false, stop_msg];
+        }
+
+        const [start_success, start_msg] = await this.start_service(service_id); // TODO: will this conflict with the exit listener?
+        if (!start_success) {
+            return [false, start_msg];
+        }
+
+        return [true, `Service ${service_id} restarted successfully.`];
     }
 
     get_service_status(service_id: string): ServiceStatus | null {
@@ -247,9 +367,11 @@ export class ServiceManager {
                 };
             }
         }
+
+        return null;
     }
 
-    private _handle_service_exit(service_id: string, exit_code: number) {
+    #handle_service_exit(service_id: string, exit_code: number) {
         console.warn(`Service ${service_id} exited with code ${exit_code}.`);
 
         if (!this.#should_be_running_services.has(service_id)) {

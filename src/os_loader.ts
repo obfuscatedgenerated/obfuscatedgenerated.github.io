@@ -2,14 +2,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ImageAddon } from "@xterm/addon-image";
 
-import {ANSI, NEWLINE, WrappedTerminal} from "./kernel/term_ctl";
+import {ANSI, NEWLINE, word_wrap} from "./lib/ansi";
 
 import {Kernel} from "./kernel";
-
-import {ProgramRegistry} from "./kernel/prog_registry";
-import * as programs from "./programs/@ALL";
-
-import { SoundRegistry } from "./kernel/sfx_registry";
 
 import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
@@ -19,24 +14,14 @@ import { initial_fs_setup } from "./initial_fs_setup";
 import {DOMWindowManager} from "./window_impl/dom";
 
 import "./load_global_externals";
+import {PorterBridgeNetworkManager} from "./network_impl/porter";
+import {XTermTerminal} from "./term_impl/xterm";
+
+import * as builtin_programs from "./programs/@ALL";
+import {LoopbackIsoThreadManager} from "./isothread_impl/loopback";
+import {WebWorkerIsoThreadManager} from "./isothread_impl/web_worker";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
-    // create a program registry by importing all programs
-    const prog_reg = new ProgramRegistry();
-    for (const prog of Object.values(programs)) {
-        await prog_reg.registerProgram({
-            program: prog,
-            built_in: true,
-        });
-    }
-
-
-    // create a sound registry
-    const sfx_reg = new SoundRegistry();
-    sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
-    sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
-
-
     // create a filesystem
     // try opfs but use localstorage if not available, or already in use
     // TODO migrate from localstorage to opfs automatically
@@ -60,13 +45,20 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     }
 
     // create initial files
-    await initial_fs_setup(fs);
+    await initial_fs_setup(fs, builtin_programs);
 
     // create a dom window manager
     const wm = new DOMWindowManager();
 
+    // create network manager
+    const net_manager = new PorterBridgeNetworkManager();
+
+    // create isothread manager if workers are available
+    const version = document.body.dataset.version || "unknown";
+    const itm = typeof Worker !== "undefined" ? new WebWorkerIsoThreadManager(`public/script/isothread_worker.bundle.js?v=${version}`) : undefined;
+
     // create a terminal using the registry and filesystem
-    const term = new WrappedTerminal({
+    const term = new XTermTerminal({
         screenReaderMode: false,
         cursorBlink: true,
     });
@@ -88,7 +80,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
 
     // if this is a small screen, show a message
     if (window.innerWidth < 600) {
-        const wrapped = term.word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
+        const wrapped = word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
         term.writeln(wrapped);
     }
 
@@ -106,16 +98,16 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         fit.fit();
     });
 
-
-    // bind right click to copy/paste
-    window.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        term.copy_or_paste();
-    });
-
     // create the kernel
-    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm);
-    kernel.set_env_info(document.body.dataset.version, "web");
+    const kernel = new Kernel({
+        term,
+        fs,
+        wm,
+        net_manager,
+        virtual_programs: new Map(Object.entries(builtin_programs)),
+        isothread_manager: itm
+    });
+    kernel.set_env_info(version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
     return await kernel.boot(on_init_spawned);

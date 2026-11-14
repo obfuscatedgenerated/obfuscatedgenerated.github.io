@@ -1,3 +1,7 @@
+import {ProcessContext} from "./processes";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {absolute_from_source, absolute_path as resolve_absolute_path, join_path} from "../lib/path";
+
 /**
  * Error thrown when a path is not found.
  *
@@ -35,7 +39,7 @@ export class MoveDestinationDirectoryNotEmptyError extends Error {
 }
 
 /**
- * Error thrown when attempting to write to a read-only path.
+ * Error thrown when attempting to write to a read-only path, or when attemping to write to a protected path without privilege.
  *
  * @group Userspace
  * @category Filesystem
@@ -43,6 +47,18 @@ export class MoveDestinationDirectoryNotEmptyError extends Error {
 export class ReadOnlyError extends Error {
     constructor(path: string) {
         super(`Path is read-only: ${path}`);
+    }
+}
+
+/**
+ * Error thrown when attempting to read a protected file without privilege.
+ *
+ * @group Userspace
+ * @category Filesystem
+ */
+export class ProtectedFileReadError extends Error {
+    constructor(path: string) {
+        super(`Path is protected and cannot be read: ${path}`);
     }
 }
 
@@ -64,8 +80,9 @@ export enum FSEventType {
     DELETED_DIR,
     MOVED_DIR,
 
-    SET_CWD,
-    GETTING_CWD,
+    REMOVED_SET_CWD,
+    REMOVED_GETTING_CWD,
+
     SET_HOME,
     GETTING_HOME,
     SET_ROOT,
@@ -90,6 +107,8 @@ export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 /**
  * Interface for interacting with the chosen filesystem implementation from userspace.
  *
+ * For the privileged API, see {@link AbstractFileSystem}.
+ *
  * @group Userspace
  * @category Filesystem
  */
@@ -112,7 +131,6 @@ export interface UserspaceFileSystem {
     join(base_dir: string, ...paths: string[]): string;
     absolute(path: string): string;
     get_cwd(): string;
-    set_cwd(path: string): void;
     get_home(): string;
     get_root(): string;
 }
@@ -122,10 +140,14 @@ export interface UserspaceFileSystem {
 /**
  * Interface for interacting with a filesystem implementation.
  *
+ * For the userspace API, see {@link UserspaceFileSystem}.
+ *
  * @group Kernel (Privileged)
  * @category Filesystem
  */
-export abstract class AbstractFileSystem {
+export abstract class AbstractFileSystem implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     //TODO: dry
 
     // note some members are conventionally private with _ prefix to allow implementations to access them
@@ -138,7 +160,6 @@ export abstract class AbstractFileSystem {
 
     _root = "/";
     _home = "/home";
-    _cwd = this._home;
 
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
@@ -191,11 +212,11 @@ export abstract class AbstractFileSystem {
         }
 
         // add callback to array
-        this.#callbacks.get(event_type).push(callback);
+        this.#callbacks.get(event_type)!.push(callback);
 
         // return function to remove callback
         return () => {
-            this.#callbacks.get(event_type).splice(this.#callbacks.get(event_type).indexOf(callback), 1);
+            this.#callbacks.get(event_type)!.splice(this.#callbacks.get(event_type)!.indexOf(callback), 1);
         }
     }
 
@@ -224,7 +245,7 @@ export abstract class AbstractFileSystem {
         // check if file is in cache and still exists, as well as if it's the correct type
         const cached = this.#cache.get(path);
         if (cached && await this.exists(path) && cached.as_uint === as_uint) {
-            return this.#cache.get(path).content;
+            return this.#cache.get(path)!.content;
         }
 
         // if not, read it from disk and cache it
@@ -262,7 +283,7 @@ export abstract class AbstractFileSystem {
     // does not check if destination exists
     async move_file(path: string, new_path: string): Promise<void> {
         // move in cache and disk
-        this.#cache.set(new_path, this.#cache.get(path));
+        this.#cache.set(new_path, this.#cache.get(path)!);
         this.#cache.delete(path);
         await this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
@@ -324,27 +345,6 @@ export abstract class AbstractFileSystem {
         this.purge_cache(true);
     }
 
-    get_cwd(): string {
-        this._call_callbacks(FSEventType.GETTING_CWD, this._cwd);
-        return this._cwd;
-    }
-
-    set_cwd(path: string): void {
-        // if path ends with /, remove it
-        if (path.endsWith("/")) {
-            path = path.slice(0, -1);
-        }
-
-        // if path is empty, set to root
-        if (path === "") {
-            path = this._root;
-        }
-
-        this._cwd = path;
-        this._call_callbacks(FSEventType.SET_CWD, path);
-    }
-
-
     get_home(): string {
         this._call_callbacks(FSEventType.GETTING_HOME, this._home);
         return this._home;
@@ -352,6 +352,7 @@ export abstract class AbstractFileSystem {
 
     set_home(path: string): void {
         this._home = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_HOME, path);
     }
 
@@ -362,6 +363,7 @@ export abstract class AbstractFileSystem {
 
     set_root(path: string): void {
         this._root = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_ROOT, path);
     }
 
@@ -380,110 +382,12 @@ export abstract class AbstractFileSystem {
         return this.exists_direct(path);
     }
 
-    absolute(path: string): string {
-        // if path is blank, path is root
-        if (path === "") {
-            return this._root;
-        }
-
-        // if path is ., return cwd
-        // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
-        if (path === ".") {
-            return this._cwd;
-        }
-
-        // if path is ~, return home
-        // TODO: again, same for this and the later ~/ check
-        if (path === "~") {
-            return this._home;
-        }
-
-        // if path starts with cwd and doesn't contain .., it is absolute
-        if (path.startsWith(this._cwd) && !path.includes("..")) {
-            return path;
-        }
-
-        // if path starts with root and doesn't contain .., it is absolute
-        if (path.startsWith(this._root) && !path.includes("..")) {
-            return path;
-        }
-
-        // drop leading ./
-        if (path.startsWith("./")) {
-            path = path.slice(2);
-        }
-
-
-        let effective_cwd = this._cwd;
-
-        // if path starts with .., step up the cwd
-        while (path.startsWith("..") && effective_cwd !== this._root) {
-            path = path.slice(2);
-
-            // drop leading /
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-        }
-
-        // TODO: doesn't support middle of path ..
-        // if path ends with .., remove the last part of the full path
-        while (path.endsWith("..")) {
-            path = path.slice(0, path.lastIndexOf(".."));
-
-            // drop trailing /
-            if (path.endsWith("/")) {
-                path = path.slice(0, path.length - 1);
-            }
-
-            // slice path, slicing effective_cwd if path is empty
-            if (path === "") {
-                effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-            } else {
-                path = path.slice(0, path.lastIndexOf("/"));
-
-                if (path === "") {
-                    effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-                }
-            }
-        }
-
-        // if path starts with ~/, replace it with home
-        if (path.startsWith("~/")) {
-            path = path.slice(2);
-            effective_cwd = this._home;
-        }
-
-        // if path still starts with /, drop it
-        if (path.startsWith("/")) {
-            path = path.slice(1);
-        }
-
-        return this.join(effective_cwd, path);
+    absolute(path: string, cwd?: string): string {
+        return resolve_absolute_path(path, {root: this._root, home: this._home, cwd});
     }
 
     join(base_dir: string, ...paths: string[]): string {
-        // drop trailing /
-        if (base_dir.endsWith("/")) {
-            base_dir = base_dir.slice(0, base_dir.length - 1);
-        }
-
-        // join base_dir and path, using slash if path is not empty
-        for (let path of paths) {
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            if (path === "") {
-                continue;
-            }
-
-            base_dir += "/" + path;
-        }
-
-        return base_dir;
+        return join_path(base_dir, ...paths);
     }
 
     protected constructor() {
@@ -491,19 +395,28 @@ export abstract class AbstractFileSystem {
         setInterval(() => this.#remote_listener(), 100);
     }
 
-    static create_userspace_proxy(fs: AbstractFileSystem): UserspaceFileSystem {
+    static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem {
         const self = fs;
         const proxy = Object.create(null);
 
         // write protect certain kernel secured paths
-        const check_path = (path: string): string => {
-            const absolute_path = self.absolute(path);
+        const check_path_for_writing = (path: string): string => {
+            const absolute_path = self.absolute(path, process.cwd);
 
+            // TODO: allow priv programs to add to protection
             const is_protected =
                 absolute_path === "/sys" ||
                 absolute_path.startsWith("/sys/") ||
                 absolute_path === "/boot" ||
-                absolute_path.startsWith("/boot/");
+                absolute_path.startsWith("/boot/") ||
+                absolute_path === "/etc/services/privileged/" ||
+                absolute_path.startsWith("/etc/services/privileged/") ||
+                absolute_path === "/etc/ssh/" ||
+                absolute_path.startsWith("/etc/ssh/") ||
+                absolute_path === "/bin" ||
+                absolute_path.startsWith("/bin/") ||
+                absolute_path === "/usr/bin" ||
+                absolute_path.startsWith("/usr/bin/");
 
             if (is_protected) {
                 throw new ReadOnlyError(absolute_path);
@@ -512,18 +425,32 @@ export abstract class AbstractFileSystem {
             return absolute_path;
         };
 
+        // read protect even more locked down paths
+        const check_path_for_reading = (path: string): string => {
+            const absolute_path = self.absolute(path, process.cwd);
+
+            const is_protected =
+                (absolute_path.startsWith("/etc/ssh/") && absolute_path !== "/etc/ssh/"); // allow listing /etc/ssh but not reading files in it
+
+            if (is_protected) {
+                throw new ProtectedFileReadError(absolute_path);
+            }
+
+            return absolute_path;
+        }
+
         Object.defineProperties(proxy, {
             get_unique_fs_type_name: { value: () => self.get_unique_fs_type_name(), enumerable: true },
             erase_all: { value: () => self.erase_all(), enumerable: true },
             purge_cache: { value: (smart?: boolean) => self.purge_cache(smart), enumerable: true },
-            read_file: { value: (path: string, as_uint?: boolean) => self.read_file(self.absolute(path), as_uint), enumerable: true },
-            list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(self.absolute(path), dirs_first), enumerable: true },
-            exists: { value: (path: string) => self.exists(self.absolute(path)), enumerable: true },
-            dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path)), enumerable: true },
+            read_file: { value: (path: string, as_uint?: boolean) => self.read_file(check_path_for_reading(path), as_uint), enumerable: true },
+            list_dir: { value: (path: string, dirs_first?: boolean) => self.list_dir(check_path_for_reading(path), dirs_first), enumerable: true },
+            exists: { value: (path: string) => self.exists(self.absolute(path, process.cwd)), enumerable: true },
+            dir_exists: { value: (path: string) => self.dir_exists(self.absolute(path, process.cwd)), enumerable: true },
             is_readonly: {
                 value: async (path: string) => {
                     try {
-                        check_path(path);
+                        check_path_for_writing(path);
                     } catch (e) {
                         if (e instanceof ReadOnlyError) {
                             return true;
@@ -532,52 +459,63 @@ export abstract class AbstractFileSystem {
                         throw e;
                     }
 
-                    return await self.is_readonly(self.absolute(path));
+                    return await self.is_readonly(self.absolute(path, process.cwd));
                 },
                 enumerable: true
             },
             join: { value: (base: string, ...paths: string[]) => self.join(base, ...paths), enumerable: true },
-            absolute: { value: (path: string) => self.absolute(path), enumerable: true },
-            get_cwd: { value: () => self.get_cwd(), enumerable: true },
+            absolute: { value: (path: string) => self.absolute(path, process.cwd), enumerable: true },
             get_home: { value: () => self.get_home(), enumerable: true },
             get_root: { value: () => self.get_root(), enumerable: true },
             write_file: {
                 value: (path: string, data: string | Uint8Array, force?: boolean) =>
-                    self.write_file(check_path(path), data, force),
+                    self.write_file(check_path_for_writing(path), data, force),
                 enumerable: true
             },
             delete_file: {
-                value: (path: string) => self.delete_file(check_path(path)),
+                value: (path: string) => self.delete_file(check_path_for_writing(path)),
                 enumerable: true
             },
             move_file: {
                 value: (path: string, new_path: string) => {
-                    return self.move_file(check_path(path), check_path(new_path));
+                    return self.move_file(check_path_for_writing(path), check_path_for_writing(new_path));
                 },
                 enumerable: true
             },
             make_dir: {
-                value: (path: string) => self.make_dir(check_path(path)),
+                value: (path: string) => self.make_dir(check_path_for_writing(path)),
                 enumerable: true
             },
             delete_dir: {
-                value: (path: string, recursive?: boolean) => self.delete_dir(check_path(path), recursive),
+                value: (path: string, recursive?: boolean) => self.delete_dir(check_path_for_writing(path), recursive),
                 enumerable: true
             },
             move_dir: {
                 value: (src: string, dest: string, move_inside?: boolean) => {
-                    return self.move_dir(check_path(src), check_path(dest), move_inside);
+                    return self.move_dir(check_path_for_writing(src), check_path_for_writing(dest), move_inside);
                 },
                 enumerable: true
             },
             set_readonly: {
-                value: (path: string, readonly: boolean) => self.set_readonly(check_path(path), readonly),
+                value: (path: string, readonly: boolean) => self.set_readonly(check_path_for_writing(path), readonly),
                 enumerable: true
             },
-            set_cwd: { value: (path: string) => self.set_cwd(path), enumerable: true }
+
+            // helper for compatability
+            get_cwd: { value: () => self.absolute(process.cwd), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_fs_type_name: "constant",
+            get_cwd: "mirrored",
+            get_home: "mirrored",
+            get_root: "mirrored",
+            join: join_path,
+            absolute: absolute_from_source,
+        }, [
+            fs,
+            process
+        ]);
     }
 }
 

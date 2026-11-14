@@ -1,5 +1,5 @@
 import type {Program} from "../../../types";
-import {NEWLINE} from "../../../kernel/term_ctl";
+import {NEWLINE} from "../../../lib/ansi";
 
 import {AshShell} from "./core";
 import {make_read_line_key_handlers, make_read_line_printable_handler} from "./key_handlers";
@@ -7,24 +7,27 @@ import {make_read_line_key_handlers, make_read_line_printable_handler} from "./k
 export default {
     name: "ash",
     description: "A shell.",
-    usage_suffix: "[--login] [--no-scripts]",
+    usage_suffix: "[--login] [--no-scripts] [workdir]",
     arg_descriptions: {
         "Arguments:": {
             "--login": "Start the shell as a login shell. Don't pass this flag manually, it's handled by the system.",
-            "--no-scripts": "Do not run any startup scripts like .ashrc or .ash_profile."
+            "--no-scripts": "Do not run any startup scripts like .ashrc or .ash_profile.",
+            "workdir": "The working directory to start in. Set after scripts are run. Defaults to the working directory ash was invoked from.",
         }
     },
     compat: "2.0.0",
     main: async (data) => {
         const {kernel, term, process, args} = data;
 
-        const shell = new AshShell(term, kernel);
+        const shell = new AshShell(term, kernel, process);
 
         const env_info = kernel.get_env_info();
         shell.memory.set_variable("VERSION", env_info.version);
         shell.memory.set_variable("ENV", env_info.env);
 
         const fs = kernel.get_fs();
+
+        // TODO: should scripts run in a consistent workdir like home? or not. should they respect override (requiring argparser)
 
         const absolute_profile = fs.absolute("~/.ash_profile");
         const absolute_rc = fs.absolute("~/.ashrc");
@@ -42,6 +45,12 @@ export default {
         }
 
         if (args.includes("--login")) {
+            // remove --login from args
+            const login_index = args.indexOf("--login");
+            if (login_index > -1) {
+                args.splice(login_index, 1);
+            }
+
             // enable screen reader mode if stored in local storage
             if (localStorage.getItem("reader") === "true") {
                 await shell.execute("reader -s on");
@@ -56,6 +65,22 @@ export default {
         // run .ashrc, checking it exists again just in case (could be deleted in profile)
         if (!args.includes("--no-scripts") && await fs.exists(absolute_rc)) {
             await shell.run_script(absolute_rc);
+        }
+
+        // remove --no-scripts from args
+        const no_scripts_index = args.indexOf("--no-scripts");
+        if (no_scripts_index > -1) {
+            args.splice(no_scripts_index, 1);
+        }
+
+        // now should only have workdir left
+        // TODO: parse this in advance so scripts arent run. might be good overall to have an argparser as many programs are order dependent currently
+        if (args.length > 0) {
+            const workdir = args[0];
+            if (!await fs.dir_exists(workdir)) {
+                term.writeln(`${term.ansi.PREFABS.error}No such working directory: ${workdir}${term.ansi.STYLE.reset_all}`);
+                return 1;
+            }
         }
 
         let running = true;

@@ -1,5 +1,5 @@
-import {ANSI, NEWLINE} from "../../kernel/term_ctl";
-import type { WrappedTerminal } from "../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../lib/ansi";
+import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
 
@@ -15,7 +15,7 @@ interface PkgInfo {
     long_desc?: string;
 }
 
-const print_info = (term: WrappedTerminal, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
+const print_info = (term: UserspaceTerminal, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
     term.write(NEWLINE);
 
     term.writeln(`Package: ${STYLE.bold}${pkg_name}${STYLE.no_bold_or_dim}`);
@@ -98,7 +98,7 @@ export const info_subcommand = async (data: ProgramMainData) => {
     const fs = kernel.get_fs();
 
     if (!always_fetch && requested_version_installed) {
-        const pkg_json_path = graph_query.get_file_path_in_pkg_bin(fs, pkg_name, "pkg.json");
+        const pkg_json_path = graph_query.get_file_path_in_pkg_dir(fs, pkg_name, "pkg.json");
 
         if (!fs.exists(pkg_json_path)) {
             // shouldnt happen, but just in case

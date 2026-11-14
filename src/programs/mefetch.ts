@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { NEWLINE, ANSI, ANSI_UNESCAPED_REGEX } from "../kernel/term_ctl";
+import {ANSI, NEWLINE, strip_ansi} from "../lib/ansi";
 
 import { default as img2ascii } from "imgToAscii";
 
@@ -12,7 +12,7 @@ const username_to_avatar_url = (username: string): string => {
 }
 
 type GHInfo = { name: string, bio: string, location: string, blog: string, followers: number, following: number, twitter: string };
-const get_github_info = async (username: string): Promise<GHInfo> => {
+const get_github_info = async (username: string): Promise<GHInfo | null> => {
     const url = `https://api.github.com/users/${username}`;
     const res = await fetch(url);
 
@@ -61,8 +61,8 @@ ${data.websites ? Object.entries(data.websites).map(
     ([name, url]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${url}`
 ).join(NEWLINE) : ""}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.following || 0}
 
 ${data.extra ? Object.entries(data.extra).map(
     ([name, value]) => `${STYLE.bold}${name}${STYLE.reset_all + FG.cyan}: ${value}`
@@ -75,7 +75,7 @@ const stranger_info = (username: string, gh_info: GHInfo | null, cols: number, v
     const { STYLE, FG } = ANSI;
 
     // line wrap the bio and make sure newlines ARE NOT CRLF (to retain columns)
-    if (gh_info.bio) {
+    if (gh_info && gh_info.bio) {
         gh_info.bio = gh_info.bio.replace(/\r\n/g, "\n").replace(new RegExp(`(.{${Math.floor(cols * 0.25)}})\\s`, "g"), "$1\n");
     }
 
@@ -86,17 +86,17 @@ ${STYLE.bold}${username}
 ${"-".repeat(username.length)}
 ${STYLE.bold}OS${STYLE.reset_all + FG.cyan}: OllieOS v${version_str}
 
-${gh_info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${gh_info.name}` : "\x1b[1A"}
-${gh_info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${gh_info.location}` : "\x1b[1A"}
-${gh_info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${gh_info.bio}` : "\x1b[1A"}
+${gh_info && gh_info.name ? `${STYLE.bold}Name${STYLE.reset_all + FG.cyan}: ${gh_info.name}` : "\x1b[1A"}
+${gh_info && gh_info.location ? `${STYLE.bold}Location${STYLE.reset_all + FG.cyan}: ${gh_info.location}` : "\x1b[1A"}
+${gh_info && gh_info.bio ? `${STYLE.bold}Bio${STYLE.reset_all + FG.cyan}: ${gh_info.bio}` : "\x1b[1A"}
 
-${gh_info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${gh_info.blog}` : "\x1b[1A"}
+${gh_info && gh_info.blog ? `${STYLE.bold}Website${STYLE.reset_all + FG.cyan}: ${gh_info.blog}` : "\x1b[1A"}
 
 ${STYLE.bold}GitHub${STYLE.reset_all + FG.cyan}: https://github.com/${username}
-${gh_info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${gh_info.twitter}` : "\x1b[1A"}
+${gh_info && gh_info.twitter ? `${STYLE.bold}Twitter${STYLE.reset_all + FG.cyan}: https://twitter.com/${gh_info.twitter}` : "\x1b[1A"}
 
-${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info.followers || 0}
-${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info.following || 0}
+${STYLE.bold}GitHub Followers${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.followers || 0}
+${STYLE.bold}GitHub Following${STYLE.reset_all + FG.cyan}: ${gh_info && gh_info.following || 0}
     `.replace(/\n/g, NEWLINE);
 }
 
@@ -108,6 +108,11 @@ export default {
         "username": "The GitHub username to show basic info about. Defaults to my username, with the special info shown."
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "mefetch",
+        starts_in_terminal_window: true,
+        keep_terminal_open_after_run: "always"
+    },
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -182,7 +187,7 @@ export default {
         const max_lines = Math.max(asc_lines.length, txt_lines.length);
 
         // get the longest length of a line of ascii ignoring ansi characters, and the longest length of a line of text
-        const max_asc_line_length = Math.max(...asc_lines.map(line => line.replace(ANSI_UNESCAPED_REGEX, "").length));
+        const max_asc_line_length = Math.max(...asc_lines.map(line => strip_ansi(line).length));
         const max_txt_line_length = Math.max(...txt_lines.map(line => line.length));
 
         // determine padding around and between text and ascii
@@ -199,7 +204,7 @@ export default {
             const txt_line = txt_lines[i] || "";
 
             // add additional padding so the width of the ascii line is always the same
-            const asc_line_padding = " ".repeat(max_asc_line_length - asc_line.replace(ANSI_UNESCAPED_REGEX, "").length);
+            const asc_line_padding = " ".repeat(max_asc_line_length - strip_ansi(asc_line).length);
 
             // print side by side with padding
             term.writeln(side_padding + asc_line + asc_line_padding + center_padding + txt_line_prefix + txt_line + txt_line_suffix);

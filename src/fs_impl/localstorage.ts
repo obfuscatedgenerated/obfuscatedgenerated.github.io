@@ -20,7 +20,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async make_dir(path: string) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -43,7 +43,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async delete_dir_direct(path: string, recursive: boolean) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -184,7 +184,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     async list_dir(path: string, dirs_first = false) {
         this._call_callbacks(FSEventType.LISTING_DIR, path);
 
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -229,7 +229,7 @@ export class LocalStorageFS extends AbstractFileSystem {
 
 
     async read_file_direct(path: string, as_uint = false) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
 
         // split path into parts, if root, use single empty string to avoid doubling
         const parts = path === this._root ? [""] : path.split("/");
@@ -272,21 +272,15 @@ export class LocalStorageFS extends AbstractFileSystem {
     async write_file_direct(path: string, data: string | ArrayBuffer | Uint8Array) {
         let uint: Uint8Array;
 
-        // convert string to uint8array
         if (typeof data === "string") {
             uint = new TextEncoder().encode(data);
-        }
-
-        // convert array buffer to uint8array
-        if (data instanceof ArrayBuffer) {
+        } else if (data instanceof ArrayBuffer) {
             uint = new Uint8Array(data);
-        }
-
-        if (data instanceof Uint8Array) {
+        } else {
             uint = data;
         }
 
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -312,7 +306,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async delete_file_direct(path: string) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_dir = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -336,7 +330,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
 
         // remove from readonly list if it is there
-        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
         if (readonly_list.includes(path)) {
             readonly_list.splice(readonly_list.indexOf(path), 1);
             localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));
@@ -344,7 +338,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async move_file_direct(src: string, dest: string) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
 
         // split paths into parts, if root, use single empty string to avoid doubling
         const src_parts = src === this._root ? [""] : src.split("/");
@@ -387,7 +381,7 @@ export class LocalStorageFS extends AbstractFileSystem {
         localStorage.setItem("fs", JSON.stringify(state));
 
         // relocate in readonly list if it is there
-        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
         if (readonly_list.includes(src)) {
             readonly_list.splice(readonly_list.indexOf(src), 1);
             readonly_list.push(dest);
@@ -396,7 +390,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async set_readonly_direct(path: string, readonly: boolean) {
-        const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const state = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
 
         if (readonly && !state.includes(path)) {
             state.push(path);
@@ -408,12 +402,12 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async is_readonly_direct(path: string) {
-        const state = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const state = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
         return state.includes(path);
     }
 
     async exists_direct(path: string) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_part = state;
 
         // split path into parts, if root, use single empty string to avoid doubling
@@ -438,7 +432,7 @@ export class LocalStorageFS extends AbstractFileSystem {
     }
 
     async dir_exists(path: string) {
-        const state = JSON.parse(localStorage.getItem("fs"));
+        const state = JSON.parse(localStorage.getItem("fs")!);
         let current_part = state;
 
         // if path ends with /, remove it
@@ -481,16 +475,16 @@ export class LocalStorageFS extends AbstractFileSystem {
             }));
         }
 
-        const migrations = JSON.parse(localStorage.getItem("fs_migrations"));
+        const migrations = JSON.parse(localStorage.getItem("fs_migrations")!);
 
         if (!migrations.string_to_array) {
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            migrate_old_string_fs(JSON.parse(localStorage.getItem("fs")), true);
+            migrate_old_string_fs(JSON.parse(localStorage.getItem("fs")!), true);
         }
 
         if (!migrations.array_to_b64) {
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            migrate_old_array_fs(JSON.parse(localStorage.getItem("fs")));
+            migrate_old_array_fs(JSON.parse(localStorage.getItem("fs")!));
         }
 
         // mark all migrations as done

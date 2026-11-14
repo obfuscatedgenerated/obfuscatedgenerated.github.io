@@ -1,6 +1,6 @@
 import type {Program} from "../../types";
 import type {ProcessContext} from "../../kernel/processes";
-import {ANSI} from "../../kernel/term_ctl";
+import {ANSI} from "../../lib/ansi";
 
 export default {
     name: "jetty",
@@ -61,9 +61,13 @@ export default {
             running = false;
         });
 
+        // invoke shell in home dir
+        // TODO: way to pass cwd override without having to change own directory
+        process.cwd = "~";
+
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn(default_shell, default_shell_args);
+            const shell_proc = await kernel.spawn(default_shell, default_shell_args);
             current_shell_process = shell_proc.process;
 
             let exit_code: number;

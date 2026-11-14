@@ -1,6 +1,26 @@
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 import type { Program } from "../types";
 import {helper_completion_options} from "./core/ash/tab_completion";
+
+// created at module load so the files preload, like the old sound registry did at boot
+// guarded because Audio doesn't exist outside the browser (e.g. the node port)
+const reader_sounds = typeof Audio === "undefined" ? null : {
+    on: new Audio("public/sfx/reader_on.mp3"),
+    off: new Audio("public/sfx/reader_off.mp3"),
+};
+
+const play_reader_sound = (state: "on" | "off") => {
+    const sound = reader_sounds?.[state];
+    if (!sound) {
+        return;
+    }
+
+    // restart if it's still playing from a quick double toggle
+    sound.currentTime = 0;
+    sound.play().catch(() => {
+        // a missing sound isn't worth failing the toggle over
+    });
+};
 
 export default {
     name: "reader",
@@ -33,24 +53,30 @@ export default {
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
-        // get sound registry
-        const sfx_reg = kernel.get_sound_registry();
+        if (!term.supports_custom_flag("reader_support")) {
+            term.writeln(`${PREFABS.error}Your terminal does not support configuring screen reader mode. Either it supports it by default, or it does not support it at all.${STYLE.reset_all}`);
+            return 1;
+        }
 
         switch (args[0]) {
-            case "-h":
-                return await kernel.spawn("help", ["clear"], shell).completion;
+            case "-h": {
+                const spawn_result = await kernel.spawn("help", ["reader"], shell);
+                const exit_code = await spawn_result.completion;
+                spawn_result.process.kill(exit_code);
+                return exit_code;
+            }
             case "-q":
                 // query screen reader mode
-                term.writeln(`Screen reader mode is currently ${term.options.screenReaderMode ? "on" : "off"}.`);
+                term.writeln(`Screen reader mode is currently ${term.get_custom_flag("reader_support") ? "on" : "off"}.`);
                 return 0;
             case "-s":
                 // set screen reader mode
                 switch (args[1]) {
                     case "on":
-                        term.options.screenReaderMode = true;
+                        term.set_custom_flag("reader_support", true);
                         break;
                     case "off":
-                        term.options.screenReaderMode = false;
+                        term.set_custom_flag("reader_support", false);
                         break;
                     default:
                         term.writeln("Invalid argument. Expected \"on\" or \"off\".");
@@ -59,20 +85,17 @@ export default {
                 break;
             default:
                 // toggle screen reader mode
-                term.options.screenReaderMode = !term.options.screenReaderMode;
+                term.set_custom_flag("reader_support", !term.get_custom_flag("reader_support"));
         }
 
-        const state = term.options.screenReaderMode ? "on" : "off";
-
-        // play sound
-        const sound_name = `reader_${state}`;
-        sfx_reg.wait_to_play(sound_name);
+        const state = term.get_custom_flag("reader_support") ? "on" : "off";
+        play_reader_sound(state);
 
         // print message
         term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
 
         // remove hint element if screen reader mode is on
-        if (term.options.screenReaderMode) {
+        if (state === "on") {
             const hint = document.querySelector("#screenreader_hint");
 
             if (hint) {
@@ -81,7 +104,7 @@ export default {
         }
 
         // save into local storage
-        localStorage.setItem("reader", term.options.screenReaderMode.toString());
+        localStorage.setItem("reader", term.get_custom_flag("reader_support")!.toString());
 
         return 0;
     }

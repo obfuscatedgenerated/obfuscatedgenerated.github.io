@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 import {helper_completion_options} from "./core/ash/tab_completion";
 
 // TODO: when edit is done, add a flag to edit the file in the editor
@@ -49,7 +49,10 @@ export default {
         }
 
         if (args[0] === "-h") {
-            await kernel.spawn("help", ["hex"], shell).completion;
+            const spawn_result = await kernel.spawn("help", ["hex"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         // get filepath

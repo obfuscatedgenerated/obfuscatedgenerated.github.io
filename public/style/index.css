@@ -1,8 +1,8 @@
 html,
 body {
-    min-height: 100vh;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: clip;
     background: black;
 }
 
@@ -144,6 +144,10 @@ body {
 
 .window.animating-close {
     animation: window-close 0.2s ease-in-out forwards;
+}
+
+.window[data-layer="normal"]:not(.active):not(.no-inactive-fade), .window[data-layer="top"]:not(.active):not(.no-inactive-fade) {
+    opacity: 0.95;
 }
 
 .window-top-bar {

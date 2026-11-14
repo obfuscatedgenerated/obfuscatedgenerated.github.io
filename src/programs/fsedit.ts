@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 
 export default {
     name: "fsedit",
@@ -11,6 +11,9 @@ export default {
         }
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "FSEdit",
+    },
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term, process } = data;

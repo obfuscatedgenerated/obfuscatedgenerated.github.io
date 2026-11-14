@@ -1,7 +1,73 @@
-import {AbstractWindow, AbstractWindowManager, WindowEvent} from "../kernel/windowing";
+import {AbstractWindow, AbstractWindowManager, WindowCompositionLayer, WindowEvent} from "../kernel/windowing";
+import {notify_mirror_change} from "../kernel/rpc";
+
+interface LayerZRange {
+    min_z: number;
+    max_z: number;
+}
+
+const LAYERS: Record<WindowCompositionLayer, LayerZRange> = {
+    "background": { min_z: 10, max_z: 2048 },
+    "normal": { min_z: 2049, max_z: 4096 },
+    "top": { min_z: 4097, max_z: 5120 },
+    "overlay": { min_z: 5121, max_z: 6145 },
+    "administrative": { min_z: 6146, max_z: 8192 }
+}
+
+// TODO: dynamic window icons, defaulting to guiprops
 
 export class DOMWindowManager extends AbstractWindowManager {
-    #top_z_index = 10;
+    #layer_top_z_indices: Record<WindowCompositionLayer, number> = {
+        "background": LAYERS["background"].min_z,
+        "normal": LAYERS["normal"].min_z,
+        "top": LAYERS["top"].min_z,
+        "overlay": LAYERS["overlay"].min_z,
+        "administrative": LAYERS["administrative"].min_z
+    }
+
+    #perform_z_compaction(layer: WindowCompositionLayer) {
+        console.log("Performing z-index compaction for layer", layer);
+
+        // collapse gaps in caused by refocus, and reassign the zs of all open windows to the new compacted values
+        // easiest approach is to just reassign in order, starting from the min
+
+        const z_range = LAYERS[layer];
+        let next_z = z_range.min_z;
+
+        for (const window of this.#window_map.values()) {
+            if (window.layer === layer) {
+                window.force_z_index(next_z++);
+            }
+        }
+
+        this.#layer_top_z_indices[layer] = next_z;
+    }
+
+    #get_next_z(layer: WindowCompositionLayer): number {
+        const z_range = LAYERS[layer];
+        const top_z = this.#layer_top_z_indices[layer];
+
+        if (top_z > z_range.max_z) {
+            // try to perform compaction first
+            this.#perform_z_compaction(layer);
+
+            // check again if we are still over the max after compaction, if so throw error
+            if (this.#layer_top_z_indices[layer] > z_range.max_z) {
+                throw new Error(`Exceeded maximum number of windows in layer ${layer}`);
+            }
+
+            // otherwise, we have successfully compacted and can return the next z
+            return this.#layer_top_z_indices[layer]++;
+        }
+
+        // if approaching max z, perform compaction to free up space from gaps created by refocusing windows and closing
+        if (top_z >= z_range.max_z - 10) {
+            this.#perform_z_compaction(layer);
+            return this.#layer_top_z_indices[layer]++;
+        }
+
+        return this.#layer_top_z_indices[layer]++;
+    }
 
     #window_id_counter = 1;
     readonly #window_map: Map<number, AbstractWindow> = new Map();
@@ -38,7 +104,32 @@ export class DOMWindowManager extends AbstractWindowManager {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const manager = this;
 
+        // track click events to keep track of active element (inc top bar)
+        let active_window_root: HTMLDivElement | null = null;
+        document.addEventListener("mousedown", (event) => {
+            const target = event.target as HTMLElement;
+
+            const window_root = target.closest(".window") as HTMLDivElement;
+            if (window_root) {
+                if (active_window_root && active_window_root === window_root) {
+                    return;
+                } else if (active_window_root) {
+                    active_window_root.classList.remove("active");
+                }
+
+                window_root.classList.add("active");
+                active_window_root = window_root;
+            } else {
+                if (active_window_root) {
+                    active_window_root.classList.remove("active");
+                    active_window_root = null;
+                }
+            }
+        });
+
         class DOMWindow extends AbstractWindow {
+            // TODO: appear in an algorithmic location isntead of making all the apps hardcode coords
+
             private readonly _manager = manager;
 
             private readonly _window_id: number;
@@ -63,6 +154,12 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             private readonly _custom_flags: Set<string> = new Set();
 
+            #layer: WindowCompositionLayer = "normal";
+
+            get layer() {
+                return this.#layer;
+            }
+
             get manager() {
                 return this._manager;
             }
@@ -80,7 +177,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_root.id = `window-${this._window_id}`;
                 document.body.appendChild(this._window_root);
 
-                this._window_root.style.zIndex = manager.#top_z_index.toString();
+                this._window_root.style.zIndex = manager.#get_next_z("normal").toString();
                 this._window_root.addEventListener("mousedown", () => this.focus(), { capture: true });
                 window.addEventListener("blur", () => this._handle_window_blur());
 
@@ -134,10 +231,13 @@ export class DOMWindowManager extends AbstractWindowManager {
                 // hosts the shadow dom where programs can add their content
                 this._content_host = document.createElement("div");
                 this._content_host.classList.add("window-content-host");
+                this._content_host.setAttribute("tabindex", "-1");
 
                 this._shadow_dom = this._content_host.attachShadow({ mode: "closed" });
 
                 this._window_root.appendChild(this._content_host);
+
+                this._window_root.dataset.layer = this.layer;
 
                 // TODO: resize handles
                 // TODO: way to prevent windows existing when the program that created them exits? or is that not needed? theyll have to run background tasks to allow multitasking anyway
@@ -166,10 +266,43 @@ export class DOMWindowManager extends AbstractWindowManager {
             }
 
             focus() {
-                this._emit_event("focus");
+                if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                }
 
-                manager.#top_z_index += 1;
-                this._window_root.style.zIndex = manager.#top_z_index.toString();
+                this._window_root.focus();
+                this._window_root.style.zIndex = manager.#get_next_z(this.layer).toString();
+
+                if (active_window_root && active_window_root !== this._window_root) {
+                    active_window_root.classList.remove("active");
+                }
+
+                this._window_root.classList.add("active");
+                active_window_root = this._window_root;
+
+                this._emit_event("focus");
+            }
+
+            request_layer(new_layer: WindowCompositionLayer) {
+                if (new_layer === this.layer) {
+                    return;
+                }
+
+                // check space available in new layer
+                const z_range = LAYERS[new_layer];
+                if (manager.#layer_top_z_indices[new_layer] > z_range.max_z) {
+                    throw new Error(`Cannot move window to layer ${new_layer} as it has reached maximum capacity`);
+                }
+
+                this.#layer = new_layer;
+                this._window_root.style.zIndex = manager.#get_next_z(new_layer).toString();
+
+                this._window_root.dataset.layer = new_layer;
+                notify_mirror_change(this);
+            }
+
+            force_z_index(new_z: number) {
+                this._window_root.style.zIndex = new_z.toString();
             }
 
             private _handle_window_blur() {
@@ -200,6 +333,8 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 start_event.preventDefault();
 
+                this.focus();
+
                 const rect = this._window_root.getBoundingClientRect();
                 let offset_x = start_event.clientX - rect.left;
                 const offset_y = start_event.clientY - rect.top;
@@ -221,6 +356,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                     this._window_root.style.top = `${move_event.clientY - offset_y}px`;
 
                     this._emit_event("move");
+                    notify_mirror_change(this);
                 };
 
                 const mouse_up = (up_event: MouseEvent) => {
@@ -241,6 +377,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                     // if the rect is out of the top when released, snap it back in
                     if (this._window_root.getBoundingClientRect().top < 0) {
                         this._window_root.style.top = "0px";
+                        notify_mirror_change(this);
                     }
                 };
 
@@ -276,6 +413,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 this._window_top_bar_title.innerText = new_title;
                 this._title_text = new_title;
 
+                notify_mirror_change(this);
                 this._emit_event("rename");
             }
 
@@ -285,6 +423,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             set width(css_width: string) {
                 this._window_root.style.width = css_width;
+                notify_mirror_change(this);
             }
 
             get height() {
@@ -293,6 +432,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
             set height(css_height: string) {
                 this._window_root.style.height = css_height;
+                notify_mirror_change(this);
             }
 
             get maximisable() {
@@ -302,6 +442,7 @@ export class DOMWindowManager extends AbstractWindowManager {
             set maximisable(value: boolean) {
                 this._maximisable = value;
                 this._window_top_bar_maximise_button.disabled = !value;
+                notify_mirror_change(this);
             }
 
             get maximised() {
@@ -323,6 +464,8 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                     this._emit_event("restore");
                 }
+
+                notify_mirror_change(this);
             }
 
             get x() {
@@ -335,6 +478,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
 
                 this._window_root.style.left = css_pos;
+                notify_mirror_change(this);
             }
 
             get y() {
@@ -347,6 +491,7 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
 
                 this._window_root.style.top = css_pos;
+                notify_mirror_change(this);
             }
 
             center() {
@@ -367,7 +512,10 @@ export class DOMWindowManager extends AbstractWindowManager {
                     this._window_root.classList.remove("animating-in");
                 }, 200);
 
+                this.focus();
+
                 this._emit_event("show");
+                notify_mirror_change(this);
             }
 
             hide() {
@@ -380,15 +528,14 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }, 200);
 
                 this._emit_event("hide");
+                notify_mirror_change(this);
             }
 
             toggle() {
-                this._window_root.classList.toggle("visible");
-
                 if (this.visible) {
-                    this._emit_event("show");
+                    this.hide();
                 } else {
-                    this._emit_event("hide");
+                    this.show();
                 }
             }
 
@@ -428,6 +575,13 @@ export class DOMWindowManager extends AbstractWindowManager {
                             this._window_top_bar.classList.add("hidden");
                         } else {
                             this._window_top_bar.classList.remove("hidden");
+                        }
+                        break;
+                    case "no-inactive-fade":
+                        if (value) {
+                            this._window_root.classList.add("no-inactive-fade");
+                        } else {
+                            this._window_root.classList.remove("no-inactive-fade");
                         }
                         break;
                 }

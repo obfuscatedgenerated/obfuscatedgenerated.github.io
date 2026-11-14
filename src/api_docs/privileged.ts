@@ -14,20 +14,33 @@ export { AbstractFileSystem } from "../kernel/filesystem";
 
 /**
  * @group Kernel (Privileged)
+ * @category Terminal
+ */
+export {AbstractTerminal, KeyEvent, KeyEventHandler, RegisteredKeyEventIdentifier, ReadLineKeyHandler} from "../kernel/term_ctl";
+
+/**
+ * @group Kernel (Privileged)
  * @category Processes
  */
 export { ProcessManager, ProcessContext, IPCManager } from "../kernel/processes";
 
 /**
  * @group Kernel (Privileged)
- * @category Programs
+ * @category Windowing
  */
-export { ProgramRegistry } from "../kernel/prog_registry";
+export { AbstractWindow, AbstractWindowManager, WindowCompositionLayer, PrivilegedCompositionLayer } from "../kernel/windowing";
 
 /**
  * @group Kernel (Privileged)
- * @category Windowing
+ * @category Networking
  */
-export { AbstractWindow, AbstractWindowManager } from "../kernel/windowing";
+export { AbstractNetworkManager, AbstractServerSocket, AbstractClientSocket, ServerSocketEvent, ServerSocketEventListener, ClientSocketEvent, ClientSocketEventListener, SocketConnectionListener } from "../kernel/network";
+
+/**
+ * @group Kernel (Privileged)
+ * @category Platform
+ */
+export {AbstractPlatformAPI} from "../kernel/platform";
+
 
 // TODO: figure out why groups/categories dont always descend properly (manually defined groups on kernel etc) or just define it everywhere on each interface

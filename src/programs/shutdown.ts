@@ -1,4 +1,4 @@
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 import type { Program } from "../types";
 
 export default {
@@ -16,7 +16,7 @@ export default {
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, shell, args, term } = data;
+        const { kernel, shell, args, term, process } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
@@ -26,8 +26,12 @@ export default {
 
         for (const arg of args) {
             switch (arg) {
-                case "-h":
-                    return await kernel.spawn("help", ["shutdown"], shell).completion;
+                case "-h": {
+                    const spawn_result = await kernel.spawn("help", ["shutdown"], shell);
+                    const exit_code = await spawn_result.completion;
+                    spawn_result.process.kill(exit_code);
+                    return exit_code;
+                }
                 case "-r":
                     restart = true;
                     break;
@@ -64,12 +68,20 @@ export default {
             term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
         }
 
-        setTimeout(() => {
-            if (restart) {
-                window.location.reload();
-            } else {
-                term.dispose();
+        process.create_timeout(() => {
+            // talk to ignition over ipc
+            const ipc = kernel.get_ipc();
+            const channel_id = ipc.create_channel("init");
+
+            if (!channel_id) {
+                term.writeln(`${FG.red}Failed to communicate with ignition.${STYLE.reset_all}`);
+                return;
             }
+
+            ipc.channel_send(channel_id, {
+                type: "power",
+                action: restart ? "reboot" : "shutdown",
+            });
         }, time);
 
         // hang the terminal until it is shut down or restarted (dont allow any more commands)
@@ -78,4 +90,3 @@ export default {
     }
 } as Program;
 
-// TODO: move this to talk to ignition to perform a soft (or hard) shutdown via IPC

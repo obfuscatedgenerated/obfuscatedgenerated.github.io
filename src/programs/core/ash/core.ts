@@ -1,7 +1,9 @@
 import type {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, SpawnResult} from "../../../kernel";
+import {UserspaceProcessContext} from "../../../kernel/processes";
 
-import {ANSI, NEWLINE, type WrappedTerminal} from "../../../kernel/term_ctl";
+import {type UserspaceTerminal} from "../../../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../../../lib/ansi";
 
 import {AshMemory} from "./memory";
 import {parse_line} from "./parser";
@@ -10,7 +12,9 @@ const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
     readonly #kernel: UserspaceKernel;
-    readonly #term: WrappedTerminal;
+    readonly #term: UserspaceTerminal;
+    readonly #process: UserspaceProcessContext;
+
     readonly #memory = new AshMemory();
 
     #prompt_suffix = "$ ";
@@ -18,13 +22,52 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: WrappedTerminal, kernel: UserspaceKernel) {
+    constructor(term: UserspaceTerminal, kernel: UserspaceKernel, process: UserspaceProcessContext) {
         this.#term = term;
         this.#kernel = kernel;
+        this.#process = process;
+    }
+
+    get name(): string {
+        return "ash";
     }
 
     get memory(): AshMemory {
         return this.#memory;
+    }
+
+    async #builtin_cd(args: string[]): Promise<number> {
+        // get filesystem
+        const fs = this.#kernel.get_fs();
+
+        // if no arguments, go to home directory
+        if (args.length === 0) {
+            this.#process.cwd = fs.get_home();
+            return 0;
+        }
+
+        // if more than one argument, print error
+        if (args.length > 1) {
+            this.#term.writeln(`${PREFABS.error}Too many arguments${STYLE.reset_all}`);
+            return 1;
+        }
+
+        // check if path is a directory and exists
+        const path = args[0];
+        const absolute_path = fs.absolute(path);
+
+        if (!(await fs.dir_exists(absolute_path))) {
+            this.#term.writeln(`${PREFABS.error}No such directory: ${path}${STYLE.reset_all}`);
+            return 1;
+        }
+
+        // change directory
+        this.#process.cwd = absolute_path;
+        return 0;
+    }
+
+    #builtins: { [key: string]: (args: string[]) => Promise<number> } = {
+        "cd": this.#builtin_cd.bind(this),
     }
 
     // returns success flag (or error if critical)
@@ -62,8 +105,8 @@ export class AshShell implements AbstractShell {
         const { command } = parsed_line;
 
         // check if the command exists
-        const prog_reg = kernel.get_program_registry();
-        if (!prog_reg.getProgram(command)) {
+        const program_search = await kernel.find_program(command);
+        if (!program_search) {
             term.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             return false;
         }
@@ -74,10 +117,41 @@ export class AshShell implements AbstractShell {
             document.title = command;
         }
 
+        // prioritise builtins
+        if (command in this.#builtins) {
+            try {
+                const exit_code = await this.#builtins[command](parsed_line.args);
+                memory.set_variable("?", exit_code.toString());
+
+                if (program_final_completion_callback) {
+                    try {
+                        program_final_completion_callback(exit_code);
+                    } catch (e) {
+                        console.error("Error in program final completion callback for builtin command:", e);
+                    }
+                }
+
+                if (edit_doc_title) {
+                    document.title = old_title;
+                }
+
+                return true;
+            } catch (e) {
+                if (edit_doc_title) {
+                    document.title = old_title;
+                }
+
+                term.writeln(`${PREFABS.error}An error occurred while executing the builtin command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
+                console.error(e);
+
+                return false;
+            }
+        }
+
         // spawn the process
         let spawn_result: SpawnResult;
         try {
-            spawn_result = kernel.spawn(parsed_line, undefined, this);
+            spawn_result = await kernel.spawn(parsed_line, undefined, this);
         } catch (e) {
             if (edit_doc_title) {
                 document.title = old_title;
@@ -165,7 +239,19 @@ export class AshShell implements AbstractShell {
                     on_execute_completion(-1);
                 });
             } else if (process.is_foreground) {
-                const exit_code = await completion;
+                // ctrl+c interrupts the foreground process, like a tty sending SIGINT
+                const pop_interrupt = this.#term.push_interrupt_handler(() => {
+                    this.#term.writeln("^C");
+                    process.kill(130);
+                });
+
+                let exit_code: number;
+                try {
+                    exit_code = await completion;
+                } finally {
+                    pop_interrupt();
+                }
+
                 on_execute_completion(exit_code);
 
                 // set the exit code variable

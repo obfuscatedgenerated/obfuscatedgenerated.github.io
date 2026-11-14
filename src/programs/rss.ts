@@ -1,6 +1,6 @@
 import type { Program } from "../types";
 
-import { ANSI, NEWLINE } from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 import { convert as convert_html_to_text } from "html-to-text";
 
@@ -93,6 +93,11 @@ export default {
         }
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "RSS Blog",
+        starts_in_terminal_window: true,
+        keep_terminal_open_after_run: "always"
+    },
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
@@ -102,7 +107,10 @@ export default {
         const { PREFABS, STYLE, FG } = ANSI;
 
         if (args.includes("-h")) {
-            return await kernel.spawn("help", ["rss"], shell).completion;
+            const spawn_result = await kernel.spawn("help", ["rss"], shell);
+            const exit_code = await spawn_result.completion;
+            spawn_result.process.kill(exit_code);
+            return exit_code;
         }
 
         let max_items: number | undefined = undefined;
@@ -132,7 +140,7 @@ export default {
         // check if the user provided a URL
         let url = "https://blog.ollieg.codes/rss/feed.xml";
         if (args.length !== 0) {
-            url = args.shift();
+            url = args.shift()!;
         }
 
         // validate url

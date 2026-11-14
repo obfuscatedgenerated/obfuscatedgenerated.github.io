@@ -20,12 +20,45 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
 
         // get the root directory handle
+        // TODO: would be way better to have an async init, we probably can now!
         navigator.storage.getDirectory().then((handle) => {
-            this._opfs_handle = handle;
-            this._initialised = true;
+            console.log("Filesystem acquired. Checking...");
+
+            // TODO: does this actually help
+            this.#clear_locks(handle).then(() => {
+                console.log("Finished initial filesystem check.");
+
+                this._opfs_handle = handle;
+                this._initialised = true;
+            });
         }).catch((err) => {
             console.error("Failed to get OPFS directory handle:", err);
         });
+    }
+
+    async #clear_locks(directory: FileSystemDirectoryHandle | null) {
+        // files can remain locked in opfs if not closed, so navigating away can break the os!
+        // so lets unlock all files on init to be safe
+        // TODO: how performant is this? is there a safer way?
+        if (!directory) {
+            return;
+        }
+
+        for await (const [name, handle] of directory.entries()) {
+            if (handle.kind === "file") {
+                try {
+                    // force the browser to check the lock, without erasing the data!
+                    const poke = await (handle as FileSystemFileHandle).createWritable({keepExistingData: true});
+                    await poke.close();
+                } catch (err) {
+                    if (err.name === "AbortError" || err.name === "NoModificationAllowedError") {
+                        console.warn(`Recovering locked file: ${name}. Internal lock cleared.`);
+                    }
+                }
+            } else if (handle.kind === "directory") {
+                await this.#clear_locks(handle as FileSystemDirectoryHandle);
+            }
+        }
     }
 
     async is_ready() {
@@ -260,8 +293,18 @@ export class OPFSFileSystem extends AbstractFileSystem {
 
         // perform move, first check if the browser supports handle.move, and if not recursively copy and delete
         if ("move" in src_handle) {
-            // @ts-ignore - not part of spec yet
-            await src_handle.move(final_dest_parent_handle, final_dest_name);
+            try {
+                // @ts-ignore - not part of spec yet
+                await src_handle.move(final_dest_parent_handle, final_dest_name);
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    console.warn("Atomic move failed! Possibly locked! Falling back to copy and delete.");
+                    await this.#copy_directory_recursive(src_handle, await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true }));
+                    await src_parent_handle.removeEntry(src_basename, { recursive: true });
+                } else {
+                    throw err;
+                }
+            }
         } else {
             // copy recursively
             const new_dest_handle = await final_dest_parent_handle.getDirectoryHandle(final_dest_name, { create: true });
@@ -375,7 +418,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
 
         // remove from readonly list if it is there
-        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths"));
+        const readonly_list = JSON.parse(localStorage.getItem("fs_readonly_paths")!);
         if (readonly_list.includes(path)) {
             readonly_list.splice(readonly_list.indexOf(path), 1);
             localStorage.setItem("fs_readonly_paths", JSON.stringify(readonly_list));

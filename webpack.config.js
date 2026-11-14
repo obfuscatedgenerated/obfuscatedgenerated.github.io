@@ -73,6 +73,7 @@ module.exports = (env, argv) => {
         entry: {
             main: "./src/index.ts",
             fsedit: "./src/fsedit/index.ts",
+            isothread_worker: "./src/isothread_impl/web_worker/worker.ts",
         },
         devtool: dt,
         module: {
@@ -84,7 +85,15 @@ module.exports = (env, argv) => {
                 },
                 {
                     test: /\.css$/,
-                    use: ["style-loader", "css-loader"]
+                    oneOf: [
+                        {
+                            resourceQuery: /raw/, // ?raw import to import file as string
+                            type: "asset/source",
+                        },
+
+                        // otherwise, treat as normal css and inject into page
+                        {use: ["style-loader", "css-loader"]}
+                    ]
                 }
             ],
         },

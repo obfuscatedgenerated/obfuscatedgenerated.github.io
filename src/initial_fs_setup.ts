@@ -1,5 +1,7 @@
 import { AbstractFileSystem } from "./kernel/filesystem";
-import { ANSI, NEWLINE } from "./kernel/term_ctl";
+import {ANSI, NEWLINE} from "./lib/ansi";
+
+import {Program} from "./types";
 
 const setup_boot = async (fs: AbstractFileSystem) => {
     // create boot directory if it doesn't exist
@@ -46,6 +48,93 @@ const setup_boot = async (fs: AbstractFileSystem) => {
     const absolute_privilege_agent = fs.absolute("/sys/privilege_agent");
     if (!(await fs.exists(absolute_privilege_agent))) {
         await fs.write_file(absolute_privilege_agent, privilege_agent_content);
+    }
+
+    // create /etc/services directory if it doesn't exist
+    const absolute_services = fs.absolute("/etc/services");
+    if (!(await fs.dir_exists(absolute_services))) {
+        await fs.make_dir(absolute_services);
+    }
+
+    // create /etc/services/privileged directory if it doesn't exist
+    const absolute_privileged_services = fs.absolute("/etc/services/privileged");
+    if (!(await fs.dir_exists(absolute_privileged_services))) {
+        await fs.make_dir(absolute_privileged_services);
+    }
+
+    // create /etc/enable_services file if it doesn't exist
+    const enable_services_content = `# List service IDs in this file to explicitly enable them at boot. Services not set to auto-start and aren't listed in this file won't be started at boot. This file overrides disable_services, but is overridden by auto-start services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
+    const absolute_enable_services = fs.absolute("/etc/enable_services");
+    if (!(await fs.exists(absolute_enable_services))) {
+        await fs.write_file(absolute_enable_services, enable_services_content);
+    }
+
+    // create /etc/disable_services file if it doesn't exist
+    const disabled_services_content = `# List service IDs of auto-starting services in this file to explicitly disable them at boot. Services set to auto-start that are listed in this file won't be started at boot. This file is overridden by enable_services. Lines starting with # are comments.${NEWLINE}${NEWLINE}`;
+    const absolute_disabled_services = fs.absolute("/etc/disable_services");
+    if (!(await fs.exists(absolute_disabled_services))) {
+        await fs.write_file(absolute_disabled_services, disabled_services_content);
+    }
+
+    // create /etc/services/privileged/telnetd.service.json file if it doesn't exist
+    const telnetd_service_content = `{
+  "name": "Telnet Server",
+  "dependencies": [],
+  "exec": "telnetd",
+  "auto_start": false,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_telnetd_service = fs.absolute("/etc/services/privileged/telnetd.service.json");
+    if (!(await fs.exists(absolute_telnetd_service))) {
+        await fs.write_file(absolute_telnetd_service, telnetd_service_content);
+    }
+
+    // create /etc/services/fingerd.service.json file if it doesn't exist
+    const fingerd_service_content = `{
+  "name": "Finger Server",
+  "dependencies": [],
+  "exec": "fingerd",
+  "auto_start": false,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_fingerd_service = fs.absolute("/etc/services/fingerd.service.json");
+    if (!(await fs.exists(absolute_fingerd_service))) {
+        await fs.write_file(absolute_fingerd_service, fingerd_service_content);
+    }
+
+    // create /etc/services/privileged/sshd.service.json file if it doesn't exist
+    const ssh_service_content = `{
+  "name": "SSH Server",
+  "dependencies": [],
+  "exec": "sshd",
+  "auto_start": true,
+  "oneshot": false,
+  "restart": {
+    "on": "failure",
+    "delay_ms": 1000,
+    "max_retries": 5
+  }
+}`.replaceAll("\n", NEWLINE);
+    const absolute_ssh_service = fs.absolute("/etc/services/privileged/sshd.service.json");
+    if (!(await fs.exists(absolute_ssh_service))) {
+        await fs.write_file(absolute_ssh_service, ssh_service_content);
+    }
+
+    // create /home/.plan file if it doesn't exist
+    const plan_content = "Hello! I am using OllieOS!";
+    const absolute_plan = fs.absolute("/home/.plan");
+    if (!(await fs.exists(absolute_plan))) {
+        await fs.write_file(absolute_plan, plan_content);
     }
 }
 
@@ -107,7 +196,6 @@ As well as the following libraries:
 - @xterm/addon-web-links
 - @xterm/addon-image
 - xterm-link-provider
-- howler.js
 - html-to-text
 - some code from rss-parser (modified)
 
@@ -432,8 +520,66 @@ const setup_projects = async (fs: AbstractFileSystem, data_rev: string | null) =
     }
 };
 
-export const initial_fs_setup = async (fs: AbstractFileSystem) => {
+const setup_program_icons = async (fs: AbstractFileSystem) => {
+    // create icons directory if it doesn't exist
+    const absolute_program_icons = fs.absolute("/var/lib/icons");
+    if (!(await fs.dir_exists(absolute_program_icons))) {
+        await fs.make_dir(absolute_program_icons);
+    }
+
+    // download prog_icon/windowed_terminal.svg
+    if (!(await fs.exists(fs.join(absolute_program_icons, "windowed_terminal.svg")))) {
+        try {
+            const content = await fetch_file_with_ttl("/public/prog_icon/windowed_terminal.svg", false);
+            if (content) {
+                await fs.write_file(fs.join(absolute_program_icons, "windowed_terminal.svg"), content, true);
+            }
+        } catch (e) {
+            console.error("Failed to fetch icon for windowed_terminal:");
+            console.error(e);
+        }
+    }
+}
+
+const setup_bin = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
+    // create bin directory if it doesn't exist
+    const absolute_bin = fs.absolute("/bin");
+    if (!(await fs.dir_exists(absolute_bin))) {
+        await fs.make_dir(absolute_bin);
+    }
+
+    // for each builtin program, put the json metadata in /bin/<program_name>.json
+    // TODO: make builtins real js files, for now we save metadata but still hold main in memory
+    for (const [program_name, prog] of Object.entries(builtin_programs)) {
+        const program = prog as Program;
+        const program_metadata = {
+            ...program,
+            main: undefined,
+            completion: undefined,
+        };
+
+        const program_metadata_json = JSON.stringify(program_metadata, null, 2);
+        const program_metadata_file = fs.join(absolute_bin, `${program_name}.json`);
+        await fs.write_file(program_metadata_file, program_metadata_json, true);
+    }
+
+    // remove any files in /bin that are not in the builtin programs list
+    const bin_files = await fs.list_dir(absolute_bin);
+    for (const file of bin_files) {
+        const file_name = file.split("/").pop() || "";
+        const program_name = file_name.replace(/\.json$/, "");
+        if (!(program_name in builtin_programs)) {
+            await fs.delete_file(fs.join(absolute_bin, file_name));
+        }
+    }
+};
+
+export const initial_fs_setup = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
+    // TODO: parallelise these if they are independent (check first)
+
     await setup_boot(fs);
+    await setup_bin(fs, builtin_programs);
+
     await setup_motd(fs);
     await migrate_rc_profile(fs);
     await setup_credits(fs);
@@ -441,4 +587,6 @@ export const initial_fs_setup = async (fs: AbstractFileSystem) => {
 
     const latest_rev = await setup_data_repo(fs);
     await setup_projects(fs, latest_rev);
+
+    await setup_program_icons(fs);
 };

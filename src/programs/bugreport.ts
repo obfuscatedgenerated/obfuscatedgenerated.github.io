@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI } from "../kernel/term_ctl";
+import {ANSI} from "../lib/ansi";
 import {helper_completion_options} from "./core/ash/tab_completion";
 
 const type_suffixes = {
@@ -18,6 +18,9 @@ export default {
         other: "Opens the bug reporter with the template chooser (default).",
     },
     compat: "2.0.0",
+    gui: {
+        display_name: "Bug Reporter",
+    },
     completion: helper_completion_options(["bug", "feature", "other"]),
     main: async (data) => {
         // extract from data to make code less verbose

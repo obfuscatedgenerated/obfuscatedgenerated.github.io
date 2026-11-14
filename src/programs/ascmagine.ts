@@ -1,5 +1,5 @@
 import type { Program } from "../types";
-import { ANSI, NEWLINE } from "../kernel/term_ctl";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 import { default as img2ascii } from "imgToAscii";
 
@@ -102,7 +102,7 @@ export default {
 
             // do a HEAD request to check the mime type
             const head_req = await fetch(url, { method: "HEAD" });
-            let mime: string;
+            let mime: string | null = null;
 
             // if the HEAD request failed, try a GET request
             if (!head_req.ok) {
@@ -118,6 +118,11 @@ export default {
                 mime = get_req.headers.get("content-type");
             } else {
                 mime = head_req.headers.get("content-type");
+            }
+
+            if (!mime) {
+                term.writeln(`${PREFABS.error}Could not determine mime type of URL: ${url}${STYLE.reset_all}`);
+                return 1;
             }
 
             // check the mime type is valid

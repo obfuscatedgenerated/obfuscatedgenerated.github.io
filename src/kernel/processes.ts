@@ -1,6 +1,16 @@
-import type {AbstractWindow, AbstractWindowManager} from "./windowing";
+import type {AbstractWindow, AbstractWindowManager, UserspaceWindow} from "./windowing";
 import type {AbstractShell} from "../abstract_shell";
 import type {ParsedCommandLine} from "./index";
+import {
+    AbstractClientSocket,
+    AbstractNetworkManager,
+    AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener,
+    UserspaceClientSocket,
+    UserspaceServerSocket
+} from "./network";
+import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import * as timers from "../lib/timers";
 
 export interface IPCMessage {
     from: number;
@@ -38,7 +48,7 @@ export interface UserspaceIPCManager {
     service_lookup(name: string): number | undefined;
     create_channel(service_name: string): number | null;
     destroy_channel(channel_id: number): void;
-    channel_listen(channel_id: number, listener: IPCChannelListener): boolean;
+    channel_listen(channel_id: number, listener: IPCChannelListener, drain_queue?: boolean): boolean;
     channel_unlisten(channel_id: number, listener: IPCChannelListener): boolean;
     channel_send(channel_id: number, data: unknown): boolean;
 }
@@ -167,7 +177,7 @@ export class IPCManager {
         this.#channels.delete(channel_id);
     }
 
-    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener): boolean {
+    channel_listen(channel_id: number, listening_pid: number, listener: IPCChannelListener, drain_queue = true): boolean {
         const channel = this.#channels.get(channel_id);
         if (!channel) {
             return false;
@@ -182,6 +192,27 @@ export class IPCManager {
         }
 
         channel.listeners.get(listening_pid)!.add(listener);
+
+        if (drain_queue) {
+            // drain any queued messages for this listener
+            let queue: IPCMessage[];
+            if (channel.initiator === listening_pid) {
+                queue = channel.peer_to_initiator_queue;
+            } else {
+                queue = channel.initiator_to_peer_queue;
+            }
+
+            // dispatch asynchronously to avoid blocking
+            while (queue.length > 0) {
+                const msg = queue.shift()!;
+                queueMicrotask(() => {
+                    listener(msg).catch((err) => {
+                        console.error("IPC channel listener error:", err);
+                    });
+                });
+            }
+        }
+
         return true;
     }
 
@@ -228,16 +259,20 @@ export class IPCManager {
 
             channel.peer_to_initiator_queue.push(msg);
         } else {
+            console.warn(`Process ${from_pid} attempted to send IPC message on channel ${channel_id} but is not a participant`);
             return false;
         }
+        //console.log(`IPC message sent on channel ${channel_id} from PID ${from_pid} to PID ${msg.to}:`, data);
 
         // notify listeners on the receiving end without blocking
         const to_pid = msg.to;
         const listeners = channel.listeners.get(to_pid);
         if (listeners) {
             for (const listener of listeners) {
-                listener(msg).catch((err) => {
-                    console.error("IPC channel listener error:", err);
+                queueMicrotask(() => {
+                    listener(msg).catch((err) => {
+                        console.error("IPC channel listener error:", err);
+                    });
                 });
             }
         }
@@ -266,8 +301,8 @@ export class IPCManager {
             destroy_channel: { value: (channel_id: number) => {
                 self.destroy_channel(channel_id);
             }, enumerable: true },
-            channel_listen: { value: (channel_id: number, listener: IPCChannelListener) => {
-                return self.channel_listen(channel_id, process_pid, listener);
+            channel_listen: { value: (channel_id: number, listener: IPCChannelListener, drain_queue = true) => {
+                return self.channel_listen(channel_id, process_pid, listener, drain_queue);
             }, enumerable: true },
             channel_unlisten: { value: (channel_id: number, listener: IPCChannelListener) => {
                 return self.channel_unlisten(channel_id, process_pid, listener);
@@ -277,7 +312,7 @@ export class IPCManager {
             }, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy);
     }
 }
 
@@ -300,40 +335,57 @@ export interface UserspaceOtherProcessContext {
 }
 
 export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+    cwd: string;
+    readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
     kill(exit_code?: number): void;
+    add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
     create_timeout(callback: () => void, delay: number): number;
     cancel_timeout(id: number): void;
+    wait_for_timeout(id: number): Promise<boolean>;
+    has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): AbstractWindow | null;
+    create_window(): UserspaceWindow;
+    network_listen(port: number): Promise<UserspaceServerSocket>;
+    network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
+    get bound_ports(): number[];
 }
 
-export class ProcessContext {
+export class ProcessContext implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #pid: number;
     readonly #manager: ProcessManager;
 
+    readonly #terminal: AbstractTerminal;
     readonly #source_command: ParsedCommandLine;
     readonly #created_at: Date = new Date();
     readonly #shell: AbstractShell | undefined;
 
     readonly #exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
+    readonly #teardowns: Set<() => void> = new Set();
+    #killed = false;
 
     #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     #detach_silently = false;
 
-    readonly #timeouts: Set<number> = new Set();
-    readonly #timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
-    readonly #timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
-
-    readonly #intervals: Set<number> = new Set();
-
     readonly #windows: Set<AbstractWindow> = new Set();
 
-    constructor(pid: number, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell) {
+    readonly #port_map: Map<number, AbstractServerSocket> = new Map();
+    readonly #network_clients: Set<AbstractClientSocket> = new Set();
+    readonly #network_manager_listeners: Map<NetworkManagerEvent, Set<NetworkManagerEventListener>> = new Map();
+
+    #cwd = "/";
+
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd = "/") {
         this.#pid = pid;
+        this.#terminal = terminal;
         this.#source_command = source_command;
         this.#manager = registry;
+        this.#cwd = initial_cwd;
 
         if (shell) {
             this.#shell = shell;
@@ -347,6 +399,31 @@ export class ProcessContext {
     get pid(): number {
         return this.#pid;
     }
+
+    get cwd(): string {
+        return this.#cwd;
+    }
+
+    set cwd(path: string) {
+        // if path ends with /, remove it
+        if (path.endsWith("/")) {
+            path = path.slice(0, -1);
+        }
+
+        // if path is empty, set to root
+        if (path === "") {
+            path = "/";
+        }
+
+        this.#cwd = path;
+
+        notify_mirror_change(this);
+    }
+
+    get terminal(): AbstractTerminal {
+        return this.#terminal;
+    }
+
     get source_command(): ParsedCommandLine {
         return this.#source_command;
     }
@@ -382,130 +459,115 @@ export class ProcessContext {
     detach(silently = false): void {
         this.#attachment = ProcessAttachment.DETACHED;
         this.#detach_silently = silently;
+
+        notify_mirror_change(this);
     }
 
     dispose_resources(): void {
-        this.#intervals.forEach((id) => {
-            clearInterval(id);
-        });
-
-        this.#timeouts.forEach((id) => {
-            clearTimeout(id);
-        });
-
-        this.#timeout_promises.clear();
-        this.#timeout_cancel_callbacks.clear();
+        timers.dispose_timers(this);
 
         this.#windows.forEach((win) => {
             win.dispose();
         });
+
+        const net_manager = this.#manager.network_manager;
+        if (net_manager) {
+            this.#port_map.forEach((socket) => {
+                socket.close();
+            });
+
+            this.#network_clients.forEach((socket) => {
+                socket.close();
+            });
+
+            this.#network_manager_listeners.forEach((listeners, event) => {
+                listeners.forEach((listener) => {
+                    net_manager.remove_event_listener(event, listener);
+                });
+            });
+
+            this.#port_map.clear();
+            this.#network_clients.clear();
+            this.#network_manager_listeners.clear();
+        }
     }
 
     kill(exit_code = 0): void {
+        // e.g. the shell killing a process that was already killed by ctrl+c
+        if (this.#killed) {
+            return;
+        }
+        this.#killed = true;
+
         this.dispose_resources();
 
         this.#manager.mark_terminated(this.#pid);
 
+        const pending_listeners: Promise<unknown>[] = [];
         for (const listener of this.#exit_listeners) {
-            listener(exit_code);
+            try {
+                pending_listeners.push(Promise.resolve(listener(exit_code)));
+            } catch (err) {
+                console.error("Process exit listener error:", err);
+            }
         }
+
+        // a hung listener can't keep the process's resources alive forever
+        const listener_timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+        Promise.race([Promise.allSettled(pending_listeners), listener_timeout]).then(() => {
+            for (const teardown of this.#teardowns) {
+                try {
+                    teardown();
+                } catch (err) {
+                    console.error("Process teardown error:", err);
+                }
+            }
+        });
+    }
+
+    /**
+     * Kernel only. Runs once the process's own exit listeners have finished (or timed out), e.g. to terminate its isothread without cutting off its cleanup.
+     */
+    add_teardown(teardown: () => void): void {
+        this.#teardowns.add(teardown);
     }
 
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void {
         this.#exit_listeners.add(listener);
     }
 
-    create_timeout(callback: () => void, delay: number, on_cancel? : () => void): number {
-        const id = window.setTimeout(() => {
-            this.#timeouts.delete(id);
-
-            // resolve any waiters
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const { resolve } of resolvers) {
-                    resolve(true);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            callback();
-
-            if (on_cancel) {
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }, delay);
-
-        this.#timeouts.add(id);
-
-        if (on_cancel) {
-            this.#timeout_cancel_callbacks.set(id, on_cancel);
-        }
-
-        return id;
+    create_timeout(callback: () => void, delay: number, on_cancel?: () => void): number {
+        return timers.create_timeout.call(this, callback, delay, on_cancel);
     }
 
     cancel_timeout(id: number): void {
-        if (this.#timeouts.has(id)) {
-            clearTimeout(id);
-            this.#timeouts.delete(id);
-
-            // resolve any waiters as cancelled
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const {resolve} of resolvers) {
-                    resolve(false);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            // call cancel callback if exists
-            if (this.#timeout_cancel_callbacks.has(id)) {
-                const cancel_callback = this.#timeout_cancel_callbacks.get(id)!;
-                cancel_callback();
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }
+        timers.cancel_timeout.call(this, id);
     }
 
     has_timeout(id: number): boolean {
-        return this.#timeouts.has(id);
+        return timers.has_timeout.call(this, id);
     }
 
     create_interval(callback: () => void, interval: number): number {
-        const id = window.setInterval(callback, interval);
-        this.#intervals.add(id);
-        return id;
+        return timers.create_interval.call(this, callback, interval);
     }
 
     has_interval(id: number): boolean {
-        return this.#intervals.has(id);
+        return timers.has_interval.call(this, id);
     }
 
     clear_interval(id: number): void {
-        if (this.#intervals.has(id)) {
-            clearInterval(id);
-            this.#intervals.delete(id);
-        }
+        timers.clear_interval.call(this, id);
     }
 
-    async wait_for_timeout(id: number): Promise<boolean> {
-        if (!this.#timeouts.has(id)) {
-            throw new Error(`Timeout ID ${id} does not exist.`);
-        }
-
-        return new Promise<boolean>((resolve) => {
-            if (!this.#timeout_promises.has(id)) {
-                this.#timeout_promises.set(id, new Set());
-            }
-
-            this.#timeout_promises.get(id)!.add({ resolve });
-        });
+    wait_for_timeout(id: number): Promise<boolean> {
+        return timers.wait_for_timeout.call(this, id);
     }
 
-    create_window(): AbstractWindow | null {
+    create_window(): AbstractWindow {
         const wm = this.#manager.window_manager;
         if (!wm) {
-            return null;
+            throw new Error("No window manager available");
         }
 
         const win = new wm.Window(this.#pid);
@@ -519,6 +581,73 @@ export class ProcessContext {
         return win;
     }
 
+    async network_listen(port: number): Promise<AbstractServerSocket> {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        const socket = await net_manager.listen(port);
+        this.#port_map.set(port, socket);
+
+        // clean up on close
+        socket.add_event_listener("close", () => {
+            this.#port_map.delete(port);
+            notify_mirror_change(this);
+        });
+
+        notify_mirror_change(this);
+        return socket;
+    }
+
+    async network_connect(host: string, port: number): Promise<AbstractClientSocket> {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        const socket = await net_manager.connect(host, port);
+        this.#network_clients.add(socket);
+
+        // clean up on close
+        socket.add_event_listener("close", () => {
+            this.#network_clients.delete(socket);
+        });
+
+        return socket;
+    }
+
+    network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener) {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        if (!this.#network_manager_listeners.has(event)) {
+            this.#network_manager_listeners.set(event, new Set());
+        }
+
+        this.#network_manager_listeners.get(event)!.add(listener);
+
+        net_manager.add_event_listener(event, listener);
+    }
+
+    network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener) {
+        const net_manager = this.#manager.network_manager;
+        if (!net_manager) {
+            throw new Error("No network manager available");
+        }
+
+        if (this.#network_manager_listeners.has(event)) {
+            this.#network_manager_listeners.get(event)!.delete(listener);
+        }
+
+        net_manager.remove_event_listener(event, listener);
+    }
+
+    get bound_ports(): number[] {
+        return Array.from(this.#port_map.keys());
+    }
 
     create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext {
         // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -535,7 +664,17 @@ export class ProcessContext {
             source_command: { get: () => self.source_command, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy(): UserspaceProcessContext {
@@ -543,25 +682,66 @@ export class ProcessContext {
         const self = this;
         const proxy = Object.create(null);
 
+        // the terminal never changes for a process, so the same proxy is always returned
+        const terminal_proxy = self.terminal.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
+            cwd: { get: () => self.cwd, set: (new_cwd: string) => { self.cwd = new_cwd; }, enumerable: true },
+            terminal: { get: () => terminal_proxy, enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
             is_background: { get: () => self.is_background, enumerable: true },
             is_foreground: { get: () => self.is_foreground, enumerable: true },
             attachment: { get: () => self.attachment, enumerable: true },
             source_command: { get: () => self.source_command, enumerable: true },
-
             detach: { value: (silently = false) => { self.detach(silently); }, enumerable: true },
             kill: { value: (exit_code = 0) => { self.kill(exit_code); }, enumerable: true },
+            add_exit_listener: { value: (listener: (exit_code: number) => Promise<void> | void) => { self.add_exit_listener(listener); }, enumerable: true },
             create_timeout: { value: (callback: () => void, delay: number) => self.create_timeout(callback, delay), enumerable: true },
             cancel_timeout: { value: (id: number) => { self.cancel_timeout(id); }, enumerable: true },
+            wait_for_timeout: { value: (id: number) => self.wait_for_timeout(id), enumerable: true },
+            has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window(),  enumerable: true },
+            create_window: { value: () => self.create_window()?.create_userspace_proxy_as_full_window() ?? null, enumerable: true },
+            network_listen: { value: async (port: number) => {
+                const socket = await self.network_listen(port);
+                return socket.create_userspace_proxy();
+            }, enumerable: true },
+            network_connect: { value: async (host: string, port: number) => {
+                const socket = await self.network_connect(host, port);
+                return socket.create_userspace_proxy();
+            }, enumerable: true },
+            network_add_manager_listener: { value: (event: NetworkManagerEvent, listener: NetworkManagerEventListener) => {
+                self.network_add_manager_listener(event, listener);
+            }, enumerable: true },
+            network_remove_manager_listener: { value: (event: NetworkManagerEvent, listener: NetworkManagerEventListener) => {
+                self.network_remove_manager_listener(event, listener);
+            }, enumerable: true },
+            bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            terminal: "eager_handle",
+            cwd: "mirrored",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+            bound_ports: "mirrored",
+            create_timeout: timers.create_timeout,
+            cancel_timeout: timers.cancel_timeout,
+            wait_for_timeout: timers.wait_for_timeout,
+            has_timeout: timers.has_timeout,
+            create_interval: timers.create_interval,
+            clear_interval: timers.clear_interval,
+        }, [
+            self
+        ]);
     }
 }
 
@@ -578,9 +758,11 @@ export class ProcessManager {
 
     readonly #wm: AbstractWindowManager | null;
     readonly #ipc_manager: IPCManager = new IPCManager(this);
+    readonly #net_manager: AbstractNetworkManager | null = null;
 
-    constructor(wm: AbstractWindowManager | null = null) {
+    constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
+        this.#net_manager = net_manager;
     }
 
     get window_manager(): AbstractWindowManager | null {
@@ -589,6 +771,10 @@ export class ProcessManager {
 
     get ipc_manager(): IPCManager {
         return this.#ipc_manager;
+    }
+
+    get network_manager(): AbstractNetworkManager | null {
+        return this.#net_manager;
     }
 
     dispose_all(): void {
@@ -601,9 +787,9 @@ export class ProcessManager {
         this.#processes.clear();
     }
 
-    create_process(source_command: ParsedCommandLine, shell?: AbstractShell): ProcessContext {
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd = "/"): ProcessContext {
         const pid = this.#next_pid++;
-        const context = new ProcessContext(pid, source_command, this, shell);
+        const context = new ProcessContext(pid, terminal, source_command, this, shell, initial_cwd);
         this.#processes.set(pid, context);
         return context;
     }
@@ -647,8 +833,12 @@ export class ProcessManager {
             kill: { value: (pid: number, exit_code?: number) => self.kill(pid, exit_code), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            ipc_manager: "eager_handle",
+        });
     }
 }
 
 // TODO: store kernel privilege state on processcontext
+// TODO: dead flag
+// TODO: allow windows to gracefully close on kill

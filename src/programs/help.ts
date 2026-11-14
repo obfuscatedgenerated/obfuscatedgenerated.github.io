@@ -1,4 +1,4 @@
-import { ANSI, NEWLINE, ANSI_ESCAPE_REGEX } from "../kernel/term_ctl";
+import {ANSI, NEWLINE, ansi_escape_regex} from "../lib/ansi";
 import type { Program, ArgDescriptions } from "../types";
 
 
@@ -36,8 +36,8 @@ export default {
     compat: "2.0.0",
     completion: async (data) => {
         // TODO smarter completion to handle number of args and flags
-        const programs = data.kernel.get_program_registry().listProgramNames();
-        return programs.filter((program) => program.startsWith(data.current_partial));
+        const programs = await data.kernel.list_programs();
+        return programs.filter((program) => program.name.startsWith(data.current_partial)).map((program) => program.name);
     },
     main: async (data) => {
         // extract from data to make code less verbose
@@ -45,8 +45,6 @@ export default {
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
-
-        const registry = kernel.get_program_registry();
 
         let single_column = false;
         let includes_mounted = false;
@@ -78,17 +76,15 @@ export default {
         // if no arguments remain, use list mode
         if (args.length === 0) {
             // get program names
-            const programs = registry.listProgramNames(includes_builtin, includes_mounted);
+            const programs = await kernel.list_programs();
 
             // remove hidden programs
-            const visible_programs = programs.filter((program_name) => {
-                const program = registry.getProgram(program_name);
-                return program !== undefined && !program.hide_from_help;
-            });
+            const visible_programs = programs.filter(({metadata, builtin}) =>
+                !metadata.hide_from_help && (builtin ? includes_builtin : includes_mounted));
 
             // add usage suffix and styling to each program name
-            const programs_fmt = visible_programs.map((program) => {
-                return `${PREFABS.program_name}${program}${STYLE.reset_all} ${registry.getProgram(program).usage_suffix}`;
+            const programs_fmt = visible_programs.map(({name, metadata}) => {
+                return `${PREFABS.program_name}${name}${STYLE.reset_all} ${metadata.usage_suffix}`;
             });
 
             // sort the programs alphabetically (usually already sorted alphabetically by Object.keys, but not guaranteed)
@@ -114,7 +110,7 @@ export default {
 
 
                 // compute the length of the longest program name
-                const longest_program_length = Math.max(...programs_fmt.map((program) => program.replace(ANSI_ESCAPE_REGEX, "").length));
+                const longest_program_length = Math.max(...programs_fmt.map((program) => program.replace(ansi_escape_regex(), "").length));
 
                 // compute the smallest padding length
                 const min_padding_length = max_allowable_length - longest_program_length;
@@ -133,8 +129,12 @@ export default {
                     if (includes_builtin) {
                         new_args.push("-a");
                     }
-                    
-                    return await kernel.spawn("help", new_args, shell).completion;
+
+                    // TODO: dont spawn, just change the logic
+                    const shell_result = await kernel.spawn("help", new_args, shell);
+                    const exit_code = await shell_result.completion;
+                    shell_result.process.kill(exit_code);
+                    return exit_code;
                 }
 
 
@@ -142,8 +142,8 @@ export default {
                 const paired_programs = column1.map((program1, i) => {
                     let program2 = column2[i] ?? "";
 
-                    const program1_real_length = program1.replace(ANSI_ESCAPE_REGEX, "").length;
-                    const program2_real_length = program2.replace(ANSI_ESCAPE_REGEX, "").length;
+                    const program1_real_length = program1.replace(ansi_escape_regex(), "").length;
+                    const program2_real_length = program2.replace(ansi_escape_regex(), "").length;
 
                     // if the program name is too long, truncate it
                     if (program1_real_length > max_allowable_length) {
@@ -168,19 +168,20 @@ export default {
         }
 
         // if an argument remains, get help for it
-        const program = registry.getProgram(args[0]);
+        const program_name = args[0];
+        const program = await kernel.find_program(program_name);
 
-        if (program === undefined) {
+        if (!program) {
             term.writeln(`${PREFABS.error}Could not resolve help for ${args[0]}.${STYLE.reset_all}`);
             return 1;
         }
 
-        term.writeln(`${NEWLINE}${PREFABS.program_name}${program.name}${STYLE.reset_all}`);
-        term.writeln(`${program.description}`);
+        term.writeln(`${NEWLINE}${PREFABS.program_name}${program_name}${STYLE.reset_all}`);
+        term.writeln(`${program.metadata.description}`);
         term.write(NEWLINE);
-        term.writeln(`Usage: ${PREFABS.program_name}${program.name}${STYLE.reset_all} ${program.usage_suffix}`);
+        term.writeln(`Usage: ${PREFABS.program_name}${program_name}${STYLE.reset_all} ${program.metadata.usage_suffix}`);
 
-        if (Object.keys(program.arg_descriptions).length > 0) {
+        if (Object.keys(program.metadata.arg_descriptions).length > 0) {
             // recurse each level of nesting
             // each level is a section title, until the innermost object, in which they are pairs of argument name and description.
             // add indents depending on the level of nesting
@@ -203,7 +204,7 @@ export default {
 
 
             term.write(NEWLINE);
-            term.write(recurse(program.arg_descriptions, 0));
+            term.write(recurse(program.metadata.arg_descriptions, 0));
         }
 
         return 0;

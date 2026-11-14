@@ -1,0 +1,420 @@
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+
+export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
+
+export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
+export type SocketCloseListener = () => void | Promise<void>;
+
+export type UserspaceSocketConnectionListener = (client: UserspaceClientSocket) => void | Promise<void>;
+export type SocketConnectionListener = (client: AbstractClientSocket) => void | Promise<void>;
+
+export type NetworkManagerEvent = "state_change";
+export type ClientSocketEvent = "data" | "close";
+export type ServerSocketEvent = "connection" | "close";
+
+export type ClientSocketEventListener = SocketDataListener | SocketCloseListener;
+export type ServerSocketEventListener = UserspaceSocketConnectionListener | SocketCloseListener;
+export type SocketEventListener = ClientSocketEventListener | ServerSocketEventListener;
+
+export type UserspaceClientSocketEventListener = SocketDataListener | SocketCloseListener;
+export type UserspaceServerSocketEventListener = UserspaceSocketConnectionListener | SocketCloseListener;
+export type UserspaceSocketEventListener = UserspaceClientSocketEventListener | UserspaceServerSocketEventListener;
+
+export type NetworkManagerEventListener = NetworkStateChangeListener;
+
+// TODO: doc this
+// in short impls need to care about data flow and ensuring that errors in listeners dont crash anything
+
+/**
+ * The ready state of a socket, which can be used to determine whether the socket is open and can send/receive data.
+ *
+ * To use in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.SocketReadyState} passed via program main data.
+ *
+ * @group Userspace
+ * @category Networking
+ */
+export enum SocketReadyState {
+    CONNECTING,
+    OPEN,
+    CLOSING,
+    CLOSED,
+}
+
+/**
+ * Error thrown when trying to listen on a port that is already in use.
+ *
+ * To emit in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.PortInUseError} passed via program main data.
+ *
+ * @group Userspace
+ * @category Networking
+ */
+export class PortInUseError extends Error {
+    constructor(port: number) {
+        super(`Port ${port} is already in use`);
+        this.name = "PortInUseError";
+    }
+}
+
+export interface UserspaceClientSocket {
+    readonly id: string;
+    readonly ready_state: SocketReadyState;
+
+    add_event_listener(event: "data", callback: SocketDataListener): void;
+    add_event_listener(event: "close", callback: SocketCloseListener): void;
+
+    remove_event_listener(event: "data", callback: SocketDataListener): void;
+    remove_event_listener(event: "close", callback: SocketCloseListener): void;
+
+    send(data: Uint8Array | string): Promise<void>;
+    close(): Promise<void>;
+}
+
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractClientSocket} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
+ */
+export abstract class AbstractClientSocket implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
+    readonly id: string;
+    #ready_state: SocketReadyState = SocketReadyState.CONNECTING;
+
+    get ready_state(): SocketReadyState {
+        return this.#ready_state;
+    }
+
+    protected set_ready_state(state: SocketReadyState): void {
+        this.#ready_state = state;
+        notify_mirror_change(this);
+    }
+
+    // the implementation needs to invoke these when data is received
+    protected readonly _data_listeners: Set<SocketDataListener> = new Set();
+
+    // the implementation doesnt need to bother with close listeners, it's handled here
+    readonly #close_listeners: Set<SocketCloseListener> = new Set();
+
+    protected constructor(id: string) {
+        this.id = id;
+    }
+
+    add_event_listener(event: ClientSocketEvent, callback: ClientSocketEventListener): void {
+        switch (event) {
+            case "data":
+                this._data_listeners.add(callback as SocketDataListener);
+                break;
+            case "close":
+                this.#close_listeners.add(callback as SocketCloseListener);
+                break;
+        }
+    }
+
+    remove_event_listener(event: ClientSocketEvent, callback: ClientSocketEventListener): void {
+        switch (event) {
+            case "data":
+                this._data_listeners.delete(callback as SocketDataListener);
+                break;
+            case "close":
+                this.#close_listeners.delete(callback as SocketCloseListener);
+                break;
+        }
+    }
+
+    protected abstract _handle_send_internal(data: Uint8Array): Promise<void>;
+
+    async send(data: Uint8Array | string): Promise<void> {
+        if (this.ready_state !== SocketReadyState.OPEN) {
+            throw new Error("Cannot send data on a socket that is not open");
+        }
+
+        const uint8_data = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        await this._handle_send_internal(uint8_data);
+    }
+
+    protected abstract _handle_close_internal(passive: boolean): Promise<void>;
+
+    async close(passive = false): Promise<void> {
+        if (this.ready_state === SocketReadyState.CLOSING || this.ready_state === SocketReadyState.CLOSED) {
+            return;
+        }
+
+        this.set_ready_state(SocketReadyState.CLOSING);
+        await this._handle_close_internal(passive);
+
+        // invoke close listeners
+        for (const listener of this.#close_listeners) {
+            try {
+                listener();
+            } catch (err) {
+                console.error(`Error in socket close listener: ${err}`);
+            }
+        }
+
+        this.set_ready_state(SocketReadyState.CLOSED);
+        notify_mirror_change(this);
+    }
+
+    create_userspace_proxy(): UserspaceClientSocket {
+        const proxy = Object.create(null) as UserspaceClientSocket;
+
+        Object.defineProperty(proxy, "id", { get: () => this.id });
+        Object.defineProperty(proxy, "ready_state", { get: () => this.ready_state });
+
+        proxy.add_event_listener = (event: ClientSocketEvent, callback: UserspaceClientSocketEventListener) => {
+            this.add_event_listener(event, callback);
+        };
+
+        proxy.remove_event_listener = (event: ClientSocketEvent, callback: UserspaceClientSocketEventListener) => {
+            this.remove_event_listener(event, callback);
+        };
+
+        proxy.send = async (data: Uint8Array | string) => {
+            return this.send(data);
+        };
+
+        proxy.close = async () => {
+            return this.close();
+        }
+
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            ready_state: "mirrored",
+        }, [
+            this
+        ]);
+    }
+}
+
+export interface UserspaceServerSocket {
+    readonly port: number;
+
+    add_event_listener(event: "connection", callback: UserspaceSocketConnectionListener): void;
+    add_event_listener(event: "close", callback: SocketCloseListener): void;
+
+    remove_event_listener(event: "connection", callback: UserspaceSocketConnectionListener): void;
+    remove_event_listener(event: "close", callback: SocketCloseListener): void;
+
+    close(): Promise<void>;
+}
+
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractServerSocket} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
+ */
+export abstract class AbstractServerSocket {
+    readonly port: number;
+
+    // the implementation needs to invoke these when a new client connects
+    protected readonly _connection_listeners: Set<SocketConnectionListener> = new Set();
+
+    // the implementation doesnt need to bother with close listeners, it's handled here
+    readonly #close_listeners: Set<SocketCloseListener> = new Set();
+
+    #is_closed = false;
+
+    protected constructor(port: number) {
+        this.port = port;
+    }
+
+    add_event_listener(event: ServerSocketEvent, callback: ServerSocketEventListener): void {
+        switch (event) {
+            case "connection":
+                this._connection_listeners.add(callback as SocketConnectionListener);
+                break;
+            case "close":
+                this.#close_listeners.add(callback as SocketCloseListener);
+                break;
+        }
+    }
+
+    remove_event_listener(event: ServerSocketEvent, callback: ServerSocketEventListener): void {
+        switch (event) {
+            case "connection":
+                this._connection_listeners.delete(callback as SocketConnectionListener);
+                break;
+            case "close":
+                this.#close_listeners.delete(callback as SocketCloseListener);
+                break;
+        }
+    }
+
+    protected abstract _handle_close_internal(): Promise<void>;
+
+    async close(): Promise<void> {
+        if (this.#is_closed) {
+            return;
+        }
+        this.#is_closed = true;
+
+        await this._handle_close_internal();
+
+        // invoke close listeners
+        for (const listener of this.#close_listeners) {
+            try {
+                listener();
+            } catch (err) {
+                console.error(`Error in server socket close listener: ${err}`);
+            }
+        }
+    }
+
+    create_userspace_proxy(): UserspaceServerSocket {
+        const proxy = Object.create(null) as UserspaceServerSocket;
+
+        Object.defineProperty(proxy, "port", { get: () => this.port });
+
+        const wrapped_listeners = new Map<UserspaceSocketConnectionListener, SocketConnectionListener>();
+
+        proxy.add_event_listener = (event: ServerSocketEvent, callback: UserspaceServerSocketEventListener) => {
+            switch (event) {
+                case "connection": {
+                    const listener: SocketConnectionListener = (client) => {
+                        // create a userspace proxy for the client socket before invoking the callback, otherwise the kernel version will be leaked
+                        const client_proxy = client.create_userspace_proxy();
+                        (callback as UserspaceSocketConnectionListener)(client_proxy);
+                    };
+
+                    // store the mapping from the original callback to the wrapped listener so that we can remove it later
+                    wrapped_listeners.set(callback, listener);
+
+                    this.add_event_listener("connection", listener);
+                    break;
+                }
+                case "close": {
+                    this.add_event_listener("close", callback as SocketCloseListener);
+                    break;
+                }
+            }
+        };
+
+        proxy.remove_event_listener = (event: ServerSocketEvent, callback: UserspaceServerSocketEventListener) => {
+            switch (event) {
+                case "connection": {
+                    const listener = wrapped_listeners.get(callback);
+                    if (listener) {
+                        this.remove_event_listener("connection", listener);
+                        wrapped_listeners.delete(callback);
+                    }
+                    break;
+                }
+                case "close": {
+                    this.remove_event_listener("close", callback as SocketCloseListener);
+                    break;
+                }
+            }
+        }
+
+        proxy.close = () => {
+            return this.close();
+        };
+
+        return finalise_userspace_proxy(proxy, {
+            port: "constant",
+        });
+    }
+}
+
+export interface UserspaceNetworkManager {
+    get bound_ports(): number[];
+    get_unique_manager_type_name(): string;
+    is_up(try_waiting?: boolean): Promise<boolean>;
+
+    // listen and connect must be done via the pcb in userspace to track ownership
+    // same for adding event listeners to the manager, as we want the listeners to die at the end of the process
+    // doesn't apply to listeners on the socket because the whole socket is killed at the end of the process, so no risk of leaking listeners there
+    // TODO: worth documneting and linking
+}
+
+/**
+ * To implement in a package, use {@link https://ollieg.codes/docs/Program_Types/ProgramMainData.html#sdk sdk.AbstractNetworkManager} passed via program main data.
+ *
+ * @group Kernel (Privileged)
+ * @category Networking
+ */
+export abstract class AbstractNetworkManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
+    protected _port_map: Map<number, AbstractServerSocket> = new Map();
+
+    get bound_ports(): number[] {
+        return Array.from(this._port_map.keys());
+    }
+
+    abstract get_unique_manager_type_name(): string;
+
+    abstract is_up(try_waiting?: boolean): Promise<boolean>;
+
+    protected _state_change_listeners: Set<NetworkStateChangeListener> = new Set();
+
+    add_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void {
+        switch (event) {
+            case "state_change":
+                this._state_change_listeners.add(callback);
+                break;
+        }
+    }
+
+    remove_event_listener(event: NetworkManagerEvent, callback: NetworkManagerEventListener): void {
+        switch (event) {
+            case "state_change":
+                this._state_change_listeners.delete(callback);
+                break;
+        }
+    }
+
+    protected abstract _handle_listen_internal(port: number): Promise<AbstractServerSocket>;
+
+    // listen covers both binding and listening
+    async listen(port: number): Promise<AbstractServerSocket> {
+        if (this._port_map.has(port)) {
+            throw new PortInUseError(port);
+        }
+
+        // forcibly claim the port to avoid race condition
+        this._port_map.set(port, null as unknown as AbstractServerSocket);
+        notify_mirror_change(this);
+
+        try {
+            // invoke implementation class to create the server socket, then store it in the port map
+            const server_socket = await this._handle_listen_internal(port);
+            this._port_map.set(port, server_socket);
+            notify_mirror_change(this);
+
+            // remove once the server socket is closed
+            server_socket.add_event_listener("close", () => {
+                this._port_map.delete(port);
+                notify_mirror_change(this);
+            });
+
+            return server_socket;
+        } catch (err) {
+            // if there was an error, remove the port from the map so it can be retried
+            this._port_map.delete(port);
+            notify_mirror_change(this);
+            throw err;
+        }
+    }
+
+    abstract connect(host: string, port: number): Promise<AbstractClientSocket>;
+
+    create_userspace_proxy(): UserspaceNetworkManager {
+        const proxy = Object.create(null) as UserspaceNetworkManager;
+
+        Object.defineProperty(proxy, "bound_ports", { get: () => this.bound_ports });
+        Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
+        Object.defineProperty(proxy, "is_up", { value: (try_waiting = false) => this.is_up(try_waiting), enumerable: true });
+
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+            bound_ports: "mirrored",
+        }, [
+            this
+        ]);
+    }
+}
+
+// TODO: network utility to show type name, whether up, number of bound ports, and maybe number of clients (need a getter)

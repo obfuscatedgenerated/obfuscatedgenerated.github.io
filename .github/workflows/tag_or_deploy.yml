@@ -93,6 +93,8 @@ jobs:
           cp robots.txt dist/ || true
           cp LICENSE dist/ || true
           cp .nojekyll dist/ || true
+          cp 404.html dist/ || true
+          cp privacy.html dist/ || true
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

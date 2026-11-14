@@ -6,6 +6,9 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     compat: "2.0.0",
+    gui: {
+        display_name: "GitHub Repo",
+    },
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
