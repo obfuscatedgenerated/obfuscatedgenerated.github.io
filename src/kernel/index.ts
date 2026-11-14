@@ -320,6 +320,7 @@ export class Kernel {
         const fs = this.get_fs();
 
         const programs: {name: string, metadata: ProgramMetadata, builtin: boolean}[] = [];
+        const seen_names = new Set<string>();
 
         for (const { dir, builtin } of PROGRAM_SEARCH_DIRS) {
             if (!(await fs.dir_exists(dir))) {
@@ -334,9 +335,15 @@ export class Kernel {
                 }
 
                 const name = file.slice(0, -5); // remove .json
+                if (seen_names.has(name)) {
+                    continue;
+                }
+
                 try {
                     const metadata = JSON.parse(await fs.read_file(`${dir}/${file}`) as string) as ProgramMetadata;
                     programs.push({name, metadata, builtin});
+
+                    seen_names.add(name);
                 } catch (e) {
                     console.error(`Failed to parse metadata for program ${name} in ${dir}:`, e);
                 }
