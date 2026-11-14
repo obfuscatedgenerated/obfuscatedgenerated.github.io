@@ -1,4 +1,4 @@
-import {BIN_DIR, graph_query, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
+import {BIN_DIR, graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
@@ -48,6 +48,14 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
         const pkg_name = pkg_split[0];
         let pkg_version = pkg_split[1];
+
+        // also covers dependencies, which come back through here as virtual args
+        if (!is_valid_pkg_name(pkg_name) || (pkg_version !== undefined && !is_valid_pkg_version(pkg_version))) {
+            term.writeln(`${PREFABS.error}Illegal package name '${pkg_at_version}'.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            continue;
+        }
 
         term.writeln(`${FG.yellow}Checking for ${pkg_name}...${STYLE.reset_all}`);
 
@@ -152,6 +160,15 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
         if (content_list.length === 0 || content_list.length === 1 && content_list[0] === "") {
             term.writeln(`${PREFABS.error}Empty package.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // file paths from the repo are joined onto the package dir, so they can't be allowed to climb out of it
+        const illegal_file = content_list.find((file) => file !== "" && !is_valid_pkg_file_path(file));
+        if (illegal_file !== undefined) {
+            term.writeln(`${PREFABS.error}Illegal file path '${illegal_file}' in package ${pkg_name}.${STYLE.reset_all}`);
             error_count++;
             term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;

@@ -204,6 +204,22 @@ interface PkgGraphEntry {
     top_level: boolean; // as in, specified by the user at install time
 }
 
+// package names, versions and file paths go into repo urls and filesystem paths, and package names key the graph,
+// so anything that could traverse ("..", "/") or hit an inherited key ("__proto__", "constructor") is refused
+export const is_valid_pkg_name = (name: string): boolean => /^[a-z0-9][a-z0-9._-]*$/i.test(name) && !name.includes("..");
+
+export const is_valid_pkg_version = (version: string): boolean => /^[0-9a-z][0-9a-z.+-]*$/i.test(version) && !version.includes("..");
+
+export const is_valid_pkg_file_path = (file_path: string): boolean =>
+    file_path !== "" &&
+    !file_path.startsWith("/") &&
+    !file_path.includes("\\") &&
+    file_path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+
+// graph entries are looked up by package name, so the graph has no prototype to inherit keys from
+const as_graph = (parsed: { [pkg_name: string]: PkgGraphEntry }): { [pkg_name: string]: PkgGraphEntry } =>
+    Object.assign(Object.create(null), parsed);
+
 export const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
     if (key !== "deps" && key !== "dependents") {
         return value;
@@ -228,7 +244,7 @@ export const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
     throw new Error(`${key} not an array in graph to be parsed!`);
 }
 
-let graph: { [pkg_name: string]: PkgGraphEntry } = {};
+let graph: { [pkg_name: string]: PkgGraphEntry } = Object.create(null);
 export const graph_query = {
     // TODO: graph consistency checks / repair function
     // TODO: dangling dep check
@@ -434,7 +450,7 @@ export const graph_query = {
 
     // empties the graph, e.g. when migrating to a new install layout
     reset: async (fs: UserspaceFileSystem) => {
-        graph = {};
+        graph = Object.create(null);
         await fs.write_file(GRAPH_PATH, "{}");
     }
 }
@@ -601,7 +617,7 @@ export default {
                     // load graph
                     let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
                     try {
-                        local_graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+                        local_graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
                     } catch (e) {
                         return [];
                     }
@@ -662,7 +678,7 @@ export default {
 
         // load graph
         try {
-            graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+            graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
         } catch (e) {
             term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
             return 2;

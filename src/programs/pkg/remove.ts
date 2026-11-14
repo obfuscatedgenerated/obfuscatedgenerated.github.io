@@ -1,6 +1,6 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import { ProgramMainData } from "../../types"
-import {BIN_DIR, graph_query, LIB_DIR, PROGRAMS_MANIFEST, triggers} from "./index";
+import {BIN_DIR, graph_query, is_valid_pkg_name, LIB_DIR, PROGRAMS_MANIFEST, triggers} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -52,8 +52,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
         term.writeln(`${FG.yellow}Checking for ${pkg}...${STYLE.reset_all}`);
 
-        // if .., /, or \ in pkg, skip
-        if (pkg.includes("..") || pkg.includes("/") || pkg.includes("\\")) {
+        if (!is_valid_pkg_name(pkg)) {
             term.writeln(`${PREFABS.error}Illegal package name '${pkg}'.${STYLE.reset_all}`);
             error_count++;
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);

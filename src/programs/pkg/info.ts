@@ -1,7 +1,7 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
-import {graph_query, repo_query} from "./index";
+import {graph_query, is_valid_pkg_name, is_valid_pkg_version, repo_query} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS } = ANSI;
@@ -72,6 +72,11 @@ export const info_subcommand = async (data: ProgramMainData) => {
 
     const pkg_name = pkg_split[0];
     let pkg_version = pkg_split[1];
+
+    if (!is_valid_pkg_name(pkg_name) || (pkg_version !== undefined && !is_valid_pkg_version(pkg_version))) {
+        term.writeln(`${PREFABS.error}Invalid package name: ${pkg_at_version}${STYLE.reset_all}`);
+        return 2;
+    }
 
     // if no version specified, use what's installed
     // if not installed, fetch latest from repo

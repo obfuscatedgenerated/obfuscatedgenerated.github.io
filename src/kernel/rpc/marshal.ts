@@ -180,7 +180,8 @@ export const unmarshal = (value: WireValue, hooks: UnmarshalHooks): unknown => {
         originals.set(current, object_result);
 
         for (const [key, item] of Object.entries(current)) {
-            object_result[key] = walk(item);
+            // defined rather than assigned, so a "__proto__" key from a program becomes plain data instead of swapping the object's prototype
+            Object.defineProperty(object_result, key, { value: walk(item), enumerable: true, writable: true, configurable: true });
         }
 
         return object_result;
