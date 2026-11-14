@@ -10,7 +10,7 @@ Historically, versions prior to v2.0.0 were available under the MIT License, whi
 
 ### [Node.js](https://github.com/obfuscatedgenerated/ollieos_node)
 
-### [iOS](https://github.com/obfuscatedgenerated/ollieos_ios)
+### [iOS](https://github.com/obfuscatedgenerated/ollieos-ios)
 
 ---
 
