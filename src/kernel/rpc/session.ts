@@ -1,5 +1,5 @@
 import {extract_schema, type APISchema} from "./schema";
-import {get_registered_proxy, is_userspace_proxy, type ProxyAnnotations} from "./registry";
+import {finalise_userspace_proxy, get_registered_proxy, is_userspace_proxy, type ProxyAnnotations} from "./registry";
 import {on_mirror_change} from "./mirroring";
 import {marshal, unmarshal, serialise_error, deserialise_error, type ErrorConstructorMap, type MarshalHooks, type UnmarshalHooks} from "./marshal";
 import {
@@ -215,11 +215,33 @@ export class RPCSession {
 
     // marshalling hooks per direction
 
+    // kernel functions sent to the program (e.g. unregister functions) travel as handles to a small proxy with one invoke member
+    readonly #function_wrappers = new WeakMap<Callable, object>();
+    readonly #wrapped_functions = new WeakMap<object, Callable>();
+
+    #wrap_function(fn: Callable): object {
+        const existing = this.#function_wrappers.get(fn);
+        if (existing) {
+            return existing;
+        }
+
+        const wrapper = Object.create(null);
+        Object.defineProperties(wrapper, {
+            invoke: { value: (...args: unknown[]) => fn(...args), enumerable: true },
+        });
+
+        const finalised = finalise_userspace_proxy(wrapper);
+
+        // the same wrapper every time, so the program sees one function for one kernel function
+        this.#function_wrappers.set(fn, finalised);
+        this.#wrapped_functions.set(finalised, fn);
+
+        return finalised;
+    }
+
     #outgoing_hooks(new_descriptors: HandleDescriptor[]): MarshalHooks {
         return {
-            on_function: () => {
-                throw new TypeError("Functions cannot be sent to programs over RPC yet");
-            },
+            on_function: (fn) => ({ $rpc: "handle", id: this.#register(this.#wrap_function(fn), new_descriptors) }),
             on_object: (obj) => {
                 if (!is_userspace_proxy(obj)) {
                     return undefined;
@@ -252,7 +274,8 @@ export class RPCSession {
                 throw new ReferenceError(`Unknown handle ${marker.id}`);
             }
 
-            return entry.proxy;
+            // a kernel function handed back by the program arrives as the original function, so identity checks (e.g. removing a listener) still work
+            return this.#wrapped_functions.get(entry.proxy) ?? entry.proxy;
         },
     };
 
@@ -315,6 +338,7 @@ export class RPCSession {
         }
 
         new_descriptors.push({
+            ...(this.#wrapped_functions.has(proxy) ? { callable: true as const } : {}),
             id: handle_id,
             schema: entry.schema,
             annotations: entry.annotations,

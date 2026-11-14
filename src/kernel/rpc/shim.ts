@@ -59,6 +59,10 @@ export class RPCShim {
     readonly #stubs = new Map<HandleID, Stub>();
     readonly #stub_ids = new WeakMap<Stub, HandleID>();
 
+    // kernel functions arrive as callable handles, and the same function is reused per handle so identity holds on both sides
+    readonly #kernel_functions = new Map<HandleID, (...args: unknown[]) => unknown>();
+    readonly #kernel_function_ids = new WeakMap<(...args: unknown[]) => unknown, HandleID>();
+
     readonly #pending_calls = new Map<CallID, PendingCall>();
     #next_call_id = 1;
 
@@ -123,6 +127,12 @@ export class RPCShim {
 
     readonly #outgoing_hooks: MarshalHooks = {
         on_function: (fn) => {
+            // a kernel function going back to the kernel is sent as its handle, not wrapped as a new callback
+            const kernel_function_id = this.#kernel_function_ids.get(fn);
+            if (kernel_function_id !== undefined) {
+                return { $rpc: "handle", id: kernel_function_id };
+            }
+
             let callback_id = this.#callback_ids.get(fn);
 
             if (callback_id === undefined) {
@@ -143,8 +153,28 @@ export class RPCShim {
         on_callback: () => {
             throw new TypeError("The kernel cannot send functions to programs");
         },
-        on_handle: (marker) => this.#stub_for(marker.id),
+        on_handle: (marker) => this.#value_for_handle(marker.id),
     };
+
+    #value_for_handle(handle_id: HandleID): unknown {
+        const stub = this.#stub_for(handle_id);
+        if (!this.#descriptors.get(handle_id)?.callable) {
+            return stub;
+        }
+
+        const existing = this.#kernel_functions.get(handle_id);
+        if (existing) {
+            return existing;
+        }
+
+        const invoke = (stub as Record<string, unknown>).invoke as (...args: unknown[]) => unknown;
+        const kernel_function = (...args: unknown[]) => invoke(...args);
+
+        this.#kernel_functions.set(handle_id, kernel_function);
+        this.#kernel_function_ids.set(kernel_function, handle_id);
+
+        return kernel_function;
+    }
 
     // descriptors and mirrors
 

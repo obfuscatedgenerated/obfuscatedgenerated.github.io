@@ -41,6 +41,9 @@ export interface HandleDescriptor {
 
     values: Record<string, WireValue>;
     eager: Record<string, HandleID | null>;
+
+    /** The handle stands in for a kernel function (e.g. an unregister function), so the program gets a function that calls its invoke member. */
+    callable?: true;
 }
 
 type WirePrimitive = string | number | boolean | bigint | null | undefined;
