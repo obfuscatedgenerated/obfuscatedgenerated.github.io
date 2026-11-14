@@ -34,10 +34,6 @@ const complete_command = async (buffer: ReadLineBuffer, discard_cached_matches: 
     return {match, discard_cached_matches};
 }
 
-const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
-    return !!(obj && typeof obj[Symbol.asyncIterator] === "function");
-}
-
 const get_completeable_arguments = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
     // parse the line
 
@@ -55,16 +51,6 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
     // destructure parsed line
     const {command, args, unsubbed_args, raw_parts} = parsed_line;
 
-    // find the command
-    const program = await kernel.load_program(command);
-
-    // if the program has no completion generator, complete based on file paths
-    if (!program.completion) {
-        // TODO need to change data structure first
-        console.warn(`Tab completion for command "${command}" with no completion generator is not yet implemented`);
-        return null;
-    }
-
     const completion_data = {
         term,
         kernel,
@@ -77,25 +63,16 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
         arg_index: raw_parts.length - 2, // -1 for current arg, -1 for program name
     };
 
-    const completion_result = await program.completion(completion_data);
+    // the kernel runs the completion, in the program's own isothread if it has one
+    const completion_result = await kernel.complete(command, completion_data);
 
-    // if the result is an async generator, get all values for now
-    // in future this will be done incrementally, but the current data structure doesn't support that yet
-    if (is_async_generator(completion_result)) {
-        const results: string[] = [];
-        for await (const value of completion_result) {
-            results.push(value);
-        }
-        return results;
-    } else {
-        if (completion_result === null) {
-            // TODO fall back to file path completion
-            console.warn(`Tab completion for command "${command}" with null completion result is not yet implemented`);
-            return null;
-        }
-
-        return completion_result;
+    if (completion_result === null) {
+        // TODO fall back to file path completion
+        console.warn(`Tab completion for command "${command}" with no completions is not yet implemented`);
+        return null;
     }
+
+    return completion_result;
 }
 
 const complete_argument = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel, term: UserspaceTerminal, shell?: AbstractShell) => {

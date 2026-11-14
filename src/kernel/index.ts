@@ -12,7 +12,7 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import {AbstractShell, create_shell_rpc_proxy} from "../abstract_shell";
-import {CompletionGenerator, Program, ProgramMain, ProgramMainData, ProgramMetadata} from "../types";
+import {CompletionData, CompletionGenerator, Program, ProgramMain, ProgramMainData, ProgramMetadata} from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
 import {NEWLINE} from "../lib/ansi";
@@ -20,7 +20,8 @@ import {NEWLINE} from "../lib/ansi";
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
 import {sdk} from "./program_sdk";
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, is_userspace_proxy} from "./rpc";
+import {collect_completions} from "../lib/completions";
 import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
 import {AbstractIsoThreadManager} from "./isothreads";
 import {import_module_source} from "../lib/module_source";
@@ -125,7 +126,12 @@ export interface UserspaceKernel {
 
     find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
     list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
-    load_program(name: string): Promise<ProgramCode>;
+
+    /**
+     * Runs a program's tab completion. Isolated programs complete in their own thread, so their code never loads in the caller's realm.
+     * @returns The completions, or null to fall back to default completion.
+     */
+    complete(name: string, data: CompletionData): Promise<string[] | null>;
 }
 
 /**
@@ -369,6 +375,47 @@ export class Kernel {
     }
 
     #virtual_programs: Map<string, Program> = new Map();
+
+    /**
+     * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
+     * @returns The completions, or null to fall back to default completion.
+     */
+    async complete(name: string, data: CompletionData): Promise<string[] | null> {
+        const found = await this.find_program(name);
+        if (!found) {
+            return null;
+        }
+
+        // rebuilt so only the expected fields are passed on
+        const completion_data: CompletionData = {
+            term: data.term,
+            kernel: data.kernel,
+            shell: data.shell,
+            args: data.args,
+            unsubbed_args: data.unsubbed_args,
+            raw_parts: data.raw_parts,
+            current_partial: data.current_partial,
+            arg_index: data.arg_index,
+        };
+
+        const itm = this.get_isothread_manager();
+        if (itm && found.code_path && found.metadata.space !== "kernel") {
+            // the shell itself can't cross into a thread, only its rpc proxy
+            if (completion_data.shell && !is_userspace_proxy(completion_data.shell)) {
+                completion_data.shell = create_shell_rpc_proxy(completion_data.shell);
+            }
+
+            const source = await this.#fs.read_file(found.code_path) as string;
+            return await itm.complete(found, source, completion_data);
+        }
+
+        const program_code = await this.load_program(found, KERNEL_HOST);
+        if (!program_code.completion) {
+            return null;
+        }
+
+        return await collect_completions(await program_code.completion(completion_data));
+    }
 
     /**
      * Loads a program's code in the given host. Builtins always come from the virtual program store.
@@ -975,14 +1022,14 @@ export class Kernel {
             find_program: { value: (name: string) => self.find_program(name), enumerable: true },
             list_programs: { value: () => self.list_programs(), enumerable: true },
 
-            // TODO: when isothreads implemented, program code MUST load in the same isothread as the calling process
-            load_program: {
-                value: (name: string) => {
+            // loading program code was never exposed directly: it would import (and run) other programs' code in the kernel realm, escaping isolation
+            complete: {
+                value: (name: string, data: CompletionData) => {
                     if (typeof name !== "string") {
-                        throw new Error("load_program only accepts a string name in userspace");
+                        throw new Error("complete only accepts a string name in userspace");
                     }
 
-                    return self.load_program(name, KERNEL_HOST);
+                    return self.complete(name, data);
                 },
                 enumerable: true
             }

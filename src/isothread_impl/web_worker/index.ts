@@ -1,4 +1,4 @@
-import {AbstractIsoThreadManager} from "../../kernel/isothreads";
+import {AbstractIsoThreadManager, type ThreadEntry} from "../../kernel/isothreads";
 import type {FoundProgram} from "../../kernel";
 import {type KernelEndpoint, type RPCKernelToProgramMessage, type RPCProgramToKernelMessage, serialise_error} from "../../kernel/rpc";
 import {endpoint_from_message_port} from "../util/message_port_endpoint";
@@ -60,12 +60,12 @@ export class WebWorkerIsoThreadManager extends AbstractIsoThreadManager {
         });
     }
 
-    _start(source: string, found: FoundProgram): {endpoint: KernelEndpoint, terminate(): void} {
+    _start(source: string, found: FoundProgram, entry: ThreadEntry): {endpoint: KernelEndpoint, terminate(): void} {
         const id = this.#next_id++;
         const channel = new MessageChannel();
         const source_url = found.code_path ?? found.metadata.name;
 
-        this.#post_to_host((worker_source) => ({type: "spawn", id, worker_source, source, source_url}), [channel.port2])
+        this.#post_to_host((worker_source) => ({type: "spawn", id, worker_source, source, source_url, entry}), [channel.port2])
             .catch((error) => {
                 // the host never came up, so answer as the program would have, or the session would wait forever
                 const exit_message: RPCProgramToKernelMessage = {type: "exit", exit_code: 1, error: serialise_error(error)};

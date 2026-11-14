@@ -18,7 +18,7 @@ window.addEventListener("message", (event) => {
             const worker = new Worker(blob_url);
             URL.revokeObjectURL(blob_url);
 
-            worker.postMessage({source: message.source, source_url: message.source_url}, [event.ports[0]]);
+            worker.postMessage({source: message.source, source_url: message.source_url, entry: message.entry}, [event.ports[0]]);
             workers.set(message.id, worker);
             break;
         }
