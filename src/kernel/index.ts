@@ -22,6 +22,7 @@ import semver_compare from "semver/functions/compare"
 import {sdk} from "./program_sdk";
 import {finalise_userspace_proxy} from "./rpc";
 import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
+import {AbstractIsoThreadManager} from "./isothreads";
 
 const CURRENT_API_COMPAT = "2.0.0";
 
@@ -96,6 +97,8 @@ export interface UserspaceKernel {
      * Access the {@link UserspaceIPCManager} for this kernel.
      */
     get_ipc(): UserspaceIPCManager;
+
+    has_isothread_manager(): boolean;
 
     /**
      * Access the version and environment info assigned to this kernel.
@@ -186,6 +189,7 @@ export class Kernel {
     readonly #wm: AbstractWindowManager | null = null;
     readonly #net_manager: AbstractNetworkManager | null = null;
     readonly #platform: AbstractPlatformAPI | null = null;
+    readonly #isothread_manager: AbstractIsoThreadManager | null = null;
 
     #panicked = false;
     #after_panic: ((message: string, debug_info?: string) => void) | null = null;
@@ -272,6 +276,14 @@ export class Kernel {
      */
     get_ipc(): IPCManager {
         return this.#process_manager.ipc_manager;
+    }
+
+    get_isothread_manager(): AbstractIsoThreadManager | null {
+        return this.#isothread_manager;
+    }
+
+    has_isothread_manager(): boolean {
+        return this.#isothread_manager !== null;
     }
 
     /**
@@ -475,7 +487,7 @@ export class Kernel {
         }
 
         if (semver_compare(compat, CURRENT_API_COMPAT) < 0) {
-            throw new Error(`Program ${program_metadata.name} is not compatible with OllieOS 2. (Add compat: "2.0.0" to the program object to mark it as ported.)`);
+            throw new Error(`Program ${program_metadata.name} is not compatible with OllieOS ${CURRENT_API_COMPAT}. (Add compat: "${CURRENT_API_COMPAT}" to the program object to mark it as ported.)`);
         }
 
         // select the terminal to assign to the process
@@ -483,6 +495,18 @@ export class Kernel {
 
         // create new process context, inheriting cwd from spawning process (or root if spawned by kernel)
         const process = this.#process_manager.create_process(term, parsed_line, shell, spawning_process ? spawning_process.cwd : "/");
+
+        if (!start_privileged && program_metadata.space === "kernel") {
+            // not granted force privilege, but the program wants to run in kernel space, so ask
+            const maybe_kernel = await this.request_privilege(`Program ${program_metadata.name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process);
+            if (!maybe_kernel) {
+                // abort spawn if the user denies the request
+                process.kill(1);
+                throw new Error(`Program ${program_metadata.name} requires privileged access to run, but the request was denied.`);
+            }
+
+            start_privileged = true;
+        }
 
         // protect from pollution
         const data = Object.create(null) as ProgramMainData<UserspaceKernel | Kernel>;
@@ -505,20 +529,42 @@ export class Kernel {
 
         Object.freeze(data);
 
-        // TODO: anything in this section below would run on an isothread when implemented if userspace
+        let result_promise: Promise<number>;
 
-        // load program code from fs, or from the virtual store for builtins
-        let program_code: ProgramCode;
-        try {
-            program_code = await this.load_program(program_search, KERNEL_HOST);
-        } catch (e) {
-            // don't leave a process behind for a program that never started
-            process.kill(1);
-            throw e;
+        const itm = this.get_isothread_manager();
+        if (start_privileged || !itm || !program_search.code_path) {
+            // running in kernel space, so don't use an isothread
+            // TODO: the last condition allows virtual programs to run in kernel space. this is because there is no code to treat as a string yet (not yet written to fs)
+
+            // load program code from fs, or from the virtual store for builtins
+            let program_code: ProgramCode;
+            try {
+                program_code = await this.load_program(program_search, KERNEL_HOST);
+            } catch (e) {
+                // don't leave a process behind for a program that never started
+                process.kill(1);
+                throw e;
+            }
+
+            // create a promise that resolves when the program completes
+            result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
+        } else {
+            // use an isothread to protect the kernel for this userspace process
+
+            let source: string;
+            try {
+                source = await this.#fs.read_file(program_search.code_path) as string;
+            } catch (e) {
+                // don't leave a process behind for a program that never started
+                process.kill(1);
+                throw e;
+            }
+
+            result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
+
+            // killing the process (ctrl+c, kill, power off) has to take the thread down with it
+            process.add_exit_listener(() => itm.terminate(process.pid));
         }
-
-        // create a promise that resolves when the program completes
-        const result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
 
         // TODO: expose function equivalent to process.kill(await result_promise) as a shorthand for programs calling others
 
@@ -855,7 +901,8 @@ export class Kernel {
         wm?: AbstractWindowManager,
         net_manager?: AbstractNetworkManager,
         platform?: AbstractPlatformAPI,
-        virtual_programs?: Map<string, Program>
+        virtual_programs?: Map<string, Program>,
+        isothread_manager?: AbstractIsoThreadManager
     }) {
         this.#term = opts.term;
         this.#fs = opts.fs;
@@ -864,6 +911,7 @@ export class Kernel {
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
         this.#platform = opts.platform || null;
         this.#virtual_programs = opts.virtual_programs || new Map();
+        this.#isothread_manager = opts.isothread_manager || null;
     }
 
     /**
@@ -900,6 +948,7 @@ export class Kernel {
             has_platform: { value: () => self.has_platform(), enumerable: true },
             get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
+            has_isothread_manager: { value: () => self.has_isothread_manager(), enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
                 // force the process to pass its own terminal as the one to use
@@ -939,6 +988,7 @@ export class Kernel {
             has_platform: "constant",
             get_process_manager: "eager_handle",
             get_ipc: "eager_handle",
+            has_isothread_manager: "constant",
             get_env_info: "constant",
         });
     }

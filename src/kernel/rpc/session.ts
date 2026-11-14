@@ -155,7 +155,7 @@ export class RPCSession {
     /**
      * Sends the init message. The data should already contain only what the program may have: proxies, plain data, and a shell rpc proxy if any.
      */
-    start(program_name: string, data: Record<string, unknown>): void {
+    start(program_name: string, data: object): void {
         const handles: HandleDescriptor[] = [];
         const wire_data = marshal(data, this.#outgoing_hooks(handles));
 
