@@ -5,23 +5,16 @@ export default {
     description: "",
     usage_suffix: "",
     arg_descriptions: {},
+    space: "kernel",
+    reason: "Virtualise the kernel.",
     compat: "2.0.0",
     completion: async () => [],
     main: async (data) => {
-        const { kernel: userspace_kernel, term } = data;
-
-        const kernel = await userspace_kernel.request_privilege("Virtualise the kernel.");
-        if (!kernel) {
-            term.writeln("vm_test: could not acquire kernel privilege.");
-            return 1;
-        }
+        const { kernel, term } = data;
 
         // get constructors we need
         const fs_cons = kernel.get_fs().constructor;
         const kernel_cons = kernel.constructor;
-
-        // will inherit programregistry and terminal
-        const prog_reg = kernel.get_program_registry();
 
         //@ts-ignore
         const virtual_fs = new fs_cons();
@@ -32,18 +25,23 @@ export default {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }
 
+        // inherit virtual programs
+        const virtual_programs = kernel.get_virtual_programs();
+
+        // TODO: run kernel in an isothread somehow? might need isolated sections or manual isothread spawning in isothreads upstream
+
         // could use import here but want to simulate it as an option for 3rd party programs
         // TODO: option to change fs root path to allow virtualisation at different paths, could also make a special fs_impl for this
         //@ts-ignore
-        const vm_kernel = new kernel_cons(term, virtual_fs, prog_reg) as typeof kernel;
+        const vm_kernel = new kernel_cons({term, fs: virtual_fs, virtual_programs}) as typeof kernel;
 
         const { version } = kernel.get_env_info();
         vm_kernel.set_env_info(version, "virtual");
 
         await vm_kernel.boot(async () => {
             term.writeln("vm_test: virtual kernel booted.");
-            term.writeln("Inducing virtual panic...");
-            vm_kernel.panic("This is a test panic from within the virtual machine.");
+            //term.writeln("Inducing virtual panic...");
+            //vm_kernel.panic("This is a test panic from within the virtual machine.");
         });
 
         return 0;

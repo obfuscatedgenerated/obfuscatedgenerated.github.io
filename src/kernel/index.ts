@@ -368,7 +368,11 @@ export class Kernel {
         return programs;
     }
 
-    #virtual_programs: Map<string, Program> = new Map();
+    readonly #virtual_programs: Map<string, Program> = new Map();
+
+    get_virtual_programs(): ReadonlyMap<string, Program> {
+        return this.#virtual_programs;
+    }
 
     /**
      * Loads a program's code in the given host. Builtins always come from the virtual program store.
