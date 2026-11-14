@@ -416,7 +416,9 @@ export abstract class AbstractFileSystem implements MirrorSource {
                 absolute_path === "/bin" ||
                 absolute_path.startsWith("/bin/") ||
                 absolute_path === "/usr/bin" ||
-                absolute_path.startsWith("/usr/bin/");
+                absolute_path.startsWith("/usr/bin/") ||
+                absolute_path === "/usr/lib" ||
+                absolute_path.startsWith("/usr/lib/");
 
             if (is_protected) {
                 throw new ReadOnlyError(absolute_path);

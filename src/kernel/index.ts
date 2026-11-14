@@ -21,6 +21,7 @@ import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
 import {sdk} from "./program_sdk";
 import {finalise_userspace_proxy} from "./rpc";
+import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
 
 const CURRENT_API_COMPAT = "2.0.0";
 
@@ -590,6 +591,8 @@ export class Kernel {
 
         const fs = this.get_fs();
 
+        await this.#move_legacy_package_folders();
+
         // read /boot/init to determine init system
         let init_program: string;
         let init_args: string[] = [];
@@ -654,6 +657,39 @@ export class Kernel {
 
     #privilege_request_queue: EnqueuedPrivilegeRequest[] = [];
     #is_privilege_queue_handling = false;
+
+    // packages used to live in /usr/bin/<package>/, now programs are flat in /usr/bin and the rest is in /usr/lib/<package>/
+    // can't spawn anything before init, so move the old folders aside and let 'pkg migrate' reinstall them
+    async #move_legacy_package_folders() {
+        const fs = this.get_fs();
+
+        if (!(await fs.dir_exists("/usr/bin")) || await fs.exists(MIGRATION_PATH)) {
+            return;
+        }
+
+        const legacy_packages: string[] = [];
+        for (const entry of await fs.list_dir("/usr/bin")) {
+            if (await fs.dir_exists(fs.join("/usr/bin", entry))) {
+                legacy_packages.push(entry);
+            }
+        }
+
+        if (legacy_packages.length === 0) {
+            return;
+        }
+
+        const backup_dir = `${LEGACY_PACKAGE_BACKUP_ROOT}/${Date.now()}`;
+        await fs.make_dir(backup_dir);
+
+        for (const pkg of legacy_packages) {
+            await fs.move_dir(fs.join("/usr/bin", pkg), fs.join(backup_dir, pkg));
+        }
+
+        const state: MigrationState = {backup_dir, packages: legacy_packages, graph_reset: false};
+        await fs.write_file(MIGRATION_PATH, JSON.stringify(state));
+
+        this.#term.writeln(`Packages need to be reinstalled after an update. Run 'pkg migrate' to reinstall them (old files are kept in ${backup_dir}).${NEWLINE}`);
+    }
 
     async #handle_privilege_request({reason, process, resolve}: EnqueuedPrivilegeRequest) {
         // read /sys/privilege_agent to determine privilege agent

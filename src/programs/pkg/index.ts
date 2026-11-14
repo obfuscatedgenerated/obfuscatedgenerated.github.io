@@ -9,6 +9,8 @@ import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {migrate_subcommand} from "./migrate";
+import {MIGRATION_PATH} from "../../lib/pkg_migration";
 
 import type {UserspaceKernel, SpawnResult} from "../../kernel";
 import type {AbstractShell} from "../../abstract_shell";
@@ -21,7 +23,12 @@ const repo_url_obj = new URL(REPO_URL);
 const GRAPH_DIR = "/var/lib/pkg";
 const GRAPH_PATH = GRAPH_DIR + "/graph.json";
 
-const BIN_DIR = "/usr/bin";
+// programs are flat in BIN_DIR (<program>.js + <program>.json), everything else a package ships lives in LIB_DIR/<package>/
+export const BIN_DIR = "/usr/bin";
+export const LIB_DIR = "/usr/lib";
+
+// written into LIB_DIR/<package>/ on install, listing the programs the package put in BIN_DIR so remove knows what to delete
+export const PROGRAMS_MANIFEST = "programs.json";
 
 const TRIGGER_DIR = "/var/lib/pkg/triggers";
 
@@ -420,9 +427,15 @@ export const graph_query = {
         return Object.keys(graph).filter((pkg) => !graph[pkg].top_level && graph[pkg].dependents.size === 0);
     },
 
-    get_file_path_in_pkg_bin: (fs: UserspaceFileSystem, pkg: string, filepath: string) => {
-        const pkg_dir = fs.join(BIN_DIR, pkg);
+    get_file_path_in_pkg_dir: (fs: UserspaceFileSystem, pkg: string, filepath: string) => {
+        const pkg_dir = fs.join(LIB_DIR, pkg);
         return fs.join(pkg_dir, filepath);
+    },
+
+    // empties the graph, e.g. when migrating to a new install layout
+    reset: async (fs: UserspaceFileSystem) => {
+        graph = {};
+        await fs.write_file(GRAPH_PATH, "{}");
     }
 }
 
@@ -548,6 +561,7 @@ export default {
             "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read [-r] <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
             "clean": `Removes all packages that are not top level and have no dependents (and are therefore unused): ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} clean [-d]${STYLE.reset_all}`,
+            "migrate": `Reinstalls packages that were moved aside when the install layout changed: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} migrate${STYLE.reset_all}`,
         },
         "Arguments:": {
             "-h": "Displays this help message.",
@@ -578,7 +592,7 @@ export default {
         // TODO: smarter completion that understands flags for subcommands
         switch (data.arg_index) {
             case 0:
-                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean"])(data);
+                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean", "migrate"])(data);
             case 1:
                 if (["info", "read", "remove"].includes(data.args[0])) {
                     // complete with installed package names
@@ -654,7 +668,14 @@ export default {
             return 2;
         }
 
+        // remind the user if packages are still waiting to be reinstalled after a layout change
+        if (args[0] !== "migrate" && await fs.exists(MIGRATION_PATH)) {
+            term.writeln(`${ANSI.FG.yellow}Some packages are waiting to be reinstalled after an update. Run 'pkg migrate' to reinstall them.${STYLE.reset_all}`);
+        }
+
         switch (args[0]) {
+            case "migrate":
+                return await migrate_subcommand(data);
             case "add":
                 return await add_subcommand(data);
             case "remove":

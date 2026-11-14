@@ -1,4 +1,4 @@
-import {graph_query, json_convert_dep_sets_to_arrs, repo_query, triggers} from ".";
+import {BIN_DIR, graph_query, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
@@ -6,6 +6,8 @@ import {remove_subcommand} from "./remove";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS, FG} = ANSI;
+
+const RESERVED_PROGRAM_NAMES = ["pkg", "meta", PROGRAMS_MANIFEST.replace(/\.json$/, "")];
 
 // we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
@@ -84,7 +86,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             continue;
         }
 
-        const pkg_dir = `/usr/bin/${pkg_name}`;
+        const pkg_dir = `${LIB_DIR}/${pkg_name}`;
 
         // check version file if already installed
         // TODO: switch to pkg graph?
@@ -159,6 +161,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
         // get each file in contents and load it into memory
         const file_map = new Map<string, Uint8Array>();
+        let download_failed = false;
 
         for (const file of content_list) {
             if (file === "") {
@@ -171,12 +174,74 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
             if (!file_contents) {
                 term.writeln(`${PREFABS.error}Not found.${STYLE.reset_all}`);
-                error_count++;
-                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
-                continue;
+                download_failed = true;
+                break;
             }
 
             file_map.set(file, new Uint8Array(file_contents));
+        }
+
+        if (download_failed) {
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // programs are top level <name>.js + <name>.json pairs, these go flat into BIN_DIR
+        const decoder = new TextDecoder();
+        const program_names: string[] = [];
+        let program_error: string | null = null;
+
+        for (const file of file_map.keys()) {
+            if (file.includes("/") || !file.endsWith(".json")) {
+                continue;
+            }
+
+            const program_name = file.slice(0, -".json".length);
+            if (!file_map.has(`${program_name}.js`)) {
+                continue;
+            }
+
+            if (program_name === "" || program_name === "." || program_name === ".." || program_name.includes("\\")) {
+                program_error = `Illegal program name '${program_name}'.`;
+                break;
+            }
+
+            // these names would collide with the files pkg writes into the package dir
+            if (RESERVED_PROGRAM_NAMES.includes(program_name)) {
+                program_error = `Program name '${program_name}' is reserved.`;
+                break;
+            }
+
+            try {
+                const program_metadata = JSON.parse(decoder.decode(file_map.get(file)));
+                if (program_metadata.name !== program_name) {
+                    program_error = `Program metadata ${file} has name '${program_metadata.name}', expected '${program_name}'.`;
+                    break;
+                }
+            } catch (e) {
+                program_error = `Could not parse program metadata ${file}: ${e.message}`;
+                break;
+            }
+
+            if (await fs.exists(`/bin/${program_name}.json`)) {
+                program_error = `Program '${program_name}' conflicts with a builtin program.`;
+                break;
+            }
+
+            if (await fs.exists(`${BIN_DIR}/${program_name}.json`) || await fs.exists(`${BIN_DIR}/${program_name}.js`)) {
+                program_error = `Program '${program_name}' is already provided by another package.`;
+                break;
+            }
+
+            program_names.push(program_name);
+        }
+
+        if (program_error) {
+            term.writeln(`${PREFABS.error}${program_error}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
         }
 
         // add pkg.json and meta.json to file map
@@ -185,6 +250,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         // TODO: adding this might be redundant, we could just move build timestamp to the graph. could also use file array to help mounting? prob not needed.
         // TODO: build timestamp isnt actually used anywhere yet so not a big deal until implemented. might be quicker to just open this file rather than access the graph anyway!
         file_map.set("meta.json", encoder.encode(JSON.stringify(meta, json_convert_dep_sets_to_arrs)));
+        file_map.set(PROGRAMS_MANIFEST, encoder.encode(JSON.stringify(program_names)));
 
         // not actually executing the file map yet, as we need to ensure the graph is valid
 
@@ -223,10 +289,14 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
 
         await fs.make_dir(pkg_dir);
+        await fs.make_dir(BIN_DIR);
 
-        // write each file
+        // write each file, programs go to BIN_DIR and everything else to the package dir
         for (const [file, value] of file_map) {
-            await fs.write_file(`${pkg_dir}/${file}`, value, true);
+            const program_name = file.replace(/\.(js|json)$/, "");
+            const target_dir = program_names.includes(program_name) ? BIN_DIR : pkg_dir;
+
+            await fs.write_file(`${target_dir}/${file}`, value, true);
         }
 
         // TODO: check if this fails somehow, and if it does, rollback the graph

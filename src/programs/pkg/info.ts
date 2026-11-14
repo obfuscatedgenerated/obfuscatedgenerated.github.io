@@ -98,7 +98,7 @@ export const info_subcommand = async (data: ProgramMainData) => {
     const fs = kernel.get_fs();
 
     if (!always_fetch && requested_version_installed) {
-        const pkg_json_path = graph_query.get_file_path_in_pkg_bin(fs, pkg_name, "pkg.json");
+        const pkg_json_path = graph_query.get_file_path_in_pkg_dir(fs, pkg_name, "pkg.json");
 
         if (!fs.exists(pkg_json_path)) {
             // shouldnt happen, but just in case

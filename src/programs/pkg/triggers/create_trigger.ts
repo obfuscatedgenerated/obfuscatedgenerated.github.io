@@ -34,8 +34,8 @@ export default {
             return 1;
         }
 
-        // source path will be /usr/bin/PKG_NAME/TRIGGER_FILE
-        const source_path = fs.join("/usr/bin", pkg_name, trigger_file);
+        // source path will be /usr/lib/PKG_NAME/TRIGGER_FILE
+        const source_path = fs.join("/usr/lib", pkg_name, trigger_file);
 
         // check the path is valid
         if (!await fs.exists(source_path)) {

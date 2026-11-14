@@ -1,6 +1,6 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import { ProgramMainData } from "../../types"
-import {graph_query, triggers} from "./index";
+import {BIN_DIR, graph_query, LIB_DIR, PROGRAMS_MANIFEST, triggers} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
@@ -60,7 +60,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             continue;
         }
 
-        const pkg_dir = `/usr/bin/${pkg}`;
+        const pkg_dir = `${LIB_DIR}/${pkg}`;
 
         // check if pkg exists
         if (!(await fs.dir_exists(pkg_dir))) {
@@ -110,6 +110,25 @@ export const remove_subcommand = async (data: ProgramMainData) => {
         }
 
         term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
+
+        const manifest_path = fs.join(pkg_dir, PROGRAMS_MANIFEST);
+        if (await fs.exists(manifest_path)) {
+            try {
+                const program_names: string[] = JSON.parse(await fs.read_file(manifest_path) as string);
+
+                for (const program_name of program_names) {
+                    for (const program_file of [`${program_name}.js`, `${program_name}.json`]) {
+                        const program_path = fs.join(BIN_DIR, program_file);
+                        if (await fs.exists(program_path)) {
+                            await fs.delete_file(program_path);
+                        }
+                    }
+                }
+            } catch (e) {
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not remove programs for package ${pkg}: ${e.message}${STYLE.reset_all}`);
+            }
+        }
+
         await fs.delete_dir(pkg_dir, true);
         fs.purge_cache();
 
