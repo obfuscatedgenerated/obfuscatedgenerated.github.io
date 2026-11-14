@@ -56,13 +56,7 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
     const {command, args, unsubbed_args, raw_parts} = parsed_line;
 
     // find the command
-    const program_search = await kernel.find_program(command);
-    if (!program_search) {
-        console.warn(`Unable to find program for tab completion: ${command}`);
-        return null;
-    }
-
-    const program = await kernel.load_program_code(program_search);
+    const program = await kernel.load_program(command);
 
     // if the program has no completion generator, complete based on file paths
     if (!program.completion) {

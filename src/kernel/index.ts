@@ -119,7 +119,7 @@ export interface UserspaceKernel {
 
     find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
     list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
-    load_program_code(found: {code_path?: string, metadata: ProgramMetadata}): Promise<ProgramCode>;
+    load_program(name: string): Promise<ProgramCode>;
 }
 
 /**
@@ -347,7 +347,18 @@ export class Kernel {
     /**
      * Loads a program's code in the given host. Builtins always come from the virtual program store.
      */
-    async load_program_code(found: FoundProgram, host: ProgramCodeHost): Promise<ProgramCode> {
+    async load_program(name_or_found: string | FoundProgram, host: ProgramCodeHost): Promise<ProgramCode> {
+        let found: FoundProgram;
+        if (typeof name_or_found === "string") {
+            const search_result = await this.find_program(name_or_found);
+            if (!search_result) {
+                throw new Error(`Program not found: ${name_or_found}`);
+            }
+            found = search_result;
+        } else {
+            found = name_or_found;
+        }
+
         const {code_path, metadata} = found;
 
         try {
@@ -487,7 +498,7 @@ export class Kernel {
         // load program code from fs, or from the virtual store for builtins
         let program_code: ProgramCode;
         try {
-            program_code = await this.load_program_code(program_search, KERNEL_HOST);
+            program_code = await this.load_program(program_search, KERNEL_HOST);
         } catch (e) {
             // don't leave a process behind for a program that never started
             process.kill(1);
@@ -857,7 +868,16 @@ export class Kernel {
             list_programs: { value: () => self.list_programs(), enumerable: true },
 
             // TODO: when isothreads implemented, program code MUST load in the same isothread as the calling process
-            load_program_code: { value: (found: FoundProgram) => self.load_program_code(found, KERNEL_HOST), enumerable: true },
+            load_program: {
+                value: (name: string) => {
+                    if (typeof name !== "string") {
+                        throw new Error("load_program only accepts a string name in userspace");
+                    }
+
+                    return self.load_program(name, KERNEL_HOST);
+                },
+                enumerable: true
+            }
         });
 
         return finalise_userspace_proxy(proxy, {
