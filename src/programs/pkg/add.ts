@@ -7,8 +7,6 @@ import {remove_subcommand} from "./remove";
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS, FG} = ANSI;
 
-const RESERVED_PROGRAM_NAMES = ["pkg", "meta", PROGRAMS_MANIFEST.replace(/\.json$/, "")];
-
 // we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
 
@@ -208,7 +206,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             }
 
             // these names would collide with the files pkg writes into the package dir
-            if (RESERVED_PROGRAM_NAMES.includes(program_name)) {
+            if (["pkg", "meta", PROGRAMS_MANIFEST.replace(/\.json$/, "")].includes(program_name)) {
                 program_error = `Program name '${program_name}' is reserved.`;
                 break;
             }
@@ -239,6 +237,15 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
         if (program_error) {
             term.writeln(`${PREFABS.error}${program_error}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // old pkgbuild output has top level .js files with no matching <program>.json
+        const has_unpaired_js = [...file_map.keys()].some((file) => !file.includes("/") && file.endsWith(".js") && !program_names.includes(file.slice(0, -".js".length)));
+        if (has_unpaired_js) {
+            term.writeln(`${PREFABS.error}Package '${pkg_name}' uses the old package layout. Please build the package with a newer version of pkgbuild.${STYLE.reset_all}`);
             error_count++;
             term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
