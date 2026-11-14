@@ -457,8 +457,8 @@ export class RPCSession {
                 this.#settle_invocation(message.invocation_id, (pending) => pending.reject(deserialise_error(message.error, this.#options.known_errors)));
                 break;
             case "exit":
+                // main returned, but the process may live on (e.g. detached), so the session stays until the process is killed
                 this.#options.on_exit(message.exit_code, message.error);
-                this.dispose();
                 break;
         }
     }

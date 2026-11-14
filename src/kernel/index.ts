@@ -566,8 +566,12 @@ export class Kernel {
             result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
 
             // killing the process (ctrl+c, kill, power off) has to take the thread down with it
-            process.add_exit_listener(() => itm.terminate(process.pid));
+            process.add_teardown(() => itm.terminate(process.pid));
         }
+
+        // killing the process ends it as far as callers are concerned, even if in-realm code is still running
+        const killed = new Promise<number>((resolve) => process.add_exit_listener(resolve));
+        result_promise = Promise.race([result_promise, killed]);
 
         // TODO: expose function equivalent to process.kill(await result_promise) as a shorthand for programs calling others
 

@@ -366,6 +366,8 @@ export class ProcessContext implements MirrorSource {
     readonly #shell: AbstractShell | undefined;
 
     readonly #exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
+    readonly #teardowns: Set<() => void> = new Set();
+    #killed = false;
 
     #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     #detach_silently = false;
@@ -491,17 +493,43 @@ export class ProcessContext implements MirrorSource {
     }
 
     kill(exit_code = 0): void {
+        // e.g. the shell killing a process that was already killed by ctrl+c
+        if (this.#killed) {
+            return;
+        }
+        this.#killed = true;
+
         this.dispose_resources();
 
         this.#manager.mark_terminated(this.#pid);
 
+        const pending_listeners: Promise<unknown>[] = [];
         for (const listener of this.#exit_listeners) {
             try {
-                listener(exit_code);
+                pending_listeners.push(Promise.resolve(listener(exit_code)));
             } catch (err) {
                 console.error("Process exit listener error:", err);
             }
         }
+
+        // a hung listener can't keep the process's resources alive forever
+        const listener_timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+        Promise.race([Promise.allSettled(pending_listeners), listener_timeout]).then(() => {
+            for (const teardown of this.#teardowns) {
+                try {
+                    teardown();
+                } catch (err) {
+                    console.error("Process teardown error:", err);
+                }
+            }
+        });
+    }
+
+    /**
+     * Kernel only. Runs once the process's own exit listeners have finished (or timed out), e.g. to terminate its isothread without cutting off its cleanup.
+     */
+    add_teardown(teardown: () => void): void {
+        this.#teardowns.add(teardown);
     }
 
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void {

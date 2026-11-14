@@ -90,6 +90,11 @@ export interface UserspaceTerminal {
     register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
     /** @returns A function that unregisters the handler. */
     register_on_printable_key_event_handler(handler: UserspaceKeyEventHandler): () => void;
+    /**
+     * Ctrl+C calls the most recently pushed handler, before any key handler runs.
+     * @returns A function that removes the handler.
+     */
+    push_interrupt_handler(handler: () => void): () => void;
 
     get_custom_flag(flag: string): unknown;
     set_custom_flag(flag: string, value: unknown): void;
@@ -123,6 +128,9 @@ export abstract class AbstractTerminal implements MirrorSource {
 
     readonly #key_event_queue: KeyEvent[] = [];
     #is_handling_key_events = false;
+
+    // ctrl+c goes to the top of this stack before any key handler runs, so a hung program can't swallow it
+    readonly #interrupt_handlers: (() => void)[] = [];
 
     protected _kernel_has_panicked = false;
 
@@ -391,7 +399,7 @@ export abstract class AbstractTerminal implements MirrorSource {
     }
 
     #handle_key_event = async (e: KeyEvent): Promise<void> => {
-        // TODO: supress builtin key events when program is running, create ctrl+c handler
+        // TODO: supress builtin key events when program is running
 
         // look for any handlers against all keys
         const all_key_entries = this.#search_handlers(undefined, undefined, true);
@@ -451,7 +459,28 @@ export abstract class AbstractTerminal implements MirrorSource {
         };
     }
 
+    push_interrupt_handler = (handler: () => void): () => void => {
+        this.#interrupt_handlers.push(handler);
+
+        return () => {
+            const index = this.#interrupt_handlers.lastIndexOf(handler);
+            if (index !== -1) {
+                this.#interrupt_handlers.splice(index, 1);
+            }
+        };
+    }
+
     protected _enqueue_key_event = (e: KeyEvent) => {
+        // checked before queueing, as the queue waits on each handler and a hung one would hold ctrl+c back forever
+        if (e.key === "\u0003" && this.#interrupt_handlers.length > 0) {
+            // like a tty, input typed before the interrupt is discarded
+            this.#key_event_queue.length = 0;
+
+            // not awaited: interrupting must never wait on the thing being interrupted
+            this.#interrupt_handlers[this.#interrupt_handlers.length - 1]();
+            return;
+        }
+
         this.#key_event_queue.push(e);
 
         // if the queue is not being handled, handle it
@@ -695,6 +724,10 @@ export abstract class AbstractTerminal implements MirrorSource {
             register_on_printable_key_event_handler: {
                 value: (handler: UserspaceKeyEventHandler) =>
                     self.register_on_printable_key_event_handler(wrap_key_handler(handler), false),
+                enumerable: true,
+            },
+            push_interrupt_handler: {
+                value: (handler: () => void) => self.push_interrupt_handler(handler),
                 enumerable: true,
             },
 

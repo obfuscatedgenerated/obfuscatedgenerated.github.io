@@ -21,7 +21,7 @@ import {
     type MarshalHooks,
     type UnmarshalHooks,
 } from "./marshal";
-import {dispose_local_owner, get_local} from "../../lib/locals";
+import {get_local} from "../../lib/locals";
 import type {ProgramMainData} from "../../types";
 
 export type ProgramEndpoint = RPCEndpoint<RPCProgramToKernelMessage, RPCKernelToProgramMessage>;
@@ -107,24 +107,12 @@ export class RPCShim {
 
         this.#finished = true;
 
+        // only reports main's result: the process (e.g. a detached one) keeps running on callbacks until the kernel kills it, which tears down the thread
         this.#send({
             type: "exit",
             exit_code,
             ...(error === undefined ? {} : { error: serialise_error(error, this.#options.known_errors) }),
         });
-
-        this.#stop_listening();
-
-        // e.g. stops timers the program started through its process stub
-        for (const stub of this.#stubs.values()) {
-            dispose_local_owner(stub);
-        }
-
-        for (const pending of this.#pending_calls.values()) {
-            pending.reject(new Error("Program has exited"));
-        }
-
-        this.#pending_calls.clear();
     }
 
     #send(message: RPCProgramToKernelMessage): void {
@@ -286,10 +274,6 @@ export class RPCShim {
     // calls
 
     #request(handle_id: HandleID, build: (call_id: CallID) => RPCProgramToKernelMessage): Promise<unknown> {
-        if (this.#finished) {
-            return Promise.reject(new Error("Program has exited"));
-        }
-
         if (this.#revoked.has(handle_id)) {
             return Promise.reject(new Error(`Handle ${handle_id} has been revoked by the kernel`));
         }

@@ -32,9 +32,8 @@ export abstract class AbstractIsoThreadManager {
         });
 
         const session = new RPCSession(started.endpoint, {
+            // main returning doesn't end the thread: the process (e.g. a detached one) lives until it's killed, which calls terminate
             on_exit: (exit_code, error) => {
-                started.terminate();
-
                 // rethrow on the kernel side so callers see it the same way as an in-realm program throwing
                 if (error) {
                     reject_completion(deserialise_error(error));
@@ -54,8 +53,8 @@ export abstract class AbstractIsoThreadManager {
             },
         };
 
+        // removed in terminate rather than when main returns, as the thread outlives main until the process is killed
         this.#threads.set(thread.pid, thread);
-        completion.finally(() => this.#threads.delete(thread.pid)).catch(() => {});
 
         session.start(found.metadata.name, main_data);
 
