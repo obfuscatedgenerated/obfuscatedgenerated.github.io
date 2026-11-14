@@ -30,7 +30,7 @@ export class WebWorkerIsoThreadManager extends AbstractIsoThreadManager {
     }
 
     async #fetch_worker_source(worker_url: string): Promise<string> {
-        const response = await fetch(worker_url);
+        const response = await fetch(worker_url, {cache: "no-cache"});
         if (!response.ok) {
             throw new Error(`Failed to fetch isothread worker from ${worker_url}: ${response.status}`);
         }

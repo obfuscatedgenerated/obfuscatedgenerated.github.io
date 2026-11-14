@@ -37,6 +37,10 @@ export const run_program = async (endpoint: ProgramEndpoint, source: string, sou
             return;
         }
 
+        if (entry !== "main") {
+            throw new Error(`Unknown thread entry: ${String(entry)}`);
+        }
+
         const main = exports.main ?? default_export?.main;
         if (typeof main !== "function") {
             throw new Error(`Program ${source_url} does not export a main function`);

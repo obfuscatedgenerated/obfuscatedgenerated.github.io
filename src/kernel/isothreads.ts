@@ -92,6 +92,8 @@ export abstract class AbstractIsoThreadManager {
             },
         };
 
+        console.debug("new isothread", thread);
+
         // removed in terminate rather than when main returns, as the thread outlives main until the process is killed
         this.#threads.set(thread.pid, thread);
 
@@ -104,6 +106,7 @@ export abstract class AbstractIsoThreadManager {
         const thread = this.#threads.get(pid);
         if (thread) {
             thread.terminate();
+            console.debug("terminated isothread", thread);
             this.#threads.delete(pid);
         }
     }
@@ -204,6 +207,7 @@ export abstract class AbstractIsoThreadManager {
                 reject_registered(new Error("Completion thread terminated"));
             },
         };
+        console.debug("new completion thread for", program_name, thread);
 
         this.#completion_threads.set(program_name, thread);
         this.#touch_completion_thread(program_name, thread);
