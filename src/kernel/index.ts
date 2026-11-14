@@ -100,6 +100,7 @@ export interface UserspaceKernel {
     get_ipc(): UserspaceIPCManager;
 
     has_isothread_manager(): boolean;
+    get_isothread_manager_unique_type_name(): string | null;
 
     /**
      * Access the version and environment info assigned to this kernel.
@@ -955,6 +956,7 @@ export class Kernel {
             get_process_manager: { value: () => proc_mgr_proxy, enumerable: true },
             get_ipc: { value: () => proc_mgr_proxy.ipc_manager, enumerable: true },
             has_isothread_manager: { value: () => self.has_isothread_manager(), enumerable: true },
+            get_isothread_manager_unique_type_name: { value: () => self.get_isothread_manager()?.get_unique_type_name(), enumerable: true },
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
                 // force the process to pass its own terminal as the one to use
@@ -995,6 +997,7 @@ export class Kernel {
             get_process_manager: "eager_handle",
             get_ipc: "eager_handle",
             has_isothread_manager: "constant",
+            get_isothread_manager_unique_type_name: "constant",
             get_env_info: "constant",
         });
     }

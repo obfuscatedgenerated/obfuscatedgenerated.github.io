@@ -13,6 +13,8 @@ export interface IsoThread {
 }
 
 export abstract class AbstractIsoThreadManager {
+    abstract get_unique_type_name(): string;
+
     #threads = new Map<number, IsoThread>();
 
     get threads(): Map<number, IsoThread> {
