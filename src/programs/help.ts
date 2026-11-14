@@ -79,7 +79,8 @@ export default {
             const programs = await kernel.list_programs();
 
             // remove hidden programs
-            const visible_programs = programs.filter(({metadata}) => !metadata.hide_from_help);
+            const visible_programs = programs.filter(({metadata, builtin}) =>
+                !metadata.hide_from_help && (builtin ? includes_builtin : includes_mounted));
 
             // add usage suffix and styling to each program name
             const programs_fmt = visible_programs.map(({name, metadata}) => {
