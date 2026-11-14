@@ -32,6 +32,10 @@ self.addEventListener("message", (event: MessageEvent<WorkerStartMessage>) => {
         return;
     }
 
+    // programs don't get to spawn their own workers, threads must go through the kernel
+    Reflect.deleteProperty(self, "Worker");
+    Reflect.deleteProperty(self, "SharedWorker");
+
     const {source, source_url, entry} = event.data;
     run_program(endpoint, source, source_url, entry);
 }, {once: true});
