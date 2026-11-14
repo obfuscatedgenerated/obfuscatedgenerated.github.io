@@ -48,7 +48,7 @@ export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
     /**
      * Abstract classes to extend to provide customised implementations. Note that the types associated with them are already available via the npm package, but these are required to actually extend classes at runtime.
      */
-    sdk: typeof sdk
+    sdk: K extends Kernel ? typeof sdk : undefined
 }
 
 export type ProgramMain<K extends EitherKernel = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;

@@ -18,6 +18,7 @@ import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
 import * as builtin_programs from "./programs/@ALL";
+import {LoopbackIsoThreadManager} from "./isothread_impl/loopback";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a filesystem
@@ -50,6 +51,9 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
 
     // create network manager
     const net_manager = new PorterBridgeNetworkManager();
+
+    // create isothread manager
+    const itm = new LoopbackIsoThreadManager();
 
     // create a terminal using the registry and filesystem
     const term = new XTermTerminal({
@@ -93,7 +97,14 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    const kernel = new Kernel({term, fs, wm, net_manager, virtual_programs: new Map(Object.entries(builtin_programs))});
+    const kernel = new Kernel({
+        term,
+        fs,
+        wm,
+        net_manager,
+        virtual_programs: new Map(Object.entries(builtin_programs)),
+        isothread_manager: itm
+    });
     kernel.set_env_info(document.body.dataset.version || "unknown", "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!

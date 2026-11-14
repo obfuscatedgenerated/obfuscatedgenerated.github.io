@@ -217,7 +217,10 @@ export const serialise_error = (error: unknown, known_errors: ErrorConstructorMa
  */
 export const deserialise_error = (serialised: SerialisedError, known_errors: ErrorConstructorMap = {}): Error => {
     const ErrorClass = Object.hasOwn(known_errors, serialised.name) ? known_errors[serialised.name] : Error;
-    const error = Object.create(ErrorClass.prototype) as Error;
+
+    // a real Error (not Object.create) so devtools and anything checking for real errors treat it as one, prototype swapped so no custom constructor runs
+    const error = new Error(serialised.message);
+    Object.setPrototypeOf(error, ErrorClass.prototype);
 
     error.name = serialised.name;
     error.message = serialised.message;

@@ -1,7 +1,7 @@
 import {FoundProgram} from "./index";
 import {ProcessContext} from "./processes";
 import {ProgramMainData} from "../types";
-import {KernelEndpoint, RPCSession} from "./rpc";
+import {deserialise_error, KernelEndpoint, RPCSession} from "./rpc";
 
 // exit code a thread reports when it was killed rather than exiting itself (same as SIGKILL)
 const TERMINATED_EXIT_CODE = 137;
@@ -23,14 +23,22 @@ export abstract class AbstractIsoThreadManager {
         const started = this._start(source, found);
 
         let resolve_completion!: (exit_code: number) => void;
-        const completion = new Promise<number>((resolve) => {
+        let reject_completion!: (error: Error) => void;
+        const completion = new Promise<number>((resolve, reject) => {
             resolve_completion = resolve;
+            reject_completion = reject;
         });
 
         const session = new RPCSession(started.endpoint, {
-            on_exit: (exit_code) => {
+            on_exit: (exit_code, error) => {
                 started.terminate();
-                resolve_completion(exit_code);
+
+                // rethrow on the kernel side so callers see it the same way as an in-realm program throwing
+                if (error) {
+                    reject_completion(deserialise_error(error));
+                } else {
+                    resolve_completion(exit_code);
+                }
             },
         });
 
@@ -45,7 +53,7 @@ export abstract class AbstractIsoThreadManager {
         };
 
         this.#threads.set(thread.pid, thread);
-        completion.then(() => this.#threads.delete(thread.pid));
+        completion.finally(() => this.#threads.delete(thread.pid)).catch(() => {});
 
         session.start(found.metadata.name, main_data);
 

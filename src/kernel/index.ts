@@ -11,7 +11,7 @@ import {
     UserspaceIPCManager, UserspaceOtherProcessContext, UserspaceProcessContext,
     UserspaceProcessManager
 } from "./processes";
-import type {AbstractShell} from "../abstract_shell";
+import {AbstractShell, create_shell_rpc_proxy} from "../abstract_shell";
 import {CompletionGenerator, Program, ProgramMain, ProgramMainData, ProgramMetadata} from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
@@ -23,6 +23,7 @@ import {sdk} from "./program_sdk";
 import {finalise_userspace_proxy} from "./rpc";
 import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
 import {AbstractIsoThreadManager} from "./isothreads";
+import {import_module_source} from "../lib/module_source";
 
 const CURRENT_API_COMPAT = "2.0.0";
 
@@ -400,15 +401,16 @@ export class Kernel {
                     const code_str = await this.#fs.read_file(code_path) as string;
 
                     // imported as a module so the code gets its own scope, with no access to anything in the kernel
-                    const data_url = `data:text/javascript;base64,${btoa(unescape(encodeURIComponent(code_str)))}`;
-                    const exports = await import(/* webpackIgnore: true */ data_url);
+                    const exports = await import_module_source(code_str, code_path);
 
-                    const main = exports.main ?? exports.default?.main;
+                    const default_export = exports.default as {main?: unknown, completion?: unknown} | undefined;
+                    const main = exports.main ?? default_export?.main;
+
                     if (typeof main !== "function") {
                         throw new Error("program does not export a main function");
                     }
 
-                    return { main, completion: exports.completion ?? exports.default?.completion };
+                    return { main: main as ProgramMain, completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined };
                 }
                 default: {
                     // adding a host kind without handling it here is a compile error
@@ -522,10 +524,10 @@ export class Kernel {
 
         data.term = start_privileged ? term : term.create_userspace_proxy();
         data.args = args;
-        data.shell = shell;
+        data.shell = start_privileged || !shell ? shell : create_shell_rpc_proxy(shell);
         data.unsubbed_args = parsed_line.unsubbed_args;
         data.raw_parts = parsed_line.raw_parts;
-        data.sdk = sdk;
+        data.sdk = start_privileged ? sdk : undefined;
 
         Object.freeze(data);
 
@@ -634,6 +636,10 @@ export class Kernel {
      */
     async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>, after_panic?: (message: string, debug_info?: string) => void): Promise<boolean> {
         this.#after_panic = after_panic || null;
+
+        if (!this.has_isothread_manager()) {
+            console.warn("Security warning: No isothread manager present, so userspace programs will run in kernel space.");
+        }
 
         const fs = this.get_fs();
 
