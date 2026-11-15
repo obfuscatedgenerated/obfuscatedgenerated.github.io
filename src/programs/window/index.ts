@@ -106,4 +106,4 @@ export default {
                 return 1;
         }
     }
-} as Program<typeof kernel_funcs>;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;

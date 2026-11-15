@@ -1,15 +1,18 @@
 import {FoundProgram} from "./index";
 import {ProcessContext} from "./processes";
-import {CompletionData, ProgramMainData} from "../types";
+import {CompletionData, ProgramMainData, ThreadData} from "../types";
 import {deserialise_error, finalise_userspace_proxy, KernelEndpoint, RPCSession} from "./rpc";
 
 // exit code a thread reports when it was killed rather than exiting itself (same as SIGKILL)
 const TERMINATED_EXIT_CODE = 137;
 
 /**
- * Which export of the program a thread runs: main for processes, completion for tab completion.
+ * Which export of the program a thread runs: main for processes, completion for tab completion, thread for one of its thread functions.
  */
-export type ThreadEntry = "main" | "completion";
+export type ThreadEntry = "main" | "completion" | "thread";
+
+// a process can't flood the machine with threads
+const MAX_FUNCTION_THREADS_PER_PROCESS = 8;
 
 // completion threads are kept warm between tab presses, within these limits
 const MAX_WARM_COMPLETION_THREADS = 4;
@@ -55,6 +58,9 @@ export abstract class AbstractIsoThreadManager {
 
     // keyed by program name, in least to most recently used order
     readonly #completion_threads = new Map<string, CompletionThread>();
+
+    // pid -> terminators of the thread functions that process has running
+    readonly #function_threads = new Map<number, Set<() => void>>();
 
     get threads(): Map<number, IsoThread> {
         return this.#threads;
@@ -109,6 +115,93 @@ export abstract class AbstractIsoThreadManager {
             console.debug("terminated isothread", thread);
             this.#threads.delete(pid);
         }
+
+        this.#terminate_function_threads(pid);
+    }
+
+    #terminate_function_threads(pid: number) {
+        // copied, as terminating removes from the set
+        for (const terminate_thread of [...this.#function_threads.get(pid) ?? []]) {
+            terminate_thread();
+        }
+    }
+
+    /**
+     * Runs one of a program's thread functions in a new isothread, which lives only until the function returns.
+     * @param pid The process the thread belongs to: it is terminated along with that process.
+     */
+    run_thread(found: FoundProgram, source: string, pid: number, thread_name: string, input: unknown, data: ThreadData): Promise<unknown> {
+        let running = this.#function_threads.get(pid);
+        if (!running) {
+            running = new Set();
+            this.#function_threads.set(pid, running);
+        }
+
+        if (running.size >= MAX_FUNCTION_THREADS_PER_PROCESS) {
+            return Promise.reject(new Error(`Process ${pid} already has ${MAX_FUNCTION_THREADS_PER_PROCESS} threads running`));
+        }
+
+        const running_threads = running;
+        const started = this._start(source, found, "thread", null);
+
+        return new Promise<unknown>((resolve, reject) => {
+            let settled = false;
+            let clean_up: () => void = () => undefined;
+
+            const finish = (settle: () => void) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+
+                settle();
+                clean_up();
+            };
+
+            const terminate_thread = () => finish(() => reject(new Error(`Thread ${thread_name} was terminated`)));
+
+            const session = new RPCSession(started.endpoint, {
+                // the thread entry only exits with an error if the function threw or doesn't exist, as otherwise it hands its result over first
+                on_exit: (_exit_code, error) => {
+                    if (error) {
+                        finish(() => reject(deserialise_error(error)));
+                    }
+                },
+            });
+
+            clean_up = () => {
+                running_threads.delete(terminate_thread);
+                if (running_threads.size === 0) {
+                    this.#function_threads.delete(pid);
+                }
+
+                // after the current message is dealt with, so the reply to the thread's last call isn't cut off mid-send
+                setTimeout(() => {
+                    session.dispose();
+                    started.terminate();
+                }, 0);
+            };
+
+            // the thread hands its result back through this
+            const thread_host = Object.create(null);
+            Object.defineProperties(thread_host, {
+                resolve: {
+                    value: (result: unknown) => finish(() => resolve(result)),
+                    enumerable: true,
+                },
+            });
+
+            running_threads.add(terminate_thread);
+
+            session.start(found.metadata.name, {
+                kernel: data.kernel,
+                process: data.process,
+                term: data.term,
+                thread_host: finalise_userspace_proxy(thread_host),
+                thread_name,
+                input,
+            });
+        });
     }
 
     terminate_all() {
@@ -116,6 +209,10 @@ export abstract class AbstractIsoThreadManager {
             thread.terminate();
         }
         this.#threads.clear();
+
+        for (const pid of [...this.#function_threads.keys()]) {
+            this.#terminate_function_threads(pid);
+        }
 
         for (const program_name of [...this.#completion_threads.keys()]) {
             this.#drop_completion_thread(program_name);

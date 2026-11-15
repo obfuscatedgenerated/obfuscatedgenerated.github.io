@@ -19,7 +19,7 @@ import {XTermTerminal} from "./term_impl/xterm";
 
 import * as builtin_modules from "./programs/@ALL";
 import {WebIsoThreadManager} from "./isothread_impl/web";
-import {KernelFuncs, Program} from "./types";
+import {KernelFuncs, Program, ThreadFuncs} from "./types";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a filesystem
@@ -49,10 +49,10 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     const virtual_programs = new Map<string, VirtualProgram>();
 
     for (const [name, module] of Object.entries(builtin_modules)) {
-        const kernel_funcs = (module as {kernel_funcs?: KernelFuncs}).kernel_funcs;
+        const {kernel_funcs, threads} = module as {kernel_funcs?: KernelFuncs, threads?: ThreadFuncs};
 
         builtin_programs[name] = module.default;
-        virtual_programs.set(name, kernel_funcs ? {...module.default, kernel_funcs} : module.default);
+        virtual_programs.set(name, {...module.default, kernel_funcs, threads});
     }
 
     // create initial files

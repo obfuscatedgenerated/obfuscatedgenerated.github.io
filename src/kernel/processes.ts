@@ -11,6 +11,9 @@ import {
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
 import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
 import * as timers from "../lib/timers";
+import type {RunThread, ThreadFuncs} from "../types";
+
+type ThreadRunner = (process: ProcessContext, name: string, input: unknown) => Promise<unknown>;
 
 export interface IPCMessage {
     from: number;
@@ -334,7 +337,12 @@ export interface UserspaceOtherProcessContext {
     readonly source_command: ParsedCommandLine;
 }
 
-export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> extends UserspaceOtherProcessContext {
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T>;
+
     cwd: string;
     readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
@@ -354,7 +362,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     get bound_ports(): number[];
 }
 
-export class ProcessContext implements MirrorSource {
+export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements MirrorSource {
     readonly [mirror_source] = true as const;
 
     readonly #pid: number;
@@ -564,6 +572,11 @@ export class ProcessContext implements MirrorSource {
         return timers.wait_for_timeout.call(this, id);
     }
 
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T> = ((name: string, input?: unknown) => this.#manager._run_thread(this, name, input)) as RunThread<T>;
+
     #primary_window: AbstractWindow | null = null;
     #primary_window_claimed = false;
 
@@ -729,6 +742,7 @@ export class ProcessContext implements MirrorSource {
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
             create_window: { value: () => self.#create_window_for_userspace().create_userspace_proxy_as_full_window(), enumerable: true },
+            run_thread: { value: (name: string, input?: unknown) => self.#manager._run_thread(self, name, input), enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();
@@ -787,6 +801,23 @@ export class ProcessManager {
     constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
         this.#net_manager = net_manager;
+    }
+
+    #thread_runner: ThreadRunner | null = null;
+
+    /**
+     * Kernel only. Sets how processes run their thread functions, as that needs the kernel (program code and the isothread manager).
+     */
+    set_thread_runner(runner: ThreadRunner): void {
+        this.#thread_runner = runner;
+    }
+
+    _run_thread(process: ProcessContext, name: string, input: unknown): Promise<unknown> {
+        if (!this.#thread_runner) {
+            return Promise.reject(new Error("Threads are not available"));
+        }
+
+        return this.#thread_runner(process, name, input);
     }
 
     get window_manager(): AbstractWindowManager | null {

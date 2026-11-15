@@ -1,7 +1,7 @@
 import {type ProgramEndpoint, type ProgramMain, RPCShim} from "../../kernel/rpc/shim";
 import {serialise_error} from "../../kernel/rpc";
 import type {ThreadEntry} from "../../kernel/isothreads";
-import type {CompletionData} from "../../types";
+import type {CompletionData, ThreadData} from "../../types";
 import {import_module_source} from "../../lib/module_source";
 import {collect_completions} from "../../lib/completions";
 
@@ -9,10 +9,17 @@ interface CompletionHost {
     register(complete: (data: CompletionData) => Promise<string[] | null>): Promise<void>;
 }
 
+interface ThreadStartData extends ThreadData {
+    thread_host: {resolve(result: unknown): Promise<void>};
+    thread_name: string;
+    input: unknown;
+}
+
 /**
  * Runs a program's module source against an endpoint: builds the shim, imports the module, runs the entry, and reports load failures as an exit.
  *
  * The "completion" entry doesn't exit after one call: it registers the program's completion generator with the kernel, which then calls it for every tab press while the thread is warm.
+ * The "thread" entry runs one of the program's thread functions once and hands its result to the kernel.
  */
 export const run_program = async (endpoint: ProgramEndpoint, source: string, source_url: string, entry: ThreadEntry): Promise<void> => {
     // listening straight away so the init message is never missed, even though the module loads asynchronously
@@ -34,6 +41,26 @@ export const run_program = async (endpoint: ProgramEndpoint, source: string, sou
             };
 
             await shim.run(serve_completions as unknown as ProgramMain);
+            return;
+        }
+
+        if (entry === "thread") {
+            const threads = exports.threads as Record<string, unknown> | undefined;
+
+            const run_thread_func = async (data: ThreadStartData) => {
+                const thread_func = threads && Object.hasOwn(threads, data.thread_name) ? threads[data.thread_name] : undefined;
+                if (typeof thread_func !== "function") {
+                    const error = new Error(`Thread function ${data.thread_name} not found`);
+                    error.name = "ThreadNotFoundError";
+                    throw error;
+                }
+
+                const result = await thread_func({kernel: data.kernel, process: data.process, term: data.term}, data.input);
+                await data.thread_host.resolve(result);
+                return 0;
+            };
+
+            await shim.run(run_thread_func as unknown as ProgramMain);
             return;
         }
 

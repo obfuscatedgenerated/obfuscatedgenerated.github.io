@@ -19,7 +19,9 @@ import {
     Program,
     ProgramMain,
     ProgramMainData,
-    ProgramMetadata, RequestKernelFunc
+    ProgramMetadata, RequestKernelFunc,
+    ThreadData,
+    ThreadFuncs
 } from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
@@ -180,9 +182,10 @@ export interface ProgramCode {
     main: ProgramMain;
     completion?: CompletionGenerator;
     kernel_funcs?: KernelFuncs;
+    threads?: ThreadFuncs;
 }
 
-export type VirtualProgram = Program & Pick<ProgramCode, "kernel_funcs">;
+export type VirtualProgram = Program & Pick<ProgramCode, "kernel_funcs" | "threads">;
 
 interface SpawnedCode {
     found: FoundProgram;
@@ -199,6 +202,13 @@ class NotAllowedError extends Error {
     constructor(reason: string) {
         super(`Request denied: ${reason}`);
         this.name = "NotAllowedError";
+    }
+}
+
+class ThreadNotFoundError extends Error {
+    constructor(thread_name: string) {
+        super(`Thread function ${thread_name} not found`);
+        this.name = "ThreadNotFoundError";
     }
 }
 
@@ -469,7 +479,8 @@ export class Kernel {
         return {
             main: main as ProgramMain,
             completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined,
-            kernel_funcs: exports.kernel_funcs as KernelFuncs | undefined
+            kernel_funcs: exports.kernel_funcs as KernelFuncs | undefined,
+            threads: exports.threads as ThreadFuncs | undefined
         };
     }
 
@@ -632,16 +643,23 @@ export class Kernel {
             // TODO: the last condition allows virtual programs to run in kernel space. this is because there is no code to treat as a string yet (not yet written to fs)
 
             // load program code from fs, or from the virtual store for builtins
+            // the source of a program on the fs is kept, so its thread functions can still run in isothreads
             let program_code: ProgramCode;
+            let source: string | null = null;
             try {
-                program_code = await this.load_program(program_search, KERNEL_HOST);
+                if (program_search.code_path) {
+                    source = await this.#fs.read_file(program_search.code_path) as string;
+                    program_code = await this.#import_program_code(source, program_search.code_path);
+                } else {
+                    program_code = await this.load_program(program_search, KERNEL_HOST);
+                }
             } catch (e) {
                 // don't leave a process behind for a program that never started
                 process.kill(1);
                 throw e;
             }
 
-            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source: null});
+            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source});
 
             // create a promise that resolves when the program completes
             result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
@@ -667,7 +685,10 @@ export class Kernel {
                 throw e;
             }
 
-            // killing the process (ctrl+c, kill, power off) has to take the thread down with it
+        }
+
+        // killing the process (ctrl+c, kill, power off) has to take its threads down with it
+        if (itm) {
             process.add_teardown(() => itm.terminate(process.pid));
         }
 
@@ -1034,6 +1055,40 @@ export class Kernel {
         return await program_code.kernel_funcs[name](data, input);
     }
 
+    /**
+     * Runs one of the calling process's own thread functions, in an isothread when possible. Typed per program via {@link UserspaceProcessContext.run_thread}.
+     */
+    async run_thread(process: ProcessContext, name: string, input?: unknown): Promise<unknown> {
+        const spawned = this.#spawned_code.get(process.pid);
+        if (!spawned) {
+            throw new Error(`Process ${process.pid} has no spawned code to run threads from.`);
+        }
+
+        if (typeof name !== "string") {
+            throw new ThreadNotFoundError(String(name));
+        }
+
+        // a thread only ever gets userspace access, whatever space its program runs in
+        const data: ThreadData = {
+            kernel: this.create_userspace_proxy(process),
+            process: process.create_userspace_proxy(),
+            term: process.terminal.create_userspace_proxy(),
+        };
+
+        const itm = this.get_isothread_manager();
+        if (itm && spawned.source !== null) {
+            return await itm.run_thread(spawned.found, spawned.source, process.pid, name, input, data);
+        }
+
+        // no source to send to an isothread (e.g. a builtin), so the function runs where the program itself does
+        const program_code = spawned.code ? await spawned.code : null;
+        if (!program_code?.threads || !Object.hasOwn(program_code.threads, name)) {
+            throw new ThreadNotFoundError(name);
+        }
+
+        return await program_code.threads[name](data, input);
+    }
+
     power_off() {
         // dispose of all terminals of any remaining processes, including the kernel terminal
         const proc_mgr = this.get_process_manager();
@@ -1072,6 +1127,7 @@ export class Kernel {
         this.#wm = opts.wm || null;
         this.#net_manager = opts.net_manager || null;
         this.#process_manager = new ProcessManager(this.#wm, this.#net_manager);
+        this.#process_manager.set_thread_runner((process, name, input) => this.run_thread(process, name, input));
         this.#platform = opts.platform || null;
         this.#virtual_programs = opts.virtual_programs || new Map();
         this.#isothread_manager = opts.isothread_manager || null;

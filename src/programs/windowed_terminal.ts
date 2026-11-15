@@ -45,7 +45,7 @@ export default {
         process.detach();
         return 0;
     }
-} satisfies Program<typeof kernel_funcs>;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;
 
 export const kernel_funcs = {
     // the terminal needs the real kernel to spawn a process attached to a terminal of its own

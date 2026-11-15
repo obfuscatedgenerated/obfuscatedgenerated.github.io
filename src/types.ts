@@ -6,7 +6,7 @@ import type {sdk} from "./kernel/program_sdk";
 
 type EitherKernel = Kernel | UserspaceKernel;
 
-export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
+export interface ProgramMainData<K extends EitherKernel = UserspaceKernel, T extends ThreadFuncs = ThreadFuncs> {
     /**
      Methods to interact with the kernel.<br />
      By default, this is the {@link UserspaceKernel} interface.<br />
@@ -28,7 +28,7 @@ export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
     /**
      * Process context of the instanced program. Contains information and resource requesting.
      */
-    process: K extends Kernel ? ProcessContext : UserspaceProcessContext;
+    process: K extends Kernel ? ProcessContext<T> : UserspaceProcessContext<T>;
 
     /**
      * Arguments passed to the program, after variable substitution (e.g. $HOME, $?, etc).
@@ -71,19 +71,60 @@ export interface KernelFuncData {
 export type KernelFunc<Input = never, Result = unknown> = (data: KernelFuncData, input: Input) => Result | Promise<Result>;
 export type KernelFuncs = Record<string, KernelFunc<any, any>>;
 
-type KernelFuncInput<F extends KernelFunc<any, any>> = Parameters<F>[1];
+type SectionFunc = (data: any, input: any) => unknown;
+type SectionInput<F extends SectionFunc> = Parameters<F>[1];
+
+// input is optional only when the func accepts undefined
+type SectionInputArgs<F extends SectionFunc> = undefined extends SectionInput<F> ? [input?: SectionInput<F>] : [input: SectionInput<F>];
 
 /**
  * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted.
  */
-// input is optional only when the func accepts undefined
 export type RequestKernelFunc<F extends KernelFuncs> = <N extends keyof F & string>(
     name: N,
     reason: string,
-    ...input: undefined extends KernelFuncInput<F[N]> ? [input?: KernelFuncInput<F[N]>] : [input: KernelFuncInput<F[N]>]
+    ...input: SectionInputArgs<F[N]>
 ) => Promise<Awaited<ReturnType<F[N]>>>;
 
-export type UserspaceProgramMainData<F extends KernelFuncs = KernelFuncs> = ProgramMainData<UserspaceKernel<F>>;
+/**
+ * Data given to a thread function: the same userspace access as the program's main, whatever space the program itself runs in.
+ */
+export interface ThreadData {
+    kernel: UserspaceKernel;
+    process: UserspaceProcessContext;
+    term: UserspaceTerminal;
+}
+
+/**
+ * A function of a program that runs in an isothread of its own when requested with {@link UserspaceProcessContext.run_thread process.run_thread()}, keeping heavy work off the thread the program runs on.
+ * Note that thread funcs do not run in the same context/module as main, so they cannot share state or variables. Everything must be passed through the input and return value.
+ */
+export type ThreadFunc<Input = never, Result = unknown> = (data: ThreadData, input: Input) => Result | Promise<Result>;
+export type ThreadFuncs = Record<string, ThreadFunc<any, any>>;
+
+/**
+ * Runs one of the calling program's own thread functions in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if the function is not defined in the program's threads export.
+ */
+export type RunThread<T extends ThreadFuncs> = <N extends keyof T & string>(
+    name: N,
+    ...input: SectionInputArgs<T[N]>
+) => Promise<Awaited<ReturnType<T[N]>>>;
+
+/**
+ * The sections a program exports besides its main: pass `{kernel_funcs: typeof kernel_funcs, threads: typeof threads}` (or just the ones the program has) to the Program generic to get type safety when requesting them.
+ */
+export interface ProgramSections {
+    kernel_funcs?: KernelFuncs;
+    threads?: ThreadFuncs;
+}
+
+// a program that declares no sections has nothing it can request
+type NoSections = Record<never, never>;
+
+type KernelFuncsOf<S extends ProgramSections> = S["kernel_funcs"] extends KernelFuncs ? S["kernel_funcs"] : NoSections;
+type ThreadsOf<S extends ProgramSections> = S["threads"] extends ThreadFuncs ? S["threads"] : NoSections;
+
+export type UserspaceProgramMainData<S extends ProgramSections = NoSections> = ProgramMainData<UserspaceKernel<KernelFuncsOf<S>>, ThreadsOf<S>>;
 
 /**
  * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
@@ -185,7 +226,7 @@ export interface BaseProgram<D extends ProgramMainData<EitherKernel> = ProgramMa
     gui?: ProgramGUIProps;
 }
 
-interface UserspaceProgram<F extends KernelFuncs = KernelFuncs> extends BaseProgram<UserspaceProgramMainData<F>> {
+interface UserspaceProgram<S extends ProgramSections = NoSections> extends BaseProgram<UserspaceProgramMainData<S>> {
     /**
      * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
      * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
@@ -197,15 +238,9 @@ interface UserspaceProgram<F extends KernelFuncs = KernelFuncs> extends BaseProg
      * It is just as isolated, but shares the page's thread, and can only have one window.
      */
     needs_dom?: boolean;
-
-    /**
-     * Functions that run in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
-     * They share nothing with main: everything goes through the input and the return value.
-     */
-    kernel_funcs?: F;
 }
 
-interface KernelspaceProgram extends BaseProgram<ProgramMainData<Kernel>> {
+interface KernelspaceProgram<S extends ProgramSections = NoSections> extends BaseProgram<ProgramMainData<Kernel, ThreadsOf<S>>> {
     /**
      * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
      * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
@@ -219,9 +254,10 @@ interface KernelspaceProgram extends BaseProgram<ProgramMainData<Kernel>> {
 }
 
 /**
- * When defining kernel funcs, pass `typeof kernel_funcs` to the Program generic to get type safety on the kernel.request_kernel_func() method in main.
+ * When a program exports kernel_funcs or threads, name them in the generic to get type safety on kernel.request_kernel_func() and process.run_thread() in main,
+ * e.g. `Program<{threads: typeof threads}>`. Kernel funcs are only available to userspace programs, threads to both.
  */
-export type Program<F extends KernelFuncs = KernelFuncs> = UserspaceProgram<F> | KernelspaceProgram;
+export type Program<S extends ProgramSections = NoSections> = UserspaceProgram<S> | KernelspaceProgram<S>;
 
 export interface CompletionData {
     term: UserspaceTerminal,
@@ -252,4 +288,4 @@ export type CompletionGenerator = (data: CompletionData) => Promise<string[] | n
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion" | "kernel_funcs">;
+export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion">;

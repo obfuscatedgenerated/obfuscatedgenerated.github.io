@@ -4,7 +4,7 @@ import type {kernel_funcs, WindowActionResult} from "./kernel_funcs";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG, PREFABS } = ANSI;
-export const hide_subcommand = async (data: UserspaceProgramMainData<typeof kernel_funcs>) => {
+export const hide_subcommand = async (data: UserspaceProgramMainData<{kernel_funcs: typeof kernel_funcs}>) => {
     // extract from data to make code less verbose
     const { args, term, kernel: userspace_kernel } = data;
 
