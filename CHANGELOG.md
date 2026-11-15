@@ -2,9 +2,9 @@
 
 Major versions and the minor versions that added something worth mentioning. Patch releases and anything not listed are in the tags and git history.
 
-## 3.1.0: Relative program invocation
+## 3.1.0: Program invocation by path
 
-Programs can now be invoked relative to the current working directory, so `./program` runs a program in the current directory, and `../program` runs one in the parent directory.
+Programs can now be invoked relative to the current working directory, so `./program` runs a program in the current directory, and `../program` runs one in the parent directory. Absolute paths are also supported, so `/tmp/program` runs a program in the `/tmp` directory.
 
 ## 3.0.0: Isothreads
 
