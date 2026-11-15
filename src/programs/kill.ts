@@ -47,6 +47,6 @@ export default {
         pm.kill(pid, 143); // SIGTERM
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: move this to be literal SIGTERM and SIGKILL signals sent to processes

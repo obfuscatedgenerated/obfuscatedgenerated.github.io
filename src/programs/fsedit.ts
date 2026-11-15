@@ -112,4 +112,4 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} satisfies Program;

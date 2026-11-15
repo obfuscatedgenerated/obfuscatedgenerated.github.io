@@ -12,6 +12,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: keep this or not?

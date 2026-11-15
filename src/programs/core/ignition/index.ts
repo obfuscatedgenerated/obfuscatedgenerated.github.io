@@ -341,6 +341,6 @@ export default {
 
         return final_code;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: implement graceful shutdown, stops programs, stops services in reverse order etc as well as move the actual final shutdown/reboot logic to kern`

@@ -298,7 +298,7 @@ export interface CompletionData {
  * @group Program Types
  * @category Programs
  */
-export type CompletionGenerator = (data: CompletionData) => Promise<string[] | null> | AsyncGenerator<string>;
+export type CompletionGenerator = (data: CompletionData) => Promise<string[] | AsyncGenerator<string> | null> | AsyncGenerator<string>;
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 

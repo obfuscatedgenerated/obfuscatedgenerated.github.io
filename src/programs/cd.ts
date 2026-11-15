@@ -16,4 +16,4 @@ export default {
         term.writeln(`${ANSI.PREFABS.error}cd should be handled by the shell instead! This is a stand-in to list on help.${ANSI.STYLE.reset_all}`);
         return 1;
     }
-} as Program;
+} satisfies Program;

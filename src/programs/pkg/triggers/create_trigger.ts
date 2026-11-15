@@ -61,6 +61,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: way to pass trigger data as json and identify it. then a way to pass just program name to use as both create and remove trigger?

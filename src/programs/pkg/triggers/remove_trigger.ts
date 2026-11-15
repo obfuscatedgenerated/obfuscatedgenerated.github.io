@@ -49,6 +49,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: should triggers support using the same program as the uninstall trigger, an just passing different arguments?

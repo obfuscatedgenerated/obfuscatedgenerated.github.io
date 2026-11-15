@@ -1509,6 +1509,6 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: clean up! use separate files with a state and command pattern!

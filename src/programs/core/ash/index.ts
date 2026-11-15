@@ -113,4 +113,4 @@ export default {
 
         return final_code;
     }
-} as Program;
+} satisfies Program;

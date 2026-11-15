@@ -86,7 +86,7 @@ export default {
 
         // hang the terminal until it is shut down or restarted (dont allow any more commands)
         // await an event that will never happen
-        await new Promise(() => {});
+        return await new Promise<never>(() => {});
     }
-} as Program;
+} satisfies Program;
 

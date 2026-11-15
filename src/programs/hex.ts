@@ -101,4 +101,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;
