@@ -36,7 +36,7 @@ import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from ".
 import {AbstractIsoThreadManager} from "./isothreads";
 import {import_module_source} from "../lib/module_source";
 
-const CURRENT_API_COMPAT = "2.0.0";
+const CURRENT_API_COMPAT = "3.0.0";
 
 /**
  * Result of a spawned process.
