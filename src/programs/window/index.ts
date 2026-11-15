@@ -8,6 +8,9 @@ import {hide_subcommand} from "./hide";
 import {close_subcommand} from "./close";
 import {center_subcommand} from "./center";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {kernel_funcs} from "./kernel_funcs";
+
+export {kernel_funcs};
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
@@ -103,4 +106,4 @@ export default {
                 return 1;
         }
     }
-} as Program;
+} as Program<typeof kernel_funcs>;
