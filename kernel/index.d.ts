@@ -2,23 +2,61 @@ import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { AbstractPlatformAPI, UserspacePlatformAPI } from "./platform";
-import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager } from "./processes";
-import { AbstractShell } from "../abstract_shell";
-import { CompletionData, CompletionGenerator, KernelFuncs, Program, ProgramMain, ProgramMetadata, RequestKernelFunc, ThreadFuncs } from "../types";
+import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager, UserspaceSpawnedProcessContext } from "./processes";
+import { AbstractShell, UserspaceShell } from "../abstract_shell";
+import { CompletionRequest, CompletionGenerator, KernelFuncs, Program, ProgramMain, ProgramMetadata, RequestKernelFunc, ThreadFuncs } from "../types";
 import { type AbstractTerminal } from "./term_ctl";
+import { type remote_as_declared, type sync_members } from "./rpc";
 import { AbstractIsoThreadManager } from "./isothreads";
 /**
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
  * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
- *
- * @group Userspace
- * @category Kernel
  */
 export interface SpawnResult {
     process: ProcessContext;
     completion: Promise<number>;
 }
+/**
+ * How the RPC layer accesses a spawn result's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_SPAWN_RESULT_ANNOTATIONS: {
+    readonly process: "eager_handle";
+};
+/**
+ * Result of a process spawned by a userspace program.
+ * @property process The spawned process. You are responsible for killing it on an error or after execution.
+ * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export interface UserspaceSpawnResult {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SPAWN_RESULT_ANNOTATIONS) => void;
+    readonly process: UserspaceSpawnedProcessContext;
+    readonly completion: Promise<number>;
+}
+/**
+ * How the RPC layer accesses the kernel's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_KERNEL_ANNOTATIONS: {
+    readonly privileged: "constant";
+    readonly get_fs: "eager_handle";
+    readonly get_window_manager: "eager_handle";
+    readonly has_window_manager: "constant";
+    readonly get_network_manager: "eager_handle";
+    readonly has_network_manager: "constant";
+    readonly get_platform: "eager_handle";
+    readonly has_platform: "constant";
+    readonly get_process_manager: "eager_handle";
+    readonly get_ipc: "eager_handle";
+    readonly has_isothread_manager: "constant";
+    readonly get_isothread_manager_unique_type_name: "constant";
+    readonly get_env_info: "constant";
+};
 /**
  * Interface for interacting with the kernel from userspace.
  *
@@ -28,6 +66,10 @@ export interface SpawnResult {
  * @category Kernel
  */
 export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_KERNEL_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "request_kernel_func") => void;
     /**
      * Whether this kernel interface has privileged access (false for UserspaceKernel interface).
      */
@@ -82,9 +124,12 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * @param cmd_or_line_parse Either a command string or a pre-parsed command line to execute.
      * @param explicit_args Ignored if cmd_or_line_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
-     * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
+     * @returns A {@link UserspaceSpawnResult} containing the process and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): Promise<SpawnResult>;
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | UserspaceShell): Promise<UserspaceSpawnResult>;
+    /**
+     * Finds a program by name in the program directories, or by path (relative to the process's working directory) if the name contains a "/".
+     */
     find_program(name: string): Promise<{
         code_path?: string;
         metadata: ProgramMetadata;
@@ -98,7 +143,7 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * Runs a program's tab completion. Isolated programs complete in their own thread, so their code never loads in the caller's realm.
      * @returns The completions, or null to fall back to default completion.
      */
-    complete(name: string, data: CompletionData): Promise<string[] | null>;
+    complete(name: string, data: CompletionRequest): Promise<string[] | null>;
     /**
      * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
      */
@@ -125,6 +170,7 @@ export interface ParsedCommandLine {
 export interface FoundProgram {
     code_path: string | null;
     metadata: ProgramMetadata;
+    display_name: string;
 }
 export interface ProgramCode {
     main: ProgramMain;
@@ -209,7 +255,11 @@ export declare class Kernel {
      * @param env Custom string representing the environment OllieOS is running in (i.e. "web", "node", etc).
      */
     set_env_info(version: string, env: string): void;
-    find_program(name: string): Promise<FoundProgram | null>;
+    /**
+     * Finds a program by name in the program directories, or by path if the name contains a "/". As on Linux, the working directory is never searched for a bare name, so a file there can't stand in for a real program.
+     * @param cwd The directory a relative path is resolved from.
+     */
+    find_program(name: string, cwd?: string): Promise<FoundProgram | null>;
     list_programs(): Promise<{
         name: string;
         metadata: ProgramMetadata;
@@ -219,7 +269,7 @@ export declare class Kernel {
      * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
      * @returns The completions, or null to fall back to default completion.
      */
-    complete(name: string, data: CompletionData): Promise<string[] | null>;
+    complete(name: string, data: CompletionRequest, cwd?: string): Promise<string[] | null>;
     /**
      * Loads a program's code in the given host. Builtins always come from the virtual program store.
      */
@@ -229,12 +279,12 @@ export declare class Kernel {
      * @param cmd_or_parse Either a command string or a pre-parsed command line to execute.
      * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
-     * @param shell The shell that is spawning this process, if any.
+     * @param given_shell The shell that is spawning this process, if any.
      * @param start_privileged Whether the spawner vouches for the program, so it isn't asked about: a kernelspace program runs without the prompt to allow it, and a userspace program's kernel funcs run without asking. It never gives a userspace program the kernel.
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult>;
+    spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | UserspaceShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult>;
     /**
      * Throw all the toys out of the pram.
      * @param message The panic message to show at the top of the panic screen.

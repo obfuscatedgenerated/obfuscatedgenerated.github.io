@@ -3,7 +3,7 @@ import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
 import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener, UserspaceClientSocket, UserspaceServerSocket } from "./network";
 import { AbstractTerminal, UserspaceTerminal } from "./term_ctl";
-import { mirror_source, MirrorSource } from "./rpc";
+import { mirror_source, MirrorSource, type remote_as_declared, type sync_members } from "./rpc";
 import type { RunThread, ThreadFuncs } from "../types";
 type ThreadRunner = (process: ProcessContext, name: string, input: unknown) => Promise<unknown>;
 export interface IPCMessage {
@@ -14,7 +14,12 @@ export interface IPCMessage {
 export type IPCChannelListener = (msg: IPCMessage) => Promise<void>;
 export type IPCServiceOnConnectionCallback = (channel_id: number, from_pid: number) => Promise<void>;
 export declare const KERNEL_FAKE_PID = 0;
+/**
+ * The userspace proxy of the IPC manager. Programs running in an isothread receive it as {@link Remote}<UserspaceIPCManager>.
+ */
 export interface UserspaceIPCManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: never) => void;
     service_register(name: string, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
@@ -46,7 +51,22 @@ export declare enum ProcessAttachment {
     BACKGROUND = 1,
     DETACHED = 2
 }
+/**
+ * How the RPC layer accesses the userspace proxy of another process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_OTHER_PROCESS_ANNOTATIONS: {
+    readonly pid: "constant";
+    readonly created_at: "constant";
+    readonly source_command: "constant";
+    readonly is_detached: "mirrored";
+    readonly is_background: "mirrored";
+    readonly is_foreground: "mirrored";
+    readonly attachment: "mirrored";
+};
 export interface UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_OTHER_PROCESS_ANNOTATIONS) => void;
     readonly pid: number;
     readonly created_at: Date;
     readonly is_detached: boolean;
@@ -55,7 +75,57 @@ export interface UserspaceOtherProcessContext {
     readonly attachment: ProcessAttachment;
     readonly source_command: ParsedCommandLine;
 }
+/**
+ * How the RPC layer accesses the userspace proxy of a spawned process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_SPAWNED_PROCESS_ANNOTATIONS: {
+    readonly detaches_silently: "mirrored";
+    readonly pid: "constant";
+    readonly created_at: "constant";
+    readonly source_command: "constant";
+    readonly is_detached: "mirrored";
+    readonly is_background: "mirrored";
+    readonly is_foreground: "mirrored";
+    readonly attachment: "mirrored";
+};
+/**
+ * The userspace proxy of a process the program spawned. The spawner is responsible for it, so unlike {@link UserspaceOtherProcessContext}, it can kill it and listen for its exit.
+ */
+export interface UserspaceSpawnedProcessContext extends UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SPAWNED_PROCESS_ANNOTATIONS) => void;
+    readonly detaches_silently: boolean;
+    kill(exit_code?: number): void;
+    add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
+}
+/**
+ * How the RPC layer accesses the userspace proxy of a program's own process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_PROCESS_ANNOTATIONS: {
+    readonly pid: "constant";
+    readonly created_at: "constant";
+    readonly source_command: "constant";
+    readonly terminal: "eager_handle";
+    readonly cwd: "mirrored";
+    readonly is_detached: "mirrored";
+    readonly is_background: "mirrored";
+    readonly is_foreground: "mirrored";
+    readonly attachment: "mirrored";
+    readonly bound_ports: "mirrored";
+    readonly create_timeout: (this: object, callback: () => void, delay: number, on_cancel?: () => void) => number;
+    readonly cancel_timeout: (this: object, id: number) => void;
+    readonly wait_for_timeout: (this: object, id: number) => Promise<boolean>;
+    readonly has_timeout: (this: object, id: number) => boolean;
+    readonly create_interval: (this: object, callback: () => void, interval: number) => number;
+    readonly clear_interval: (this: object, id: number) => void;
+};
 export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> extends UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PROCESS_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "run_thread") => void;
     /**
      * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
      */
@@ -125,16 +195,28 @@ export declare class ProcessContext<T extends ThreadFuncs = ThreadFuncs> impleme
     network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     get bound_ports(): number[];
     create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext;
+    create_userspace_proxy_as_spawned_process(): UserspaceSpawnedProcessContext;
     create_userspace_proxy(): UserspaceProcessContext;
 }
+/**
+ * How the RPC layer accesses the process manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_PROCESS_MANAGER_ANNOTATIONS: {
+    readonly ipc_manager: "eager_handle";
+    readonly list_pids: "mirrored";
+};
 export interface UserspaceProcessManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PROCESS_MANAGER_ANNOTATIONS) => void;
     readonly ipc_manager: UserspaceIPCManager;
     list_pids(): number[];
     get_process(pid: number): UserspaceOtherProcessContext | undefined;
     kill(pid: number, exit_code?: number): boolean;
 }
-export declare class ProcessManager {
+export declare class ProcessManager implements MirrorSource {
     #private;
+    readonly [mirror_source]: true;
     constructor(wm?: AbstractWindowManager | null, net_manager?: AbstractNetworkManager | null);
     /**
      * Kernel only. Sets how processes run their thread functions, as that needs the kernel (program code and the isothread manager).

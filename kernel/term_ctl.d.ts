@@ -1,5 +1,5 @@
 import { ANSI } from "../lib/ansi";
-import { mirror_source, MirrorSource } from "./rpc";
+import { mirror_source, MirrorSource, type Remote, type sync_members } from "./rpc";
 export interface KeyEvent {
     key: string;
     domEvent: KeyboardEvent;
@@ -15,7 +15,17 @@ export interface ReadLineBuffer {
     set_current_line: (new_line: string) => void;
     set_current_index: (new_index: number) => void;
 }
-export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
+export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer & MirrorSource) => void | Promise<void> | boolean | Promise<boolean>;
+/**
+ * How the RPC layer accesses a read_line buffer's userspace proxy. The line and index are kept in step, and the setters run where they are called.
+ * @hidden
+ */
+export declare const USERSPACE_READ_LINE_BUFFER_ANNOTATIONS: {
+    readonly current_line: "mirrored";
+    readonly current_index: "mirrored";
+    readonly set_current_line: (this: import("../lib/read_line_buffer").ReadLineBufferSource, new_line: string) => void;
+    readonly set_current_index: (this: import("../lib/read_line_buffer").ReadLineBufferSource, new_index: number) => void;
+};
 /**
  * Key event as seen by userspace. Plain data only, never a DOM event.
  *
@@ -33,8 +43,14 @@ export interface UserspaceKeyEvent {
         code?: string;
     };
 }
-export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: UserspaceTerminal) => void | Promise<void>;
-export type UserspaceReadLineKeyHandler = (event: UserspaceKeyEvent, term: UserspaceTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
+/**
+ * A key handler a program registers. It is called with the terminal as the program sees it.
+ */
+export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: Remote<UserspaceTerminal>) => void | Promise<void>;
+/**
+ * A read_line key handler a program passes. It is called with the terminal as the program sees it.
+ */
+export type UserspaceReadLineKeyHandler = (event: UserspaceKeyEvent, term: Remote<UserspaceTerminal>, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
 export interface UserspaceKeyHandlerProps {
     keyString?: string;
     domEventCode?: string;
@@ -46,7 +62,26 @@ export interface UserspaceKeyHandlerProps {
  * @group Userspace
  * @category Terminal
  */
+/**
+ * How the RPC layer accesses the terminal's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_TERMINAL_ANNOTATIONS: {
+    readonly cols: "mirrored";
+    readonly rows: "mirrored";
+    readonly ansi: "constant";
+    readonly newline: "constant";
+    readonly non_printable_regex: () => RegExp;
+    readonly ansi_escape_regex: () => RegExp;
+    readonly ansi_unescaped_regex: () => RegExp;
+    readonly word_wrap: (text: string, width: number) => string;
+};
+/**
+ * The userspace proxy of a terminal. Programs running in an isothread receive it as {@link Remote}<UserspaceTerminal>.
+ */
 export interface UserspaceTerminal {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_TERMINAL_ANNOTATIONS) => void;
     readonly cols: number;
     readonly rows: number;
     write(data: string | Uint8Array, callback?: () => void): void;

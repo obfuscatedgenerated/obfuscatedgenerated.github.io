@@ -1,3 +1,4 @@
+import { type sync_members } from "./rpc";
 /**
  * Describes a platform specific capability (e.g. haptics, share sheet).
  * @property name The unique name used to call the capability.
@@ -11,6 +12,15 @@ export interface PlatformCapability {
     privileged: boolean;
 }
 /**
+ * How the RPC layer accesses the platform API's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_PLATFORM_ANNOTATIONS: {
+    readonly get_platform_name: "constant";
+    readonly get_capabilities: "constant";
+    readonly supports: (this: import("../lib/capabilities").CapabilitySource, capability_name: string) => boolean;
+};
+/**
  * Interface for interacting with a platform API from userspace.
  *
  * For the privileged API base, see {@link AbstractPlatformAPI}.
@@ -19,6 +29,8 @@ export interface PlatformCapability {
  * @category Platform
  */
 export interface UserspacePlatformAPI {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PLATFORM_ANNOTATIONS) => void;
     get_platform_name(): string;
     get_capabilities(): PlatformCapability[];
     supports(capability_name: string): boolean;

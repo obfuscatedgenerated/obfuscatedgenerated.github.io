@@ -1,10 +1,30 @@
-import { mirror_source, MirrorSource } from "./rpc";
+import { mirror_source, MirrorSource, type sync_members } from "./rpc";
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
 declare const PRIVILEGED_LAYERS: readonly ["overlay", "administrative"];
 export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
 export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
+/**
+ * How the RPC layer accesses the userspace proxy of another program's window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_OTHER_WINDOW_ANNOTATIONS: {
+    readonly id: "constant";
+    readonly owner_pid: "constant";
+    readonly manager: "eager_handle";
+    readonly title: "mirrored";
+    readonly width: "mirrored";
+    readonly height: "mirrored";
+    readonly x: "mirrored";
+    readonly y: "mirrored";
+    readonly visible: "mirrored";
+    readonly maximised: "mirrored";
+    readonly maximisable: "mirrored";
+    readonly layer: "mirrored";
+};
 export interface UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_OTHER_WINDOW_ANNOTATIONS) => void;
     readonly id: number;
     readonly manager: UserspaceWindowManager;
     readonly owner_pid: number;
@@ -18,7 +38,28 @@ export interface UserspaceOtherWindow {
     readonly maximisable: boolean;
     readonly layer: WindowCompositionLayer;
 }
+/**
+ * How the RPC layer accesses the userspace proxy of a program's own window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_WINDOW_ANNOTATIONS: {
+    readonly id: "constant";
+    readonly owner_pid: "constant";
+    readonly manager: "eager_handle";
+    readonly dom: (this: any) => ShadowRoot;
+    readonly title: "mirrored";
+    readonly width: "mirrored";
+    readonly height: "mirrored";
+    readonly x: "mirrored";
+    readonly y: "mirrored";
+    readonly visible: "mirrored";
+    readonly maximised: "mirrored";
+    readonly maximisable: "mirrored";
+    readonly layer: "mirrored";
+};
 export interface UserspaceWindow extends UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_ANNOTATIONS) => void;
     readonly manager: UserspaceWindowManager;
     readonly dom: ShadowRoot;
     title: string;
@@ -97,7 +138,17 @@ export interface ScreenSize {
     width: number;
     height: number;
 }
+/**
+ * How the RPC layer accesses the window manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_WINDOW_MANAGER_ANNOTATIONS: {
+    readonly get_unique_manager_type_name: "constant";
+    readonly get_screen_size: "mirrored";
+};
 export interface UserspaceWindowManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_MANAGER_ANNOTATIONS) => void;
     get_unique_manager_type_name(): string;
     /**
      * Size of the area windows can occupy, in CSS pixels. Read synchronously, and kept up to date as it changes.

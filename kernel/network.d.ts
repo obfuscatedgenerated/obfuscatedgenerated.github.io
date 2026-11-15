@@ -1,4 +1,4 @@
-import { mirror_source, MirrorSource } from "./rpc";
+import { mirror_source, MirrorSource, type remote_as_declared, type sync_members } from "./rpc";
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
 export type SocketCloseListener = () => void | Promise<void>;
@@ -39,7 +39,19 @@ export declare enum SocketReadyState {
 export declare class PortInUseError extends Error {
     constructor(port: number);
 }
+/**
+ * How the RPC layer accesses the userspace proxy of a client socket: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_CLIENT_SOCKET_ANNOTATIONS: {
+    readonly id: "constant";
+    readonly ready_state: "mirrored";
+};
 export interface UserspaceClientSocket {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_CLIENT_SOCKET_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "add_event_listener" | "remove_event_listener") => void;
     readonly id: string;
     readonly ready_state: SocketReadyState;
     add_event_listener(event: "data", callback: SocketDataListener): void;
@@ -71,7 +83,18 @@ export declare abstract class AbstractClientSocket implements MirrorSource {
     close(passive?: boolean): Promise<void>;
     create_userspace_proxy(): UserspaceClientSocket;
 }
+/**
+ * How the RPC layer accesses the userspace proxy of a server socket: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_SERVER_SOCKET_ANNOTATIONS: {
+    readonly port: "constant";
+};
 export interface UserspaceServerSocket {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SERVER_SOCKET_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "add_event_listener" | "remove_event_listener") => void;
     readonly port: number;
     add_event_listener(event: "connection", callback: UserspaceSocketConnectionListener): void;
     add_event_listener(event: "close", callback: SocketCloseListener): void;
@@ -96,7 +119,17 @@ export declare abstract class AbstractServerSocket {
     close(): Promise<void>;
     create_userspace_proxy(): UserspaceServerSocket;
 }
+/**
+ * How the RPC layer accesses the network manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_NETWORK_MANAGER_ANNOTATIONS: {
+    readonly get_unique_manager_type_name: "constant";
+    readonly bound_ports: "mirrored";
+};
 export interface UserspaceNetworkManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_NETWORK_MANAGER_ANNOTATIONS) => void;
     get bound_ports(): number[];
     get_unique_manager_type_name(): string;
     is_up(try_waiting?: boolean): Promise<boolean>;

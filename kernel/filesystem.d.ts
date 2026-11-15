@@ -1,5 +1,5 @@
 import { ProcessContext } from "./processes";
-import { mirror_source, MirrorSource } from "./rpc";
+import { mirror_source, MirrorSource, type sync_members } from "./rpc";
 /**
  * Error thrown when a path is not found.
  *
@@ -80,6 +80,18 @@ export declare enum FSEventType {
  */
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 /**
+ * How the RPC layer accesses the filesystem's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export declare const USERSPACE_FILESYSTEM_ANNOTATIONS: {
+    readonly get_unique_fs_type_name: "constant";
+    readonly get_cwd: "mirrored";
+    readonly get_home: "mirrored";
+    readonly get_root: "mirrored";
+    readonly join: (base_dir: string, ...paths: string[]) => string;
+    readonly absolute: (this: import("../lib/path").PathSource, path: string) => string;
+};
+/**
  * Interface for interacting with the chosen filesystem implementation from userspace.
  *
  * For the privileged API, see {@link AbstractFileSystem}.
@@ -88,6 +100,8 @@ export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
  * @category Filesystem
  */
 export interface UserspaceFileSystem {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_FILESYSTEM_ANNOTATIONS) => void;
     get_unique_fs_type_name(): string;
     erase_all(): Promise<void>;
     purge_cache(smart?: boolean): void;
