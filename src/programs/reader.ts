@@ -2,6 +2,26 @@ import {ANSI} from "../lib/ansi";
 import type { Program } from "../types";
 import {helper_completion_options} from "./core/ash/tab_completion";
 
+// created at module load so the files preload, like the old sound registry did at boot
+// guarded because Audio doesn't exist outside the browser (e.g. the node port)
+const reader_sounds = typeof Audio === "undefined" ? null : {
+    on: new Audio("public/sfx/reader_on.mp3"),
+    off: new Audio("public/sfx/reader_off.mp3"),
+};
+
+const play_reader_sound = (state: "on" | "off") => {
+    const sound = reader_sounds?.[state];
+    if (!sound) {
+        return;
+    }
+
+    // restart if it's still playing from a quick double toggle
+    sound.currentTime = 0;
+    sound.play().catch(() => {
+        // a missing sound isn't worth failing the toggle over
+    });
+};
+
 export default {
     name: "reader",
     description: "Toggles screen reader mode. Due to a technical limitation, on-screen links will not be clickable in screen reader mode.",
@@ -14,7 +34,7 @@ export default {
         }
     },
     node_opt_out: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         if (data.arg_index === 0) {
             return helper_completion_options(["-h", "-q", "-s"])(data);
@@ -38,12 +58,9 @@ export default {
             return 1;
         }
 
-        // get sound registry
-        const sfx_reg = kernel.get_sound_registry();
-
         switch (args[0]) {
             case "-h": {
-                const spawn_result = kernel.spawn("help", ["reader"], shell);
+                const spawn_result = await kernel.spawn("help", ["reader"], shell);
                 const exit_code = await spawn_result.completion;
                 spawn_result.process.kill(exit_code);
                 return exit_code;
@@ -72,10 +89,7 @@ export default {
         }
 
         const state = term.get_custom_flag("reader_support") ? "on" : "off";
-
-        // play sound
-        const sound_name = `reader_${state}`;
-        sfx_reg.wait_to_play(sound_name);
+        play_reader_sound(state);
 
         // print message
         term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
@@ -90,7 +104,7 @@ export default {
         }
 
         // save into local storage
-        localStorage.setItem("reader", term.get_custom_flag("reader_support").toString());
+        localStorage.setItem("reader", term.get_custom_flag("reader_support")!.toString());
 
         return 0;
     }

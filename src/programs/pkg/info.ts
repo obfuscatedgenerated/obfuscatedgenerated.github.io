@@ -1,7 +1,7 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
-import {graph_query, repo_query} from "./index";
+import {graph_query, is_valid_pkg_name, is_valid_pkg_version, repo_query} from "./index";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS } = ANSI;
@@ -73,6 +73,11 @@ export const info_subcommand = async (data: ProgramMainData) => {
     const pkg_name = pkg_split[0];
     let pkg_version = pkg_split[1];
 
+    if (!is_valid_pkg_name(pkg_name) || (pkg_version !== undefined && !is_valid_pkg_version(pkg_version))) {
+        term.writeln(`${PREFABS.error}Invalid package name: ${pkg_at_version}${STYLE.reset_all}`);
+        return 2;
+    }
+
     // if no version specified, use what's installed
     // if not installed, fetch latest from repo
     // note that version doesnt really matter other than as a test whether the version exists and installed locally, as pkg.json is shared across versions
@@ -98,7 +103,7 @@ export const info_subcommand = async (data: ProgramMainData) => {
     const fs = kernel.get_fs();
 
     if (!always_fetch && requested_version_installed) {
-        const pkg_json_path = graph_query.get_file_path_in_pkg_bin(fs, pkg_name, "pkg.json");
+        const pkg_json_path = graph_query.get_file_path_in_pkg_dir(fs, pkg_name, "pkg.json");
 
         if (!fs.exists(pkg_json_path)) {
             // shouldnt happen, but just in case

@@ -14,6 +14,16 @@ const view_pkg_info = async (pkg_name: string, term: UserspaceTerminal, kernel: 
     const pkg_data = await repo_query.get_pkg_json(pkg_name);
     const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
 
+    if (!pkg_data) {
+        term.writeln(`${FG.red}Failed to fetch package data for '${pkg_name}'.${STYLE.reset_all}`);
+        return;
+    }
+
+    if (!pkg_versions) {
+        term.writeln(`${FG.red}Failed to fetch package versions for '${pkg_name}'.${STYLE.reset_all}`);
+        return;
+    }
+
     term.clear();
 
     term.write(NEWLINE);
@@ -74,7 +84,7 @@ const view_pkg_info = async (pkg_name: string, term: UserspaceTerminal, kernel: 
             term.write(" yes");
             term.write(NEWLINE);
 
-            await kernel.spawn("pkg", ["add", pkg_name], shell).completion;
+            await (await kernel.spawn("pkg", ["add", pkg_name], shell)).completion;
 
             term.write(NEWLINE);
             term.writeln(`${STYLE.dim}Press any key to return to the list...${STYLE.reset_all}`);
@@ -99,6 +109,11 @@ export const browse_subcommand = async (data: ProgramMainData) => {
     args.shift();
 
     const provided = await repo_query.get_provided_list();
+
+    if (!provided) {
+        term.writeln(`${FG.red}Failed to fetch provided package list.${STYLE.reset_all}`);
+        return 1;
+    }
 
     let offset = 0;
     let selected_index = 0;

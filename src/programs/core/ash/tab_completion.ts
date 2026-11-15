@@ -9,10 +9,9 @@ import {AbstractShell} from "../../../abstract_shell";
 let cached_matches: string[] = [];
 let current_cached_match_index = 0;
 
-const complete_command = (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel) => {
+const complete_command = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel) => {
     // get the program registry
-    const registry = kernel.get_program_registry();
-    const programs = registry.listProgramNames(true, true);
+    const programs = await kernel.list_programs();
 
     // check for existing matches
     let match: string;
@@ -22,7 +21,7 @@ const complete_command = (buffer: ReadLineBuffer, discard_cached_matches: boolea
         match = cached_matches[current_cached_match_index] || "";
     } else {
         // if the current line has changed, refresh the matches
-        cached_matches = programs.filter((program) => program.startsWith(buffer.current_line));
+        cached_matches = programs.filter(({name}) => name.startsWith(buffer.current_line)).map(({name}) => name);
         current_cached_match_index = 0;
 
         // get the first match
@@ -35,14 +34,15 @@ const complete_command = (buffer: ReadLineBuffer, discard_cached_matches: boolea
     return {match, discard_cached_matches};
 }
 
-const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
-    return obj && typeof obj[Symbol.asyncIterator] === "function";
-}
-
 const get_completeable_arguments = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
     // parse the line
 
     const parsed_line = parse_line(buffer.current_line);
+    if (!parsed_line) {
+        console.warn("Tab completion for invalid lines is not yet implemented");
+        return null;
+    }
+
     if (parsed_line.type !== "command") {
         console.warn("Tab completion for non-command lines is not yet implemented");
         return null;
@@ -50,21 +50,6 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
 
     // destructure parsed line
     const {command, args, unsubbed_args, raw_parts} = parsed_line;
-
-    // get the command from the registry
-    const registry = kernel.get_program_registry();
-    const program = registry.getProgram(command);
-    if (!program) {
-        console.warn(`Tab completion for unknown command "${command}"`);
-        return null;
-    }
-
-    // if the program has no completion generator, complete based on file paths
-    if (!program.completion) {
-        // TODO need to change data structure first
-        console.warn(`Tab completion for command "${command}" with no completion generator is not yet implemented`);
-        return null;
-    }
 
     const completion_data = {
         term,
@@ -78,25 +63,16 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
         arg_index: raw_parts.length - 2, // -1 for current arg, -1 for program name
     };
 
-    const completion_result = await program.completion(completion_data);
+    // the kernel runs the completion, in the program's own isothread if it has one
+    const completion_result = await kernel.complete(command, completion_data);
 
-    // if the result is an async generator, get all values for now
-    // in future this will be done incrementally, but the current data structure doesn't support that yet
-    if (is_async_generator(completion_result)) {
-        const results: string[] = [];
-        for await (const value of completion_result) {
-            results.push(value);
-        }
-        return results;
-    } else {
-        if (completion_result === null) {
-            // TODO fall back to file path completion
-            console.warn(`Tab completion for command "${command}" with null completion result is not yet implemented`);
-            return null;
-        }
-
-        return completion_result;
+    if (completion_result === null) {
+        // TODO fall back to file path completion
+        console.warn(`Tab completion for command "${command}" with no completions is not yet implemented`);
+        return null;
     }
+
+    return completion_result;
 }
 
 const complete_argument = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel, term: UserspaceTerminal, shell?: AbstractShell) => {
@@ -161,15 +137,15 @@ const fill_completed_argument = (term: UserspaceTerminal, buffer: ReadLineBuffer
 }
 
 // TODO: how does this work? would be good to make it linked to the terminal instance. what is discard_cached_matches even for?
-export const tab_complete = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell, discard_cached_matches = false): Promise<boolean> => {
+export const tab_complete = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell, discard_cached_matches = false): Promise<boolean | null> => {
     // if the current line is empty, do nothing
     if (buffer.current_line.length === 0) {
-        return;
+        return null;
     }
 
     // if the current line has no spaces, tab complete the command
     if (!buffer.current_line.includes(" ")) {
-        const {match, discard_cached_matches: updated_discard} = complete_command(buffer, discard_cached_matches, kernel);
+        const {match, discard_cached_matches: updated_discard} = await complete_command(buffer, discard_cached_matches, kernel);
         discard_cached_matches = updated_discard;
 
         // if there is a match, tab complete

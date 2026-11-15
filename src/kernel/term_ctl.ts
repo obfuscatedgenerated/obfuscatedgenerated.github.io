@@ -1,4 +1,5 @@
 import {ANSI, NEWLINE, ansi_escape_regex, ansi_unescaped_regex, is_printable, non_printable_regex, word_wrap} from "../lib/ansi";
+import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
 
 export interface KeyEvent {
     key: string;
@@ -89,6 +90,11 @@ export interface UserspaceTerminal {
     register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
     /** @returns A function that unregisters the handler. */
     register_on_printable_key_event_handler(handler: UserspaceKeyEventHandler): () => void;
+    /**
+     * Ctrl+C calls the most recently pushed handler, before any key handler runs.
+     * @returns A function that removes the handler.
+     */
+    push_interrupt_handler(handler: () => void): () => void;
 
     get_custom_flag(flag: string): unknown;
     set_custom_flag(flag: string, value: unknown): void;
@@ -114,12 +120,17 @@ export interface UserspaceTerminal {
  * @group Kernel (Privileged)
  * @category Terminal
  */
-export abstract class AbstractTerminal {
+export abstract class AbstractTerminal implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #key_handlers: Map<RegisteredKeyEventIdentifier, { handler: KeyEventHandler, block: boolean }[]> = new Map();
     readonly #on_printable_handlers: KeyEventHandler[] = [];
 
     readonly #key_event_queue: KeyEvent[] = [];
     #is_handling_key_events = false;
+
+    // ctrl+c goes to the top of this stack before any key handler runs, so a hung program can't swallow it
+    readonly #interrupt_handlers: (() => void)[] = [];
 
     protected _kernel_has_panicked = false;
 
@@ -388,7 +399,7 @@ export abstract class AbstractTerminal {
     }
 
     #handle_key_event = async (e: KeyEvent): Promise<void> => {
-        // TODO: supress builtin key events when program is running, create ctrl+c handler
+        // TODO: supress builtin key events when program is running
 
         // look for any handlers against all keys
         const all_key_entries = this.#search_handlers(undefined, undefined, true);
@@ -448,7 +459,28 @@ export abstract class AbstractTerminal {
         };
     }
 
+    push_interrupt_handler = (handler: () => void): () => void => {
+        this.#interrupt_handlers.push(handler);
+
+        return () => {
+            const index = this.#interrupt_handlers.lastIndexOf(handler);
+            if (index !== -1) {
+                this.#interrupt_handlers.splice(index, 1);
+            }
+        };
+    }
+
     protected _enqueue_key_event = (e: KeyEvent) => {
+        // checked before queueing, as the queue waits on each handler and a hung one would hold ctrl+c back forever
+        if (e.key === "\u0003" && this.#interrupt_handlers.length > 0) {
+            // like a tty, input typed before the interrupt is discarded
+            this.#key_event_queue.length = 0;
+
+            // not awaited: interrupting must never wait on the thing being interrupted
+            this.#interrupt_handlers[this.#interrupt_handlers.length - 1]();
+            return;
+        }
+
         this.#key_event_queue.push(e);
 
         // if the queue is not being handled, handle it
@@ -694,6 +726,10 @@ export abstract class AbstractTerminal {
                     self.register_on_printable_key_event_handler(wrap_key_handler(handler), false),
                 enumerable: true,
             },
+            push_interrupt_handler: {
+                value: (handler: () => void) => self.push_interrupt_handler(handler),
+                enumerable: true,
+            },
 
             get_custom_flag: { value: (flag: string): unknown => self.get_custom_flag(flag), enumerable: true },
             set_custom_flag: { value: (flag: string, value: unknown) => self.set_custom_flag(flag, value), enumerable: true },
@@ -707,7 +743,18 @@ export abstract class AbstractTerminal {
             word_wrap: { value: (text: string, width: number) => self.word_wrap(text, width), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            cols: "mirrored",
+            rows: "mirrored",
+            ansi: "constant",
+            newline: "constant",
+            non_printable_regex,
+            ansi_escape_regex,
+            ansi_unescaped_regex,
+            word_wrap,
+        }, [
+            this
+        ]);
     }
 }
 

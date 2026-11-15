@@ -105,8 +105,8 @@ export class AshShell implements AbstractShell {
         const { command } = parsed_line;
 
         // check if the command exists
-        const prog_reg = kernel.get_program_registry();
-        if (!prog_reg.getProgram(command)) {
+        const program_search = await kernel.find_program(command);
+        if (!program_search) {
             term.writeln(`${PREFABS.error}Command not found: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
             return false;
         }
@@ -151,7 +151,7 @@ export class AshShell implements AbstractShell {
         // spawn the process
         let spawn_result: SpawnResult;
         try {
-            spawn_result = kernel.spawn(parsed_line, undefined, this);
+            spawn_result = await kernel.spawn(parsed_line, undefined, this);
         } catch (e) {
             if (edit_doc_title) {
                 document.title = old_title;
@@ -239,7 +239,19 @@ export class AshShell implements AbstractShell {
                     on_execute_completion(-1);
                 });
             } else if (process.is_foreground) {
-                const exit_code = await completion;
+                // ctrl+c interrupts the foreground process, like a tty sending SIGINT
+                const pop_interrupt = this.#term.push_interrupt_handler(() => {
+                    this.#term.writeln("^C");
+                    process.kill(130);
+                });
+
+                let exit_code: number;
+                try {
+                    exit_code = await completion;
+                } finally {
+                    pop_interrupt();
+                }
+
                 on_execute_completion(exit_code);
 
                 // set the exit code variable

@@ -30,7 +30,7 @@ if (!params.has("type")) {
 }
 
 // get the fs implementation
-const fs_impl_name = params.get("type");
+const fs_impl_name = params.get("type") || "opfs";
 const fs_impl = fs_impls[fs_impl_name];
 
 if (!fs_impl) {
@@ -103,8 +103,8 @@ const main = async () => {
 
     let render_directory: (dir: string) => Promise<void>;
 
-    let current_abs_path: string;
-    let current_readonly: boolean;
+    let current_abs_path: string | undefined;
+    let current_readonly: boolean | undefined;
     const render_file_editor = async (abs_path: string, name: string) => {
         // hide the file tree
         file_tree.style.display = "none";
@@ -130,8 +130,8 @@ const main = async () => {
         content_area.readOnly = current_readonly;
 
         // set visibility of save and delete buttons based on readonly
-        document.getElementById("save-button").style.display = current_readonly ? "none" : "block";
-        document.getElementById("delete-button").style.display = current_readonly ? "none" : "block";
+        document.getElementById("save-button")!.style.display = current_readonly ? "none" : "block";
+        document.getElementById("delete-button")!.style.display = current_readonly ? "none" : "block";
 
         // get the file contents
         let content = await fs.read_file_direct(abs_path, false) as string;
@@ -148,6 +148,10 @@ const main = async () => {
     }
 
     const close_file_editor = async () => {
+        if (!current_abs_path || current_readonly === undefined) {
+            return;
+        }
+
         // unset from cache
         fs.remote_remove_from_cache(current_abs_path);
 
@@ -166,6 +170,10 @@ const main = async () => {
     }
 
     const save_file_in_editor = async () => {
+        if (!current_abs_path || current_readonly === undefined) {
+            return;
+        }
+
         // get the file contents
         let content = content_area.value;
 
@@ -350,6 +358,18 @@ const main = async () => {
                     return;
                 }
 
+                if (!current_abs_path) {
+                    Swal.fire({
+                        title: "Error",
+                        text: "No file is currently open.",
+                        icon: "error",
+
+                        showConfirmButton: true,
+                        confirmButtonText: "Close",
+                    });
+                    return;
+                }
+
                 const download_direct = result.isConfirmed;
 
                 let content: Uint8Array;
@@ -388,7 +408,7 @@ const main = async () => {
     bind_buttons(document);
 
 
-    document.getElementById("single-file-button").onclick = () => {
+    document.getElementById("single-file-button")!.onclick = () => {
         // create a modal
         Swal.fire({
             title: "File Actions",
@@ -442,7 +462,7 @@ const main = async () => {
     window.addEventListener("unload", async () => {
         // TODO: some form of auto recovery if this doesnt happen for some reason (power failure, etc)
 
-        if (current_abs_path) {
+        if (current_abs_path && current_readonly !== undefined) {
             // remove from cache
             fs.remote_remove_from_cache(current_abs_path);
 
@@ -460,7 +480,7 @@ const main = async () => {
 
     // render the initial directory
     if (params.has("dir")) {
-        if (!(await fs.dir_exists(params.get("dir")))) {
+        if (!(await fs.dir_exists(params.get("dir")!))) {
             Swal.fire({
                 title: "Parameter Error",
                 text: "Directory specified does not exist.",
@@ -479,10 +499,10 @@ const main = async () => {
         }
 
         // set cwd
-        cwd = params.get("dir");
+        cwd = params.get("dir")!;
 
-        document.querySelector("#loading").remove();
-        render_directory(params.get("dir"));
+        document.querySelector("#loading")!.remove();
+        render_directory(params.get("dir")!);
     } else {
         render_directory(fs.get_root());
     }
@@ -503,3 +523,4 @@ fs.is_ready().then((ready) => {
 });
 
 // TODO: use userspace fs
+// TODO: worst code ever? if keeping this, make it a nice window, likely react, and have it not cheat!

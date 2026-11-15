@@ -1,3 +1,6 @@
+import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+import {window_dom} from "../lib/window_dom";
+
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
 export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
@@ -18,6 +21,7 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+    readonly maximisable: boolean;
 
     readonly layer: WindowCompositionLayer;
 }
@@ -34,6 +38,7 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
 
     visible: boolean;
     maximised: boolean;
+    maximisable: boolean;
 
     readonly layer: WindowCompositionLayer;
     request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
@@ -58,7 +63,9 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export abstract class AbstractWindow {
+export abstract class AbstractWindow implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract readonly id: number;
 
     // TODO: more generic type somehow? depends if we ever need implementations that dont use shadow DOM
@@ -135,9 +142,12 @@ export abstract class AbstractWindow {
         const self = this;
         const proxy = Object.create(null);
 
+        // a window's manager never changes, so the same proxy is always returned
+        const manager_proxy = self.manager.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             id: { get: () => self.id, enumerable: true },
-            manager: { get: () => self.manager.create_userspace_proxy(), enumerable: true },
+            manager: { get: () => manager_proxy, enumerable: true },
             owner_pid: { get: () => self.owner_pid, enumerable: true },
             title: { get: () => self.title, enumerable: true },
             width: { get: () => self.width, enumerable: true },
@@ -146,10 +156,26 @@ export abstract class AbstractWindow {
             y: { get: () => self.y, enumerable: true },
             visible: { get: () => self.visible, enumerable: true },
             maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
             layer: { get: () => self.layer, enumerable: true }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            maximisable: "mirrored",
+            layer: "mirrored",
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy_as_full_window(): UserspaceWindow {
@@ -195,6 +221,7 @@ export abstract class AbstractWindow {
                 enumerable: true
             },
             maximised: { get: () => self.maximised, enumerable: true },
+            maximisable: { get: () => self.maximisable, enumerable: true },
             center: { value: () => { self.center(); }, enumerable: true },
             focus: { value: () => { self.focus(); }, enumerable: true },
             show: { value: () => { self.show(); }, enumerable: true },
@@ -223,12 +250,42 @@ export abstract class AbstractWindow {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            owner_pid: "constant",
+            manager: "eager_handle",
+            dom: window_dom,
+            title: "mirrored",
+            width: "mirrored",
+            height: "mirrored",
+            x: "mirrored",
+            y: "mirrored",
+            visible: "mirrored",
+            maximised: "mirrored",
+            maximisable: "mirrored",
+            layer: "mirrored",
+        }, [
+            self
+        ]);
     }
+}
+
+/**
+ * Size of the area windows can occupy, in CSS pixels.
+ */
+export interface ScreenSize {
+    width: number;
+    height: number;
 }
 
 export interface UserspaceWindowManager {
     get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Read synchronously, and kept up to date as it changes.
+     */
+    get_screen_size(): ScreenSize;
+
     get_all_windows(): UserspaceOtherWindow[];
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
@@ -239,8 +296,15 @@ export interface UserspaceWindowManager {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export abstract class AbstractWindowManager {
+export abstract class AbstractWindowManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Implementations call notify_mirror_change(this) when it changes.
+     */
+    abstract get_screen_size(): ScreenSize;
 
     abstract get Window(): new (owner_pid: number) => AbstractWindow;
 
@@ -257,6 +321,7 @@ export abstract class AbstractWindowManager {
 
         Object.defineProperties(proxy, {
             get_unique_manager_type_name: { value: () => self.get_unique_manager_type_name(), enumerable: true },
+            get_screen_size: { value: () => self.get_screen_size(), enumerable: true },
             get_all_windows: {
                 value: () => self.get_all_windows().map((win) => win.create_userspace_proxy_as_other_window()),
                 enumerable: true
@@ -270,7 +335,12 @@ export abstract class AbstractWindowManager {
             }
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+            get_screen_size: "mirrored",
+        }, [
+            self
+        ]);
     }
 }
 

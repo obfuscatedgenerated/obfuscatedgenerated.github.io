@@ -12,7 +12,7 @@ export default {
             "-t": "Set the time before shutdown in milliseconds. Default is 1000."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
@@ -27,7 +27,7 @@ export default {
         for (const arg of args) {
             switch (arg) {
                 case "-h": {
-                    const spawn_result = kernel.spawn("help", ["shutdown"], shell);
+                    const spawn_result = await kernel.spawn("help", ["shutdown"], shell);
                     const exit_code = await spawn_result.completion;
                     spawn_result.process.kill(exit_code);
                     return exit_code;

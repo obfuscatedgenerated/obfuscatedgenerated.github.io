@@ -1,4 +1,6 @@
 import {ProcessContext} from "./processes";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {absolute_from_source, absolute_path as resolve_absolute_path, join_path} from "../lib/path";
 
 /**
  * Error thrown when a path is not found.
@@ -143,7 +145,9 @@ export interface UserspaceFileSystem {
  * @group Kernel (Privileged)
  * @category Filesystem
  */
-export abstract class AbstractFileSystem {
+export abstract class AbstractFileSystem implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     //TODO: dry
 
     // note some members are conventionally private with _ prefix to allow implementations to access them
@@ -208,11 +212,11 @@ export abstract class AbstractFileSystem {
         }
 
         // add callback to array
-        this.#callbacks.get(event_type).push(callback);
+        this.#callbacks.get(event_type)!.push(callback);
 
         // return function to remove callback
         return () => {
-            this.#callbacks.get(event_type).splice(this.#callbacks.get(event_type).indexOf(callback), 1);
+            this.#callbacks.get(event_type)!.splice(this.#callbacks.get(event_type)!.indexOf(callback), 1);
         }
     }
 
@@ -241,7 +245,7 @@ export abstract class AbstractFileSystem {
         // check if file is in cache and still exists, as well as if it's the correct type
         const cached = this.#cache.get(path);
         if (cached && await this.exists(path) && cached.as_uint === as_uint) {
-            return this.#cache.get(path).content;
+            return this.#cache.get(path)!.content;
         }
 
         // if not, read it from disk and cache it
@@ -279,7 +283,7 @@ export abstract class AbstractFileSystem {
     // does not check if destination exists
     async move_file(path: string, new_path: string): Promise<void> {
         // move in cache and disk
-        this.#cache.set(new_path, this.#cache.get(path));
+        this.#cache.set(new_path, this.#cache.get(path)!);
         this.#cache.delete(path);
         await this.move_file_direct(path, new_path);
         this._call_callbacks(FSEventType.MOVED_FILE, path);
@@ -348,6 +352,7 @@ export abstract class AbstractFileSystem {
 
     set_home(path: string): void {
         this._home = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_HOME, path);
     }
 
@@ -358,6 +363,7 @@ export abstract class AbstractFileSystem {
 
     set_root(path: string): void {
         this._root = path;
+        notify_mirror_change(this);
         this._call_callbacks(FSEventType.SET_ROOT, path);
     }
 
@@ -377,125 +383,11 @@ export abstract class AbstractFileSystem {
     }
 
     absolute(path: string, cwd?: string): string {
-        if (!cwd) {
-            console.warn("Warning: no cwd passed to absolute");
-        }
-
-        // absoluteify cwd if it doesnt begin with root, to prevent weird edge cases
-        if (cwd && !cwd.startsWith(this._root)) {
-            cwd = this.absolute(cwd);
-        }
-
-        // if path is blank, path is root
-        if (path === "") {
-            return this._root;
-        }
-
-        // if path is ., return cwd
-        // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
-        if (path === ".") {
-            if (!cwd) {
-                throw new Error("Cannot resolve relative path without cwd");
-            }
-
-            return cwd;
-        }
-
-        // if path is ~, return home
-        // TODO: again, same for this and the later ~/ check
-        if (path === "~") {
-            return this._home;
-        }
-
-        // if path starts with cwd and doesn't contain .., it is absolute
-        if (cwd && path.startsWith(cwd) && !path.includes("..")) {
-            return path;
-        }
-
-        // if path starts with root and doesn't contain .., it is absolute
-        if (path.startsWith(this._root) && !path.includes("..")) {
-            return path;
-        }
-
-        // drop leading ./
-        if (path.startsWith("./")) {
-            path = path.slice(2);
-        }
-
-        if (!cwd) {
-            cwd = this._root;
-        }
-
-        let effective_cwd = cwd;
-
-        // if path starts with .., step up the cwd
-        while (path.startsWith("..") && effective_cwd !== this._root) {
-            path = path.slice(2);
-
-            // drop leading /
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-        }
-
-        // TODO: doesn't support middle of path ..
-        // if path ends with .., remove the last part of the full path
-        while (path.endsWith("..")) {
-            path = path.slice(0, path.lastIndexOf(".."));
-
-            // drop trailing /
-            if (path.endsWith("/")) {
-                path = path.slice(0, path.length - 1);
-            }
-
-            // slice path, slicing effective_cwd if path is empty
-            if (path === "") {
-                effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-            } else {
-                path = path.slice(0, path.lastIndexOf("/"));
-
-                if (path === "") {
-                    effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-                }
-            }
-        }
-
-        // if path starts with ~/, replace it with home
-        if (path.startsWith("~/")) {
-            path = path.slice(2);
-            effective_cwd = this._home;
-        }
-
-        // if path still starts with /, drop it
-        if (path.startsWith("/")) {
-            path = path.slice(1);
-        }
-
-        return this.join(effective_cwd, path);
+        return resolve_absolute_path(path, {root: this._root, home: this._home, cwd});
     }
 
     join(base_dir: string, ...paths: string[]): string {
-        // drop trailing /
-        if (base_dir.endsWith("/")) {
-            base_dir = base_dir.slice(0, base_dir.length - 1);
-        }
-
-        // join base_dir and path, using slash if path is not empty
-        for (let path of paths) {
-            if (path.startsWith("/")) {
-                path = path.slice(1);
-            }
-
-            if (path === "") {
-                continue;
-            }
-
-            base_dir += "/" + path;
-        }
-
-        return base_dir;
+        return join_path(base_dir, ...paths);
     }
 
     protected constructor() {
@@ -520,7 +412,11 @@ export abstract class AbstractFileSystem {
                 absolute_path === "/etc/services/privileged/" ||
                 absolute_path.startsWith("/etc/services/privileged/") ||
                 absolute_path === "/etc/ssh/" ||
-                absolute_path.startsWith("/etc/ssh/");
+                absolute_path.startsWith("/etc/ssh/") ||
+                absolute_path === "/bin" ||
+                absolute_path.startsWith("/bin/") ||
+                absolute_path === "/usr/bin" ||
+                absolute_path.startsWith("/usr/bin/");
 
             if (is_protected) {
                 throw new ReadOnlyError(absolute_path);
@@ -609,7 +505,17 @@ export abstract class AbstractFileSystem {
             get_cwd: { value: () => self.absolute(process.cwd), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_fs_type_name: "constant",
+            get_cwd: "mirrored",
+            get_home: "mirrored",
+            get_root: "mirrored",
+            join: join_path,
+            absolute: absolute_from_source,
+        }, [
+            fs,
+            process
+        ]);
     }
 }
 

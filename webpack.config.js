@@ -73,6 +73,7 @@ module.exports = (env, argv) => {
         entry: {
             main: "./src/index.ts",
             fsedit: "./src/fsedit/index.ts",
+            isothread_worker: "./src/isothread_impl/web_worker/worker.ts",
         },
         devtool: dt,
         module: {

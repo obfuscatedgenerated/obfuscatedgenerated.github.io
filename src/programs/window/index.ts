@@ -8,6 +8,9 @@ import {hide_subcommand} from "./hide";
 import {close_subcommand} from "./close";
 import {center_subcommand} from "./center";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {kernel_funcs} from "./kernel_funcs";
+
+export {kernel_funcs};
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
@@ -38,7 +41,7 @@ export default {
             }
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         switch (data.arg_index) {
             case 0:
@@ -73,7 +76,7 @@ export default {
         }
 
         if (args.includes("-h")) {
-            const spawn_result = kernel.spawn("help", ["window"], shell);
+            const spawn_result = await kernel.spawn("help", ["window"], shell);
             const exit_code = await spawn_result.completion;
             spawn_result.process.kill(exit_code);
             return exit_code;
@@ -103,4 +106,4 @@ export default {
                 return 1;
         }
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;

@@ -5,7 +5,7 @@ export default {
     description: "Finger user information service",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
@@ -56,7 +56,7 @@ export default {
             });
         };
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
 
         // start immediately if network already up
         if (await net_manager.is_up()) {

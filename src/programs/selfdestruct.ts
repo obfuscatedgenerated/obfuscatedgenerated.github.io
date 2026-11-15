@@ -6,7 +6,7 @@ export default {
     description: "Permanently erases the filesystem and other data, then restarts the terminal.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -55,6 +55,6 @@ export default {
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);
 
         // TODO: talk to ignition instead of using shutdown command
-        return await kernel.spawn("shutdown", ["-r", "-t", "3000"], shell).completion;
+        return await (await kernel.spawn("shutdown", ["-r", "-t", "3000"], shell)).completion;
     }
 } as Program;

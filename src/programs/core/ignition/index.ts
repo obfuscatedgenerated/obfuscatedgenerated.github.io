@@ -1,4 +1,4 @@
-import type { PrivilegedProgram } from "../../../types";
+import type { Program } from "../../../types";
 
 import {ServiceManager} from "./services";
 import type {ProcessContext} from "../../../kernel/processes";
@@ -55,10 +55,12 @@ export type IgnitionIPCReply =
 export default {
     name: "ignition",
     description: "System init process",
+    space: "kernel",
+    reason: "System init process.",
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const { kernel, term, process } = data;
 
@@ -135,7 +137,7 @@ export default {
                         const service_msg = payload as IgnitionIPCServiceMessage;
                         switch (service_msg.action) {
                             case "start": {
-                                const [success, message] = svc_mgr.start_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.start_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
                                     type: success ? "response" : "error",
                                     message
@@ -151,7 +153,7 @@ export default {
                                 break;
                             }
                             case "restart": {
-                                const [success, message] = svc_mgr.restart_service(service_msg.service_id);
+                                const [success, message] = await svc_mgr.restart_service(service_msg.service_id);
                                 ipc.channel_send(channel_id, process.pid, {
                                     type: success ? "response" : "error",
                                     message
@@ -275,7 +277,7 @@ export default {
 
         // execute boot target in a respawn loop
         while (running) {
-            const boot_target_proc = kernel.spawn(process, boot_target, boot_args);
+            const boot_target_proc = await kernel.spawn(process, boot_target, boot_args);
             current_tty_process = boot_target_proc.process;
 
             let exit_code: number;
@@ -313,7 +315,7 @@ export default {
                 if (key.key.toLowerCase() === "r") {
                     term.writeln("Entering recovery mode...");
 
-                    const recovery_proc = kernel.spawn(process, "recovery", [], undefined, true);
+                    const recovery_proc = await kernel.spawn(process, "recovery", [], undefined, true);
                     let recovery_exit_code: number;
                     try {
                         recovery_exit_code = await recovery_proc.completion;
@@ -339,6 +341,6 @@ export default {
 
         return final_code;
     }
-} as PrivilegedProgram;
+} as Program;
 
 // TODO: implement graceful shutdown, stops programs, stops services in reverse order etc as well as move the actual final shutdown/reboot logic to kern`

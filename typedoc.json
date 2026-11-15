@@ -24,13 +24,11 @@
     "Processes",
     "Programs",
     "Windowing",
-    "Sound",
     "Shells",
     "Networking",
     "Platform",
 
-    "Completions",
-    "Privileged-by-default Programs"
+    "Completions"
   ],
   "readme": "src/api_docs/README.md",
   "headings": {

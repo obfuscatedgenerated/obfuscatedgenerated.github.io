@@ -10,7 +10,7 @@ export default {
             directory: "The directory to open fsedit in. Defaults to the current working directory."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "FSEdit",
     },

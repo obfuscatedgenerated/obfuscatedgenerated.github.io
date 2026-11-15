@@ -8,7 +8,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const {kernel, term, process} = data;
 
@@ -67,7 +67,7 @@ export default {
 
         // execute shell in a respawn loop
         while (running) {
-            const shell_proc = kernel.spawn(default_shell, default_shell_args);
+            const shell_proc = await kernel.spawn(default_shell, default_shell_args);
             current_shell_process = shell_proc.process;
 
             let exit_code: number;

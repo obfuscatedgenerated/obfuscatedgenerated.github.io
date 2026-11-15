@@ -9,7 +9,7 @@ export default {
             "string": "The string to echo."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose

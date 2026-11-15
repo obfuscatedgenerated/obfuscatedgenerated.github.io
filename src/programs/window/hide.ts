@@ -1,9 +1,10 @@
 import {ANSI} from "../../lib/ansi";
-import { ProgramMainData } from "../../types"
+import type {UserspaceProgramMainData} from "../../types";
+import type {kernel_funcs, WindowActionResult} from "./kernel_funcs";
 
 // extract from ANSI to make code less verbose
 const { STYLE, FG, PREFABS } = ANSI;
-export const hide_subcommand = async (data: ProgramMainData) => {
+export const hide_subcommand = async (data: UserspaceProgramMainData<{kernel_funcs: typeof kernel_funcs}>) => {
     // extract from data to make code less verbose
     const { args, term, kernel: userspace_kernel } = data;
 
@@ -33,30 +34,31 @@ export const hide_subcommand = async (data: ProgramMainData) => {
         return 1;
     }
 
-    // request elevation
-    const kernel = await userspace_kernel.request_privilege("Access the window manager to hide a window.");
-    if (!kernel) {
+    let result: WindowActionResult;
+    try {
+        result = await userspace_kernel.request_kernel_func("window_action", "Access the window manager to hide a window.", {window_id, action: "hide"});
+    } catch (e) {
+        if (e.name !== "NotAllowedError") {
+            throw e;
+        }
+
         term.writeln(`${PREFABS.error}Permission denied to access the window manager.${STYLE.reset_all}`);
         return 1;
     }
 
-    const wm = kernel.get_window_manager();
-    const wind = wm!.get_window_by_id(window_id);
-
-    // check again for safety
-    if (!wind) {
+    // check again, as the window may have gone between the checks
+    if (result === "not_found" || result === "invalid") {
         term.writeln(`${PREFABS.error}No window found with ID '${window_id}'.`)
         term.writeln(`Try 'window list' to see all open windows.${STYLE.reset_all}`);
         return 1;
     }
 
-    if (!wind.visible) {
+    if (result === "already_hidden") {
         term.writeln(`Window with ID ${FG.cyan}${window_id}${STYLE.reset_all} is already hidden.${STYLE.reset_all}`);
         return 2;
     }
 
-    term.writeln(`Hiding window with ID ${FG.cyan}${window_id}${STYLE.reset_all}.`);
-    wind.hide();
+    term.writeln(`Hid window with ID ${FG.cyan}${window_id}${STYLE.reset_all}.`);
 
     return 0;
 }

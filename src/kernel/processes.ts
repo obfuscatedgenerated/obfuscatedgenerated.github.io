@@ -9,6 +9,11 @@ import {
     UserspaceServerSocket
 } from "./network";
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import * as timers from "../lib/timers";
+import type {RunThread, ThreadFuncs} from "../types";
+
+type ThreadRunner = (process: ProcessContext, name: string, input: unknown) => Promise<unknown>;
 
 export interface IPCMessage {
     from: number;
@@ -310,7 +315,7 @@ export class IPCManager {
             }, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy);
     }
 }
 
@@ -332,7 +337,12 @@ export interface UserspaceOtherProcessContext {
     readonly source_command: ParsedCommandLine;
 }
 
-export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> extends UserspaceOtherProcessContext {
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T>;
+
     cwd: string;
     readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
@@ -344,7 +354,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): UserspaceWindow | null;
+    create_window(): UserspaceWindow;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
@@ -352,7 +362,9 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     get bound_ports(): number[];
 }
 
-export class ProcessContext {
+export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #pid: number;
     readonly #manager: ProcessManager;
 
@@ -362,15 +374,11 @@ export class ProcessContext {
     readonly #shell: AbstractShell | undefined;
 
     readonly #exit_listeners: Set<(exit_code: number) => Promise<void> | void> = new Set();
+    readonly #teardowns: Set<() => void> = new Set();
+    #killed = false;
 
     #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     #detach_silently = false;
-
-    readonly #timeouts: Set<number> = new Set();
-    readonly #timeout_promises: Map<number, Set<{resolve: (finished: boolean) => void}>> = new Map(); // timeout id -> promise resolvers (for waiting on timeouts but listening to cancellation)
-    readonly #timeout_cancel_callbacks: Map<number, () => void> = new Map(); // timeout id -> cancel callback
-
-    readonly #intervals: Set<number> = new Set();
 
     readonly #windows: Set<AbstractWindow> = new Set();
 
@@ -416,6 +424,8 @@ export class ProcessContext {
         }
 
         this.#cwd = path;
+
+        notify_mirror_change(this);
     }
 
     get terminal(): AbstractTerminal {
@@ -457,19 +467,12 @@ export class ProcessContext {
     detach(silently = false): void {
         this.#attachment = ProcessAttachment.DETACHED;
         this.#detach_silently = silently;
+
+        notify_mirror_change(this);
     }
 
     dispose_resources(): void {
-        this.#intervals.forEach((id) => {
-            clearInterval(id);
-        });
-
-        this.#timeouts.forEach((id) => {
-            clearTimeout(id);
-        });
-
-        this.#timeout_promises.clear();
-        this.#timeout_cancel_callbacks.clear();
+        timers.dispose_timers(this);
 
         this.#windows.forEach((win) => {
             win.dispose();
@@ -498,114 +501,110 @@ export class ProcessContext {
     }
 
     kill(exit_code = 0): void {
+        // e.g. the shell killing a process that was already killed by ctrl+c
+        if (this.#killed) {
+            return;
+        }
+        this.#killed = true;
+
         this.dispose_resources();
 
         this.#manager.mark_terminated(this.#pid);
 
+        const pending_listeners: Promise<unknown>[] = [];
         for (const listener of this.#exit_listeners) {
             try {
-                listener(exit_code);
+                pending_listeners.push(Promise.resolve(listener(exit_code)));
             } catch (err) {
                 console.error("Process exit listener error:", err);
             }
         }
+
+        // a hung listener can't keep the process's resources alive forever
+        const listener_timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+        Promise.race([Promise.allSettled(pending_listeners), listener_timeout]).then(() => {
+            for (const teardown of this.#teardowns) {
+                try {
+                    teardown();
+                } catch (err) {
+                    console.error("Process teardown error:", err);
+                }
+            }
+        });
+    }
+
+    /**
+     * Kernel only. Runs once the process's own exit listeners have finished (or timed out), e.g. to terminate its isothread without cutting off its cleanup.
+     */
+    add_teardown(teardown: () => void): void {
+        this.#teardowns.add(teardown);
     }
 
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void {
         this.#exit_listeners.add(listener);
     }
 
-    create_timeout(callback: () => void, delay: number, on_cancel? : () => void): number {
-        const id = window.setTimeout(() => {
-            this.#timeouts.delete(id);
-
-            // resolve any waiters
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const { resolve } of resolvers) {
-                    resolve(true);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            callback();
-
-            if (on_cancel) {
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }, delay);
-
-        this.#timeouts.add(id);
-
-        if (on_cancel) {
-            this.#timeout_cancel_callbacks.set(id, on_cancel);
-        }
-
-        return id;
+    create_timeout(callback: () => void, delay: number, on_cancel?: () => void): number {
+        return timers.create_timeout.call(this, callback, delay, on_cancel);
     }
 
     cancel_timeout(id: number): void {
-        if (this.#timeouts.has(id)) {
-            clearTimeout(id);
-            this.#timeouts.delete(id);
-
-            // resolve any waiters as cancelled
-            if (this.#timeout_promises.has(id)) {
-                const resolvers = this.#timeout_promises.get(id)!;
-                for (const {resolve} of resolvers) {
-                    resolve(false);
-                }
-                this.#timeout_promises.delete(id);
-            }
-
-            // call cancel callback if exists
-            if (this.#timeout_cancel_callbacks.has(id)) {
-                const cancel_callback = this.#timeout_cancel_callbacks.get(id)!;
-                cancel_callback();
-                this.#timeout_cancel_callbacks.delete(id);
-            }
-        }
+        timers.cancel_timeout.call(this, id);
     }
 
     has_timeout(id: number): boolean {
-        return this.#timeouts.has(id);
+        return timers.has_timeout.call(this, id);
     }
 
     create_interval(callback: () => void, interval: number): number {
-        const id = window.setInterval(callback, interval);
-        this.#intervals.add(id);
-        return id;
+        return timers.create_interval.call(this, callback, interval);
     }
 
     has_interval(id: number): boolean {
-        return this.#intervals.has(id);
+        return timers.has_interval.call(this, id);
     }
 
     clear_interval(id: number): void {
-        if (this.#intervals.has(id)) {
-            clearInterval(id);
-            this.#intervals.delete(id);
-        }
+        timers.clear_interval.call(this, id);
     }
 
-    async wait_for_timeout(id: number): Promise<boolean> {
-        if (!this.#timeouts.has(id)) {
-            throw new Error(`Timeout ID ${id} does not exist.`);
-        }
-
-        return new Promise<boolean>((resolve) => {
-            if (!this.#timeout_promises.has(id)) {
-                this.#timeout_promises.set(id, new Set());
-            }
-
-            this.#timeout_promises.get(id)!.add({ resolve });
-        });
+    wait_for_timeout(id: number): Promise<boolean> {
+        return timers.wait_for_timeout.call(this, id);
     }
 
-    create_window(): AbstractWindow | null {
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T> = ((name: string, input?: unknown) => this.#manager._run_thread(this, name, input)) as RunThread<T>;
+
+    #primary_window: AbstractWindow | null = null;
+    #primary_window_claimed = false;
+
+    /**
+     * Kernel only. Sets a window made ahead of time for the process, which its first create_window call from userspace returns instead of making a new one.
+     * Used when the program runs inside its window (a frame isothread).
+     */
+    set_primary_window(wind: AbstractWindow): void {
+        this.#primary_window = wind;
+    }
+
+    #create_window_for_userspace(): AbstractWindow {
+        if (!this.#primary_window) {
+            return this.create_window();
+        }
+
+        if (this.#primary_window_claimed) {
+            throw new Error("Programs with needs_dom can only have one window for now, as the window is the frame the program runs in");
+        }
+
+        this.#primary_window_claimed = true;
+        return this.#primary_window;
+    }
+
+    create_window(): AbstractWindow {
         const wm = this.#manager.window_manager;
         if (!wm) {
-            return null;
+            throw new Error("No window manager available");
         }
 
         const win = new wm.Window(this.#pid);
@@ -631,8 +630,10 @@ export class ProcessContext {
         // clean up on close
         socket.add_event_listener("close", () => {
             this.#port_map.delete(port);
+            notify_mirror_change(this);
         });
 
+        notify_mirror_change(this);
         return socket;
     }
 
@@ -700,7 +701,17 @@ export class ProcessContext {
             source_command: { get: () => self.source_command, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+        }, [
+            self
+        ]);
     }
 
     create_userspace_proxy(): UserspaceProcessContext {
@@ -708,10 +719,13 @@ export class ProcessContext {
         const self = this;
         const proxy = Object.create(null);
 
+        // the terminal never changes for a process, so the same proxy is always returned
+        const terminal_proxy = self.terminal.create_userspace_proxy();
+
         Object.defineProperties(proxy, {
             pid: { get: () => self.pid, enumerable: true },
             cwd: { get: () => self.cwd, set: (new_cwd: string) => { self.cwd = new_cwd; }, enumerable: true },
-            terminal: { get: () => self.terminal.create_userspace_proxy(), enumerable: true },
+            terminal: { get: () => terminal_proxy, enumerable: true },
             created_at: { get: () => self.created_at, enumerable: true },
             is_detached: { get: () => self.is_detached, enumerable: true },
             is_background: { get: () => self.is_background, enumerable: true },
@@ -727,7 +741,8 @@ export class ProcessContext {
             has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window().create_userspace_proxy_as_full_window(),  enumerable: true },
+            create_window: { value: () => self.#create_window_for_userspace().create_userspace_proxy_as_full_window(), enumerable: true },
+            run_thread: { value: (name: string, input?: unknown) => self.#manager._run_thread(self, name, input), enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();
@@ -745,7 +760,26 @@ export class ProcessContext {
             bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            pid: "constant",
+            created_at: "constant",
+            source_command: "constant",
+            terminal: "eager_handle",
+            cwd: "mirrored",
+            is_detached: "mirrored",
+            is_background: "mirrored",
+            is_foreground: "mirrored",
+            attachment: "mirrored",
+            bound_ports: "mirrored",
+            create_timeout: timers.create_timeout,
+            cancel_timeout: timers.cancel_timeout,
+            wait_for_timeout: timers.wait_for_timeout,
+            has_timeout: timers.has_timeout,
+            create_interval: timers.create_interval,
+            clear_interval: timers.clear_interval,
+        }, [
+            self
+        ]);
     }
 }
 
@@ -767,6 +801,23 @@ export class ProcessManager {
     constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
         this.#net_manager = net_manager;
+    }
+
+    #thread_runner: ThreadRunner | null = null;
+
+    /**
+     * Kernel only. Sets how processes run their thread functions, as that needs the kernel (program code and the isothread manager).
+     */
+    set_thread_runner(runner: ThreadRunner): void {
+        this.#thread_runner = runner;
+    }
+
+    _run_thread(process: ProcessContext, name: string, input: unknown): Promise<unknown> {
+        if (!this.#thread_runner) {
+            return Promise.reject(new Error("Threads are not available"));
+        }
+
+        return this.#thread_runner(process, name, input);
     }
 
     get window_manager(): AbstractWindowManager | null {
@@ -837,7 +888,9 @@ export class ProcessManager {
             kill: { value: (pid: number, exit_code?: number) => self.kill(pid, exit_code), enumerable: true },
         });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            ipc_manager: "eager_handle",
+        });
     }
 }
 

@@ -1,3 +1,5 @@
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
@@ -73,9 +75,20 @@ export interface UserspaceClientSocket {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export abstract class AbstractClientSocket {
+export abstract class AbstractClientSocket implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly id: string;
-    ready_state: SocketReadyState = SocketReadyState.CONNECTING;
+    #ready_state: SocketReadyState = SocketReadyState.CONNECTING;
+
+    get ready_state(): SocketReadyState {
+        return this.#ready_state;
+    }
+
+    protected set_ready_state(state: SocketReadyState): void {
+        this.#ready_state = state;
+        notify_mirror_change(this);
+    }
 
     // the implementation needs to invoke these when data is received
     protected readonly _data_listeners: Set<SocketDataListener> = new Set();
@@ -127,7 +140,7 @@ export abstract class AbstractClientSocket {
             return;
         }
 
-        this.ready_state = SocketReadyState.CLOSING;
+        this.set_ready_state(SocketReadyState.CLOSING);
         await this._handle_close_internal(passive);
 
         // invoke close listeners
@@ -139,11 +152,12 @@ export abstract class AbstractClientSocket {
             }
         }
 
-        this.ready_state = SocketReadyState.CLOSED;
+        this.set_ready_state(SocketReadyState.CLOSED);
+        notify_mirror_change(this);
     }
 
     create_userspace_proxy(): UserspaceClientSocket {
-        const proxy = {} as UserspaceClientSocket;
+        const proxy = Object.create(null) as UserspaceClientSocket;
 
         Object.defineProperty(proxy, "id", { get: () => this.id });
         Object.defineProperty(proxy, "ready_state", { get: () => this.ready_state });
@@ -164,7 +178,12 @@ export abstract class AbstractClientSocket {
             return this.close();
         }
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            id: "constant",
+            ready_state: "mirrored",
+        }, [
+            this
+        ]);
     }
 }
 
@@ -244,7 +263,7 @@ export abstract class AbstractServerSocket {
     }
 
     create_userspace_proxy(): UserspaceServerSocket {
-        const proxy = {} as UserspaceServerSocket;
+        const proxy = Object.create(null) as UserspaceServerSocket;
 
         Object.defineProperty(proxy, "port", { get: () => this.port });
 
@@ -293,7 +312,9 @@ export abstract class AbstractServerSocket {
             return this.close();
         };
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            port: "constant",
+        });
     }
 }
 
@@ -314,7 +335,9 @@ export interface UserspaceNetworkManager {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export abstract class AbstractNetworkManager {
+export abstract class AbstractNetworkManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     protected _port_map: Map<number, AbstractServerSocket> = new Map();
 
     get bound_ports(): number[] {
@@ -353,21 +376,25 @@ export abstract class AbstractNetworkManager {
 
         // forcibly claim the port to avoid race condition
         this._port_map.set(port, null as unknown as AbstractServerSocket);
+        notify_mirror_change(this);
 
         try {
             // invoke implementation class to create the server socket, then store it in the port map
             const server_socket = await this._handle_listen_internal(port);
             this._port_map.set(port, server_socket);
+            notify_mirror_change(this);
 
             // remove once the server socket is closed
             server_socket.add_event_listener("close", () => {
                 this._port_map.delete(port);
+                notify_mirror_change(this);
             });
 
             return server_socket;
         } catch (err) {
             // if there was an error, remove the port from the map so it can be retried
             this._port_map.delete(port);
+            notify_mirror_change(this);
             throw err;
         }
     }
@@ -375,13 +402,18 @@ export abstract class AbstractNetworkManager {
     abstract connect(host: string, port: number): Promise<AbstractClientSocket>;
 
     create_userspace_proxy(): UserspaceNetworkManager {
-        const proxy = {} as UserspaceNetworkManager;
+        const proxy = Object.create(null) as UserspaceNetworkManager;
 
         Object.defineProperty(proxy, "bound_ports", { get: () => this.bound_ports });
         Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
         Object.defineProperty(proxy, "is_up", { value: (try_waiting = false) => this.is_up(try_waiting), enumerable: true });
 
-        return Object.freeze(proxy);
+        return finalise_userspace_proxy(proxy, {
+            get_unique_manager_type_name: "constant",
+            bound_ports: "mirrored",
+        }, [
+            this
+        ]);
     }
 }
 

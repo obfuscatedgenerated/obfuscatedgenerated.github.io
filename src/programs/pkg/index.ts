@@ -9,6 +9,8 @@ import {list_subcommand} from "./list";
 import {info_subcommand} from "./info";
 import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {migrate_subcommand} from "./migrate";
+import {MIGRATION_PATH} from "../../lib/pkg_migration";
 
 import type {UserspaceKernel, SpawnResult} from "../../kernel";
 import type {AbstractShell} from "../../abstract_shell";
@@ -21,7 +23,12 @@ const repo_url_obj = new URL(REPO_URL);
 const GRAPH_DIR = "/var/lib/pkg";
 const GRAPH_PATH = GRAPH_DIR + "/graph.json";
 
-const BIN_DIR = "/usr/bin";
+// programs are flat in BIN_DIR (<program>.js + <program>.json), everything else a package ships lives in LIB_DIR/<package>/
+export const BIN_DIR = "/usr/bin";
+export const LIB_DIR = "/usr/lib";
+
+// written into LIB_DIR/<package>/ on install, listing the programs the package put in BIN_DIR so remove knows what to delete
+export const PROGRAMS_MANIFEST = "programs.json";
 
 const TRIGGER_DIR = "/var/lib/pkg/triggers";
 
@@ -95,7 +102,7 @@ export const repo_query = {
     },
 
     // returns null if not found, otherwise returns the meta.json file as an object
-    get_pkg_meta: async (pkg: string, version: string): Promise<PackageMeta> => {
+    get_pkg_meta: async (pkg: string, version: string): Promise<PackageMeta | null> => {
         pkg = encodeURI(pkg);
         version = encodeURI(version);
         pkg = pkg.replace(/\./g, "%2E");
@@ -197,6 +204,22 @@ interface PkgGraphEntry {
     top_level: boolean; // as in, specified by the user at install time
 }
 
+// package names, versions and file paths go into repo urls and filesystem paths, and package names key the graph,
+// so anything that could traverse ("..", "/") or hit an inherited key ("__proto__", "constructor") is refused
+export const is_valid_pkg_name = (name: string): boolean => /^[a-z0-9][a-z0-9._-]*$/i.test(name) && !name.includes("..");
+
+export const is_valid_pkg_version = (version: string): boolean => /^[0-9a-z][0-9a-z.+-]*$/i.test(version) && !version.includes("..");
+
+export const is_valid_pkg_file_path = (file_path: string): boolean =>
+    file_path !== "" &&
+    !file_path.startsWith("/") &&
+    !file_path.includes("\\") &&
+    file_path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+
+// graph entries are looked up by package name, so the graph has no prototype to inherit keys from
+const as_graph = (parsed: { [pkg_name: string]: PkgGraphEntry }): { [pkg_name: string]: PkgGraphEntry } =>
+    Object.assign(Object.create(null), parsed);
+
 export const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
     if (key !== "deps" && key !== "dependents") {
         return value;
@@ -221,7 +244,7 @@ export const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
     throw new Error(`${key} not an array in graph to be parsed!`);
 }
 
-let graph: { [pkg_name: string]: PkgGraphEntry } = {};
+let graph: { [pkg_name: string]: PkgGraphEntry } = Object.create(null);
 export const graph_query = {
     // TODO: graph consistency checks / repair function
     // TODO: dangling dep check
@@ -420,9 +443,15 @@ export const graph_query = {
         return Object.keys(graph).filter((pkg) => !graph[pkg].top_level && graph[pkg].dependents.size === 0);
     },
 
-    get_file_path_in_pkg_bin: (fs: UserspaceFileSystem, pkg: string, filepath: string) => {
-        const pkg_dir = fs.join(BIN_DIR, pkg);
+    get_file_path_in_pkg_dir: (fs: UserspaceFileSystem, pkg: string, filepath: string) => {
+        const pkg_dir = fs.join(LIB_DIR, pkg);
         return fs.join(pkg_dir, filepath);
+    },
+
+    // empties the graph, e.g. when migrating to a new install layout
+    reset: async (fs: UserspaceFileSystem) => {
+        graph = Object.create(null);
+        await fs.write_file(GRAPH_PATH, "{}");
     }
 }
 
@@ -469,10 +498,10 @@ export const triggers = {
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult;
+        let spawn_result: SpawnResult | null = null;
 
         try {
-            spawn_result =  kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
+            spawn_result = await kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -508,10 +537,10 @@ export const triggers = {
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult;
+        let spawn_result: SpawnResult | null = null;
 
         try {
-            spawn_result =  kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
+            spawn_result = await kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
             const exit_code = await spawn_result.completion;
             if (exit_code !== 0) {
                 term.writeln(`${ANSI.PREFABS.error}Warning: trigger ${trigger_name} exited with code ${exit_code}.${ANSI.STYLE.reset_all}`);
@@ -548,6 +577,7 @@ export default {
             "read": `Reads the long description for a package if it has one: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} read [-r] <package>${STYLE.reset_all}`,
             "browse": `Browse the repository for packages and versions: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} browse${STYLE.reset_all}`,
             "clean": `Removes all packages that are not top level and have no dependents (and are therefore unused): ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} clean [-d]${STYLE.reset_all}`,
+            "migrate": `Reinstalls packages that were moved aside when the install layout changed: ${PREFABS.program_name}pkg${STYLE.reset_all + STYLE.italic} migrate${STYLE.reset_all}`,
         },
         "Arguments:": {
             "-h": "Displays this help message.",
@@ -573,12 +603,12 @@ export default {
             }
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         // TODO: smarter completion that understands flags for subcommands
         switch (data.arg_index) {
             case 0:
-                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean"])(data);
+                return helper_completion_options(["add", "remove", "list", "info", "read", "browse", "clean", "migrate"])(data);
             case 1:
                 if (["info", "read", "remove"].includes(data.args[0])) {
                     // complete with installed package names
@@ -587,7 +617,7 @@ export default {
                     // load graph
                     let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
                     try {
-                        local_graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+                        local_graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
                     } catch (e) {
                         return [];
                     }
@@ -614,7 +644,7 @@ export default {
         }
 
         if (args.includes("-h")) {
-            const spawn_result = kernel.spawn("help", ["pkg"], shell);
+            const spawn_result = await kernel.spawn("help", ["pkg"], shell);
             const exit_code = await spawn_result.completion;
             spawn_result.process.kill(exit_code);
             return exit_code;
@@ -648,13 +678,20 @@ export default {
 
         // load graph
         try {
-            graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+            graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
         } catch (e) {
             term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
             return 2;
         }
 
+        // remind the user if packages are still waiting to be reinstalled after a layout change
+        if (args[0] !== "migrate" && await fs.exists(MIGRATION_PATH)) {
+            term.writeln(`${ANSI.FG.yellow}Some packages are waiting to be reinstalled after an update. Run 'pkg migrate' to reinstall them.${STYLE.reset_all}`);
+        }
+
         switch (args[0]) {
+            case "migrate":
+                return await migrate_subcommand(data);
             case "add":
                 return await add_subcommand(data);
             case "remove":

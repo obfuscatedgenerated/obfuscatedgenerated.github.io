@@ -4,12 +4,7 @@ import { ImageAddon } from "@xterm/addon-image";
 
 import {ANSI, NEWLINE, word_wrap} from "./lib/ansi";
 
-import {Kernel} from "./kernel";
-
-import {ProgramRegistry} from "./kernel/prog_registry";
-import * as programs from "./programs/@ALL";
-
-import { SoundRegistry } from "./kernel/sfx_registry";
+import {Kernel, VirtualProgram} from "./kernel";
 
 import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
@@ -22,23 +17,12 @@ import "./load_global_externals";
 import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
+import * as builtin_modules from "./programs/@ALL";
+import {WebIsoThreadManager} from "./isothread_impl/web";
+import {WebPlatformAPI} from "./platform_impl/web";
+import {KernelFuncs, Program, ThreadFuncs} from "./types";
+
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
-    // create a program registry by importing all programs
-    const prog_reg = new ProgramRegistry();
-    for (const prog of Object.values(programs)) {
-        await prog_reg.registerProgram({
-            program: prog,
-            built_in: true,
-        });
-    }
-
-
-    // create a sound registry
-    const sfx_reg = new SoundRegistry();
-    sfx_reg.register_file("reader_on", "public/sfx/reader_on.mp3");
-    sfx_reg.register_file("reader_off", "public/sfx/reader_off.mp3");
-
-
     // create a filesystem
     // try opfs but use localstorage if not available, or already in use
     // TODO migrate from localstorage to opfs automatically
@@ -61,14 +45,29 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         });
     }
 
+    // construct virtual programs (inline kernel funcs)
+    const builtin_programs: Record<string, Program> = {};
+    const virtual_programs = new Map<string, VirtualProgram>();
+
+    for (const [name, module] of Object.entries(builtin_modules)) {
+        const {kernel_funcs, threads} = module as {kernel_funcs?: KernelFuncs, threads?: ThreadFuncs};
+
+        builtin_programs[name] = module.default;
+        virtual_programs.set(name, {...module.default, kernel_funcs, threads});
+    }
+
     // create initial files
-    await initial_fs_setup(fs);
+    await initial_fs_setup(fs, builtin_programs);
 
     // create a dom window manager
     const wm = new DOMWindowManager();
 
     // create network manager
     const net_manager = new PorterBridgeNetworkManager();
+
+    // create isothread manager if workers are available
+    const version = document.body.dataset.version || "unknown";
+    const itm = typeof Worker !== "undefined" ? new WebIsoThreadManager(`public/script/isothread_worker.bundle.js?v=${version}`) : undefined;
 
     // create a terminal using the registry and filesystem
     const term = new XTermTerminal({
@@ -112,8 +111,16 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     });
 
     // create the kernel
-    const kernel = new Kernel(term, fs, prog_reg, sfx_reg, wm, net_manager);
-    kernel.set_env_info(document.body.dataset.version, "web");
+    const kernel = new Kernel({
+        term,
+        fs,
+        wm,
+        net_manager,
+        platform: new WebPlatformAPI(),
+        virtual_programs,
+        isothread_manager: itm
+    });
+    kernel.set_env_info(version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
     return await kernel.boot(on_init_spawned);

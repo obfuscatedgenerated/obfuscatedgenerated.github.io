@@ -12,7 +12,7 @@ export default {
         }
     },
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -34,8 +34,8 @@ export default {
             return 1;
         }
 
-        // source path will be /usr/bin/PKG_NAME/TRIGGER_FILE
-        const source_path = fs.join("/usr/bin", pkg_name, trigger_file);
+        // source path will be /usr/lib/PKG_NAME/TRIGGER_FILE
+        const source_path = fs.join("/usr/lib", pkg_name, trigger_file);
 
         // check the path is valid
         if (!await fs.exists(source_path)) {

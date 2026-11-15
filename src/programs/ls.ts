@@ -14,7 +14,7 @@ export default {
             "-a": "Show hidden files."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, shell, args, term } = data;
@@ -35,7 +35,7 @@ export default {
                     show_hidden = true;
                     break;
                 case "-h": {
-                    const spawn_result = kernel.spawn("help", ["ls"], shell);
+                    const spawn_result = await kernel.spawn("help", ["ls"], shell);
                     const exit_code = await spawn_result.completion;
                     spawn_result.process.kill(exit_code);
                     return exit_code;

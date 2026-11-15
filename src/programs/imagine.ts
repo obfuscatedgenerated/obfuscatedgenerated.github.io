@@ -10,6 +10,10 @@ const convert_to_image_data = async (url: string) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
+    if (!ctx) {
+        return null;
+    }
+
     // create an image to draw the png data on
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -57,7 +61,7 @@ export default {
             "-u": "Path is an web URL instead of a local filesystem path."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
@@ -82,7 +86,7 @@ export default {
         const is_web_url = args.includes("-u");
 
         let url: string;
-        let mime: string;
+        let mime: string | null = null;
         if (!is_web_url) {
             // process the path
             url = fs.absolute(path);
@@ -145,6 +149,11 @@ export default {
                     mime = get_req.headers.get("content-type");
                 } else {
                     mime = head_req.headers.get("content-type");
+                }
+
+                if (!mime) {
+                    term.writeln(`${PREFABS.error}Could not determine mime type of URL: ${url}${STYLE.reset_all}`);
+                    return 1;
                 }
 
                 // check the mime type is valid

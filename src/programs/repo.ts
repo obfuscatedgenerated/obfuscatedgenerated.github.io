@@ -5,16 +5,22 @@ export default {
     description: "Opens the GitHub repository for OllieOS.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "GitHub Repo",
     },
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term } = data;
+        const { term, kernel } = data;
 
-        window.open("https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io", "_blank", "");
+        const platform = kernel.get_platform();
+        if (!platform) {
+            term.writeln("Opening URLs isn't supported on this platform. The repo is at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io");
+            return 1;
+        }
+
+        await platform.open_url("https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io");
 
         term.writeln("Opened repo in a new tab.");
 

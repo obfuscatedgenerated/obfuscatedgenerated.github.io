@@ -23,10 +23,31 @@ export {
 
 /**
  * @group Program Types
- * @category Privileged-by-default Programs
+ * @category Kernel Functions
  */
 export {
-    PrivilegedProgram,
-    PrivilegedProgramMain,
-    PrivilegedProgramMainData
+    KernelFunc,
+    KernelFuncs,
+    KernelFuncData,
+    RequestKernelFunc,
+} from "../types";
+
+/**
+ * @group Program Types
+ * @category Threads
+ */
+export {
+    ThreadFunc,
+    ThreadFuncs,
+    ThreadData,
+    RunThread,
+} from "../types";
+
+/**
+ * @group Program Types
+ * @category Programs
+ */
+export {
+    ProgramSections,
+    UserspaceProgramMainData,
 } from "../types";

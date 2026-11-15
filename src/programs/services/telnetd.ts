@@ -1,4 +1,4 @@
-import type {PrivilegedProgram} from "../../types";
+import type {Program} from "../../types";
 import {AbstractTerminal, KeyEvent} from "../../kernel/term_ctl";
 import {UserspaceClientSocket} from "../../kernel/network";
 
@@ -176,8 +176,10 @@ export default {
     name: "telnetd",
     description: "Telnet service",
     usage_suffix: "",
+    space: "kernel",
+    reason: "Telnet service: to create a virtual terminal for each session.",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
@@ -216,7 +218,7 @@ export default {
 
                 // spawn ash shell running with our virtual terminal
                 try {
-                    const spawn_result = kernel.spawn(
+                    const spawn_result = await kernel.spawn(
                         process,
                         "ash",
                         ["--login"],
@@ -235,7 +237,7 @@ export default {
             });
         };
 
-        const net_manager = kernel.get_network_manager();
+        const net_manager = kernel.get_network_manager()!;
 
         // start immediately if network already up
         if (await net_manager.is_up()) {
@@ -252,4 +254,4 @@ export default {
         process.detach();
         return 0;
     }
-} as PrivilegedProgram;
+} as Program;

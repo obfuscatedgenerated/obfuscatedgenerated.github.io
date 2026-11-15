@@ -15,7 +15,7 @@ export default {
             "workdir": "The working directory to start in. Set after scripts are run. Defaults to the working directory ash was invoked from.",
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const {kernel, term, process, args} = data;
 

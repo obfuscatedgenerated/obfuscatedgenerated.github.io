@@ -1,4 +1,4 @@
-import {graph_query, json_convert_dep_sets_to_arrs, repo_query, triggers} from ".";
+import {BIN_DIR, graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
@@ -30,14 +30,13 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
     // returns 0 for success, 1 for failure, 2 for fatal error
 
     const fs = kernel.get_fs();
-    const prog_reg = kernel.get_program_registry();
 
     // iter over remaining args
     const total_pkgs = unique_args.length;
     while (unique_args.length >= 1) {
         term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
 
-        const pkg_at_version = unique_args.shift();
+        const pkg_at_version = unique_args.shift()!;
 
         // if in the format of pkg@version, split it up
         const pkg_split = pkg_at_version.split("@");
@@ -49,6 +48,14 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
         const pkg_name = pkg_split[0];
         let pkg_version = pkg_split[1];
+
+        // also covers dependencies, which come back through here as virtual args
+        if (!is_valid_pkg_name(pkg_name) || (pkg_version !== undefined && !is_valid_pkg_version(pkg_version))) {
+            term.writeln(`${PREFABS.error}Illegal package name '${pkg_at_version}'.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
+            continue;
+        }
 
         term.writeln(`${FG.yellow}Checking for ${pkg_name}...${STYLE.reset_all}`);
 
@@ -85,7 +92,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             continue;
         }
 
-        const pkg_dir = `/usr/bin/${pkg_name}`;
+        const pkg_dir = `${LIB_DIR}/${pkg_name}`;
 
         // check version file if already installed
         // TODO: switch to pkg graph?
@@ -158,8 +165,18 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             continue;
         }
 
+        // file paths from the repo are joined onto the package dir, so they can't be allowed to climb out of it
+        const illegal_file = content_list.find((file) => file !== "" && !is_valid_pkg_file_path(file));
+        if (illegal_file !== undefined) {
+            term.writeln(`${PREFABS.error}Illegal file path '${illegal_file}' in package ${pkg_name}.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
         // get each file in contents and load it into memory
         const file_map = new Map<string, Uint8Array>();
+        let download_failed = false;
 
         for (const file of content_list) {
             if (file === "") {
@@ -172,12 +189,83 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
             if (!file_contents) {
                 term.writeln(`${PREFABS.error}Not found.${STYLE.reset_all}`);
-                error_count++;
-                term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
-                continue;
+                download_failed = true;
+                break;
             }
 
             file_map.set(file, new Uint8Array(file_contents));
+        }
+
+        if (download_failed) {
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // programs are top level <name>.js + <name>.json pairs, these go flat into BIN_DIR
+        const decoder = new TextDecoder();
+        const program_names: string[] = [];
+        let program_error: string | null = null;
+
+        for (const file of file_map.keys()) {
+            if (file.includes("/") || !file.endsWith(".json")) {
+                continue;
+            }
+
+            const program_name = file.slice(0, -".json".length);
+            if (!file_map.has(`${program_name}.js`)) {
+                continue;
+            }
+
+            if (program_name === "" || program_name === "." || program_name === ".." || program_name.includes("\\")) {
+                program_error = `Illegal program name '${program_name}'.`;
+                break;
+            }
+
+            // these names would collide with the files pkg writes into the package dir
+            if (["pkg", "meta", PROGRAMS_MANIFEST.replace(/\.json$/, "")].includes(program_name)) {
+                program_error = `Program name '${program_name}' is reserved.`;
+                break;
+            }
+
+            try {
+                const program_metadata = JSON.parse(decoder.decode(file_map.get(file)));
+                if (program_metadata.name !== program_name) {
+                    program_error = `Program metadata ${file} has name '${program_metadata.name}', expected '${program_name}'.`;
+                    break;
+                }
+            } catch (e) {
+                program_error = `Could not parse program metadata ${file}: ${e.message}`;
+                break;
+            }
+
+            if (await fs.exists(`/bin/${program_name}.json`)) {
+                program_error = `Program '${program_name}' conflicts with a builtin program.`;
+                break;
+            }
+
+            if (await fs.exists(`${BIN_DIR}/${program_name}.json`) || await fs.exists(`${BIN_DIR}/${program_name}.js`)) {
+                program_error = `Program '${program_name}' is already provided by another package.`;
+                break;
+            }
+
+            program_names.push(program_name);
+        }
+
+        if (program_error) {
+            term.writeln(`${PREFABS.error}${program_error}${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
+        }
+
+        // old pkgbuild output has top level .js files with no matching <program>.json
+        const has_unpaired_js = [...file_map.keys()].some((file) => !file.includes("/") && file.endsWith(".js") && !program_names.includes(file.slice(0, -".js".length)));
+        if (has_unpaired_js) {
+            term.writeln(`${PREFABS.error}Package '${pkg_name}' uses the old package layout. Please build the package with a newer version of pkgbuild.${STYLE.reset_all}`);
+            error_count++;
+            term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
+            continue;
         }
 
         // add pkg.json and meta.json to file map
@@ -186,6 +274,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         // TODO: adding this might be redundant, we could just move build timestamp to the graph. could also use file array to help mounting? prob not needed.
         // TODO: build timestamp isnt actually used anywhere yet so not a big deal until implemented. might be quicker to just open this file rather than access the graph anyway!
         file_map.set("meta.json", encoder.encode(JSON.stringify(meta, json_convert_dep_sets_to_arrs)));
+        file_map.set(PROGRAMS_MANIFEST, encoder.encode(JSON.stringify(program_names)));
 
         // not actually executing the file map yet, as we need to ensure the graph is valid
 
@@ -224,30 +313,17 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
         term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
 
         await fs.make_dir(pkg_dir);
+        await fs.make_dir(BIN_DIR);
 
-        // write each file
+        // write each file, programs go to BIN_DIR and everything else to the package dir
         for (const [file, value] of file_map) {
-            await fs.write_file(`${pkg_dir}/${file}`, value, true);
+            const program_name = file.replace(/\.(js|json)$/, "");
+            const target_dir = program_names.includes(program_name) ? BIN_DIR : pkg_dir;
+
+            await fs.write_file(`${target_dir}/${file}`, value, true);
         }
 
         // TODO: check if this fails somehow, and if it does, rollback the graph
-
-        term.writeln(`${FG.green}Installed!${STYLE.reset_all}`);
-
-        term.writeln(`${FG.cyan}Mounting package ${pkg_name}...${STYLE.reset_all}`);
-
-        // it doesn't matter if mounting fails, the graph is fine and the files are downloaded properly, so no rollback needed
-
-        // mount each program
-        const decoder = new TextDecoder();
-        for (const [filename, value] of file_map) {
-            if (!filename.endsWith(".js")) {
-                continue;
-            }
-
-            // TODO: accept uint8 directly
-            await prog_reg.mount_and_register_with_output(filename, decoder.decode(value), term, true);
-        }
 
         term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
 

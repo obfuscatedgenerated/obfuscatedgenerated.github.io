@@ -13,7 +13,7 @@ export default {
             "-so": "Only clear the scrollback."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: helper_completion_options(["-h", "-s", "-so"]),
     main: async (data) => {
         // extract from data to make code less verbose
@@ -47,7 +47,7 @@ export default {
                 term.writeln(`${STYLE.bold + FG.gray}Scrollback cleared.${STYLE.reset_all}`);
                 break;
             case "-h": {
-                const spawn_result = kernel.spawn("help", ["clear"], shell);
+                const spawn_result = await kernel.spawn("help", ["clear"], shell);
                 const exit_code = await spawn_result.completion;
                 spawn_result.process.kill(exit_code);
                 return exit_code;
