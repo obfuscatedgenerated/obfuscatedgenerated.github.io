@@ -18,7 +18,7 @@ import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
 import * as builtin_modules from "./programs/@ALL";
-import {WebWorkerIsoThreadManager} from "./isothread_impl/web_worker";
+import {WebIsoThreadManager} from "./isothread_impl/web";
 import {KernelFuncs, Program} from "./types";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
@@ -66,7 +66,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
 
     // create isothread manager if workers are available
     const version = document.body.dataset.version || "unknown";
-    const itm = typeof Worker !== "undefined" ? new WebWorkerIsoThreadManager(`public/script/isothread_worker.bundle.js?v=${version}`) : undefined;
+    const itm = typeof Worker !== "undefined" ? new WebIsoThreadManager(`public/script/isothread_worker.bundle.js?v=${version}`) : undefined;
 
     // create a terminal using the registry and filesystem
     const term = new XTermTerminal({

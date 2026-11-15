@@ -2,6 +2,7 @@ import {AbstractIsoThreadManager, type ThreadEntry} from "../../kernel/isothread
 import type {FoundProgram} from "../../kernel";
 import {type KernelEndpoint, type RPCKernelToProgramMessage, type RPCProgramToKernelMessage, serialise_error} from "../../kernel/rpc";
 import {endpoint_from_message_port} from "../util/message_port_endpoint";
+import {fetch_entry_source} from "../util/entry_source";
 import {HOST_SRCDOC} from "./host";
 
 interface HostReady {
@@ -25,17 +26,8 @@ export class WebWorkerIsoThreadManager extends AbstractIsoThreadManager {
      */
     constructor(worker_url: string) {
         super();
-        this.#ready = Promise.all([this.#fetch_worker_source(worker_url), this.#create_host_frame()])
+        this.#ready = Promise.all([fetch_entry_source(worker_url), this.#create_host_frame()])
             .then(([worker_source, frame]) => ({frame, worker_source}));
-    }
-
-    async #fetch_worker_source(worker_url: string): Promise<string> {
-        const response = await fetch(worker_url, {cache: "no-cache"});
-        if (!response.ok) {
-            throw new Error(`Failed to fetch isothread worker from ${worker_url}: ${response.status}`);
-        }
-
-        return await response.text();
     }
 
     #create_host_frame(): Promise<HTMLIFrameElement> {

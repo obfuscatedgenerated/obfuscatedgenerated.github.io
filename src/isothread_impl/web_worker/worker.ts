@@ -10,6 +10,7 @@ import "../../lib/ansi";
 import "../../lib/capabilities";
 import "../../lib/path";
 import "../../lib/timers";
+import {set_frame_dom} from "../../lib/window_dom";
 
 interface WorkerStartMessage {
     source: string;
@@ -36,6 +37,11 @@ self.addEventListener("message", (event: MessageEvent<WorkerStartMessage>) => {
     Reflect.deleteProperty(self, "Worker");
     Reflect.deleteProperty(self, "SharedWorker");
     // TODO: could attempt to polyfill with thread sections later
+
+    // this entry also runs inside a sandboxed frame, for programs that need a dom. there the window's content is the frame's own document
+    if (typeof document !== "undefined") {
+        set_frame_dom(document.body.attachShadow({mode: "open"}));
+    }
 
     const {source, source_url, entry} = event.data;
     run_program(endpoint, source, source_url, entry);

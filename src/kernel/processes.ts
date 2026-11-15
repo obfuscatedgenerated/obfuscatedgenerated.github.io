@@ -564,6 +564,30 @@ export class ProcessContext implements MirrorSource {
         return timers.wait_for_timeout.call(this, id);
     }
 
+    #primary_window: AbstractWindow | null = null;
+    #primary_window_claimed = false;
+
+    /**
+     * Kernel only. Sets a window made ahead of time for the process, which its first create_window call from userspace returns instead of making a new one.
+     * Used when the program runs inside its window (a frame isothread).
+     */
+    set_primary_window(wind: AbstractWindow): void {
+        this.#primary_window = wind;
+    }
+
+    #create_window_for_userspace(): AbstractWindow {
+        if (!this.#primary_window) {
+            return this.create_window();
+        }
+
+        if (this.#primary_window_claimed) {
+            throw new Error("Programs with needs_dom can only have one window for now, as the window is the frame the program runs in");
+        }
+
+        this.#primary_window_claimed = true;
+        return this.#primary_window;
+    }
+
     create_window(): AbstractWindow {
         const wm = this.#manager.window_manager;
         if (!wm) {
@@ -704,7 +728,7 @@ export class ProcessContext implements MirrorSource {
             has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window()?.create_userspace_proxy_as_full_window() ?? null, enumerable: true },
+            create_window: { value: () => self.#create_window_for_userspace().create_userspace_proxy_as_full_window(), enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();

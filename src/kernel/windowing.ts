@@ -1,4 +1,5 @@
 import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+import {window_dom} from "../lib/window_dom";
 
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
@@ -253,6 +254,7 @@ export abstract class AbstractWindow implements MirrorSource {
             id: "constant",
             owner_pid: "constant",
             manager: "eager_handle",
+            dom: window_dom,
             title: "mirrored",
             width: "mirrored",
             height: "mirrored",

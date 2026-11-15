@@ -193,6 +193,12 @@ interface UserspaceProgram<F extends KernelFuncs = KernelFuncs> extends BaseProg
     space?: "user";
 
     /**
+     * Default false. If true, the program runs in a frame instead of a worker, so it has a DOM, and its window's {@link UserspaceWindow.dom dom} is the frame's own document.
+     * It is just as isolated, but shares the page's thread, and can only have one window.
+     */
+    needs_dom?: boolean;
+
+    /**
      * Functions that run in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
      * They share nothing with main: everything goes through the input and the return value.
      */

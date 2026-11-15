@@ -659,7 +659,13 @@ export class Kernel {
 
             this.#spawned_code.set(process.pid, {found: program_search, source, code: null});
 
-            result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
+            try {
+                result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
+            } catch (e) {
+                // don't leave a process behind for a program that never started (e.g. needs_dom with no window manager)
+                process.kill(1);
+                throw e;
+            }
 
             // killing the process (ctrl+c, kill, power off) has to take the thread down with it
             process.add_teardown(() => itm.terminate(process.pid));

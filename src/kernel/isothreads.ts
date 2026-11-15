@@ -61,7 +61,7 @@ export abstract class AbstractIsoThreadManager {
     }
 
     run(found: FoundProgram, source: string, process: ProcessContext, main_data: ProgramMainData): IsoThread {
-        const started = this._start(source, found, "main");
+        const started = this._start(source, found, "main", process);
 
         let resolve_completion!: (exit_code: number) => void;
         let reject_completion!: (error: Error) => void;
@@ -163,7 +163,7 @@ export abstract class AbstractIsoThreadManager {
             }
         }
 
-        const started = this._start(source, found, "completion");
+        const started = this._start(source, found, "completion", null);
 
         let resolve_registered!: (complete: CompleteFunction) => void;
         let reject_registered!: (error: Error) => void;
@@ -246,5 +246,8 @@ export abstract class AbstractIsoThreadManager {
         thread.terminate();
     }
 
-    abstract _start(source: string, found: FoundProgram, entry: ThreadEntry): {endpoint: KernelEndpoint, terminate(): void};
+    /**
+     * @param process The process the thread runs for, or null when it isn't running a process (e.g. completions).
+     */
+    abstract _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null): {endpoint: KernelEndpoint, terminate(): void};
 }
