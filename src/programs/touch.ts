@@ -12,7 +12,7 @@ export default {
             "file": "The file to create."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const {kernel, args, term} = data;

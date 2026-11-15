@@ -17,7 +17,7 @@ export default {
         feature: "Opens the bug reporter with the feature request template.",
         other: "Opens the bug reporter with the template chooser (default).",
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "Bug Reporter",
     },

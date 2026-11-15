@@ -36,7 +36,7 @@ export default {
     description: "Says hello to the world!",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const { term } = data;
 

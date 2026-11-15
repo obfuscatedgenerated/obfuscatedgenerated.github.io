@@ -5,7 +5,7 @@ export default {
     description: "Opens the GitHub repository for OllieOS.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "GitHub Repo",
     },

@@ -54,7 +54,7 @@ export default {
     description: "Exposes an HTTP server on port 8080 that responds with 'Hello, World!' to any request.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "Hello, HTTP!",
         starts_in_terminal_window: true

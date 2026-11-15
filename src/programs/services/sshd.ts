@@ -612,7 +612,7 @@ export default {
     reason: "SSH service: to create a virtual terminal for each session.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     completion: async () => [],
     main: async (data) => {

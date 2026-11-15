@@ -23,7 +23,7 @@ export default {
             }
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     // TODO: completion
     main: async (data) => {
         // TODO: replace filename with using piping and send content to stdout

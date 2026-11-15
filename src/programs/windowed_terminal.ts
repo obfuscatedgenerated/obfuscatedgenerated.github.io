@@ -8,7 +8,7 @@ export default {
     arg_descriptions: {
         "command": "The command to run in the terminal. If not provided, defaults to the user's shell."
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     gui: {
         display_name: "Terminal",
