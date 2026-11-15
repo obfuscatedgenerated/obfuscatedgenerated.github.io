@@ -1,8 +1,9 @@
-import {BIN_DIR, graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
+import {graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
 import {remove_subcommand} from "./remove";
+import {apply_pkg_batch, bin_name_taken, create_pkg_batch, type PkgBatch} from "./batch";
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS, FG} = ANSI;
@@ -10,9 +11,13 @@ const {STYLE, PREFABS, FG} = ANSI;
 // we arent allowing multiple versions of the same package to be installed at once to simplify things significantly
 // TODO: write to a file that tracks installed packages and their dependents (for list and smart removal/cleanup)
 
-export const add_subcommand = async (data: ProgramMainData, depended_by?: string) => {
+/**
+ * @param parent_batch The batch of the command this is part of (e.g. installing dependencies). Without one, the changes are applied when this finishes.
+ */
+export const add_subcommand = async (data: ProgramMainData, depended_by?: string, parent_batch?: PkgBatch) => {
     // extract from data to make code less verbose
     const {args, term, kernel, shell, sdk} = data;
+    const batch = parent_batch ?? create_pkg_batch();
 
     // remove subcommand name
     args.shift();
@@ -117,7 +122,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 term.writeln(`${FG.yellow}Uninstalling old ${pkg_name}@${pkg_version}...${STYLE.reset_all}`);
 
                 const remove_data = {kernel, term, process: data.process, args: ["remove", pkg_name], unsubbed_args: ["remove", pkg_name], raw_parts: [...data.raw_parts, "remove", pkg_name], sdk};
-                const remove_exit_code = await remove_subcommand(remove_data);
+                const remove_exit_code = await remove_subcommand(remove_data, batch);
                 if (remove_exit_code !== 0) {
                     term.writeln(`${PREFABS.error}Failed to uninstall old version.${STYLE.reset_all}`);
                     error_count++;
@@ -141,7 +146,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
 
             // we need to also pass the name of the dependent package to the virtual call to let the graph know
             const virtual_data = {kernel, term, process: data.process, args: virtual_args, unsubbed_args: virtual_args, raw_parts: [...data.raw_parts, ...virtual_args], sdk};
-            const virtual_exit_code = await add_subcommand(virtual_data, pkg_name);
+            const virtual_exit_code = await add_subcommand(virtual_data, pkg_name, batch);
 
             if (virtual_exit_code !== 0) {
                 term.writeln(`${PREFABS.error}Failed to install dependencies.${STYLE.reset_all}`);
@@ -244,7 +249,7 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
                 break;
             }
 
-            if (await fs.exists(`${BIN_DIR}/${program_name}.json`) || await fs.exists(`${BIN_DIR}/${program_name}.js`)) {
+            if (await bin_name_taken(fs, batch, program_name)) {
                 program_error = `Program '${program_name}' is already provided by another package.`;
                 break;
             }
@@ -310,38 +315,52 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             continue;
         }
 
-        term.writeln(`${FG.yellow}Installing ${pkg_name}...${STYLE.reset_all}`);
+        term.writeln(`${FG.yellow}Queued ${pkg_name}@${pkg_version} for install.${STYLE.reset_all}`);
 
-        await fs.make_dir(pkg_dir);
-        await fs.make_dir(BIN_DIR);
-
-        // write each file, programs go to BIN_DIR and everything else to the package dir
-        for (const [file, value] of file_map) {
-            const program_name = file.replace(/\.(js|json)$/, "");
-            const target_dir = program_names.includes(program_name) ? BIN_DIR : pkg_dir;
-
-            await fs.write_file(`${target_dir}/${file}`, value, true);
+        // programs go to BIN_DIR when the batch is applied
+        for (const program_name of program_names) {
+            batch.install.set(program_name, {js: file_map.get(`${program_name}.js`)!, json: file_map.get(`${program_name}.json`)!});
         }
 
-        // TODO: check if this fails somehow, and if it does, rollback the graph
+        // everything else goes to the package dir afterwards, followed by triggers as they may use the programs
+        batch.steps.push(async () => {
+            await fs.make_dir(pkg_dir);
 
-        term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
-
-        // check for any triggers
-        if (meta && meta.triggers && Object.keys(meta.triggers).length > 0) {
-            term.writeln(`${FG.cyan}Processing install triggers...${STYLE.reset_all}`);
-
-            for (const [trigger_name, trigger_data] of Object.entries(meta.triggers)) {
-                if (!await triggers.trigger_exists(fs, trigger_name)) {
-                    term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
+            for (const [file, value] of file_map) {
+                if (program_names.includes(file.replace(/\.(js|json)$/, ""))) {
                     continue;
                 }
 
-                term.writeln(`${FG.cyan}Processing install trigger: ${trigger_name}...${STYLE.reset_all}`);
-                await triggers.process_install_trigger(trigger_name, trigger_data, pkg_name, pkg_version, term, kernel, shell);
+                await fs.write_file(`${pkg_dir}/${file}`, value, true);
             }
 
-            term.writeln(`${FG.cyan}Install trigger processing complete.${STYLE.reset_all}`);
+            term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
+
+            // check for any triggers
+            if (meta && meta.triggers && Object.keys(meta.triggers).length > 0) {
+                term.writeln(`${FG.cyan}Processing install triggers for ${pkg_name}...${STYLE.reset_all}`);
+
+                for (const [trigger_name, trigger_data] of Object.entries(meta.triggers)) {
+                    if (!await triggers.trigger_exists(fs, trigger_name)) {
+                        term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
+                        continue;
+                    }
+
+                    term.writeln(`${FG.cyan}Processing install trigger: ${trigger_name}...${STYLE.reset_all}`);
+                    await triggers.process_install_trigger(trigger_name, trigger_data, pkg_name, pkg_version, term, kernel, shell);
+                }
+
+                term.writeln(`${FG.cyan}Install trigger processing complete.${STYLE.reset_all}`);
+            }
+        });
+    }
+
+    // the command that started the batch applies it, so the user is only asked once
+    if (!parent_batch) {
+        term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
+
+        if (!(await apply_pkg_batch(batch, kernel, term))) {
+            return 1;
         }
     }
 

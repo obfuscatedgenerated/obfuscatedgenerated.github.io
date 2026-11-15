@@ -11,6 +11,9 @@ import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
 import {migrate_subcommand} from "./migrate";
 import {MIGRATION_PATH} from "../../lib/pkg_migration";
+import {kernel_funcs} from "./batch";
+
+export {kernel_funcs};
 
 import type {UserspaceKernel, UserspaceSpawnResult} from "../../kernel";
 import type {UserspaceShell} from "../../abstract_shell";
@@ -450,6 +453,14 @@ export const graph_query = {
     },
 
     // empties the graph, e.g. when migrating to a new install layout
+    // the graph as it is now, to restore if a batch of changes can't be applied
+    snapshot: (): string => JSON.stringify(graph, json_convert_dep_sets_to_arrs),
+
+    restore: async (fs: UserspaceFileSystem, snapshot: string) => {
+        graph = as_graph(JSON.parse(snapshot, json_convert_dep_arrs_to_sets));
+        await fs.write_file(GRAPH_PATH, snapshot);
+    },
+
     reset: async (fs: UserspaceFileSystem) => {
         graph = Object.create(null);
         await fs.write_file(GRAPH_PATH, "{}");
@@ -717,4 +728,4 @@ export default {
 
         return 0;
     }
-} satisfies Program;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;
