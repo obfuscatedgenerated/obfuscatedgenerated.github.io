@@ -8,11 +8,11 @@ type EitherKernel = Kernel | UserspaceKernel;
 
 export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
     /**
-      Methods to interact with the kernel.<br />
-      By default, this is the {@link UserspaceKernel} interface.<br />
-      If you expect your program to have immediate privileged access, (i.e. init system, drivers) use the {@link PrivilegedProgram} types / Program<Kernel> generics.
-      Otherwise, use {@link UserspaceKernel.request_privilege kernel.request_privilege()} to access a privileged kernel.
-    **/
+     Methods to interact with the kernel.<br />
+     By default, this is the {@link UserspaceKernel} interface.<br />
+     If you expect your program to have immediate privileged access, (i.e. init system, drivers) use the {@link PrivilegedProgram} types / Program<Kernel> generics.
+     Otherwise, declare kernel_funcs and use {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} to run them in kernel space.
+     **/
     kernel: K,
 
     /**
@@ -52,6 +52,37 @@ export interface ProgramMainData<K extends EitherKernel = UserspaceKernel> {
 }
 
 export type ProgramMain<K extends EitherKernel = UserspaceKernel> = (data: ProgramMainData<K>) => Promise<number>;
+
+/**
+ * Data given to a kernel function: the real kernel, and the calling process's own context, so anything it creates is owned (and cleaned up) by the caller.
+ */
+export interface KernelFuncData {
+    kernel: Kernel;
+    process: ProcessContext;
+    term: AbstractTerminal;
+    shell?: AbstractShell;
+}
+
+/**
+ * A function of a userspace program that runs in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
+ * The input comes from the program's untrusted side, so it should be validated before use.
+ */
+export type KernelFunc<Input = never, Result = unknown> = (data: KernelFuncData, input: Input) => Result | Promise<Result>;
+export type KernelFuncs = Record<string, KernelFunc<any, any>>;
+
+type KernelFuncInput<F extends KernelFunc<any, any>> = Parameters<F>[1];
+
+/**
+ * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted.
+ */
+// input is optional only when the func accepts undefined
+export type RequestKernelFunc<F extends KernelFuncs> = <N extends keyof F & string>(
+    name: N,
+    reason: string,
+    ...input: undefined extends KernelFuncInput<F[N]> ? [input?: KernelFuncInput<F[N]>] : [input: KernelFuncInput<F[N]>]
+) => Promise<Awaited<ReturnType<F[N]>>>;
+
+export type UserspaceProgramMainData<F extends KernelFuncs = KernelFuncs> = ProgramMainData<UserspaceKernel<F>>;
 
 /**
  * Properties related to how the program should be displayed in 3rd party GUI listings, such as start menus, search, etc.
@@ -94,7 +125,7 @@ export interface ProgramGUIProps {
 export type ArgDescriptions = { [key: string]: string | ArgDescriptions };
 
 
-export interface BaseProgram<K extends EitherKernel = EitherKernel> {
+export interface BaseProgram<D extends ProgramMainData<EitherKernel> = ProgramMainData<EitherKernel>> {
     /**
      * Command to execute the program, should ideally match the filename for consistency.
      */
@@ -134,7 +165,7 @@ export interface BaseProgram<K extends EitherKernel = EitherKernel> {
     /**
      * Async entry point of the program, returning the exit code.
      */
-    main: ProgramMain<K>;
+    main: (data: D) => Promise<number>;
 
     /**
      * Optional tab completion generator.
@@ -153,15 +184,21 @@ export interface BaseProgram<K extends EitherKernel = EitherKernel> {
     gui?: ProgramGUIProps;
 }
 
-interface UserspaceProgram extends BaseProgram<UserspaceKernel> {
+interface UserspaceProgram<F extends KernelFuncs = KernelFuncs> extends BaseProgram<UserspaceProgramMainData<F>> {
     /**
      * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
      * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
      */
     space?: "user";
+
+    /**
+     * Functions that run in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
+     * They share nothing with main: everything goes through the input and the return value.
+     */
+    kernel_funcs?: F;
 }
 
-interface KernelspaceProgram extends BaseProgram<Kernel> {
+interface KernelspaceProgram extends BaseProgram<ProgramMainData<Kernel>> {
     /**
      * The space the program should run in. Default is "user". If set to "kernel", the program will be run with privileged kernel access, and will have access to the full {@link Kernel} interface. If set to "user", the program will be run with limited {@link UserspaceKernel} access, and will not have access to privileged kernel methods.
      * Requesting kernel space will trigger a prompt whenever the program is ran, unless already granted when spawned by another privileged program. If the user denies the request, the program will not run.
@@ -174,7 +211,10 @@ interface KernelspaceProgram extends BaseProgram<Kernel> {
     reason: string;
 }
 
-export type Program = UserspaceProgram | KernelspaceProgram;
+/**
+ * When defining kernel funcs, pass `typeof kernel_funcs` to the Program generic to get type safety on the kernel.request_kernel_func() method in main.
+ */
+export type Program<F extends KernelFuncs = KernelFuncs> = UserspaceProgram<F> | KernelspaceProgram;
 
 export interface CompletionData {
     term: UserspaceTerminal,
@@ -205,4 +245,4 @@ export type CompletionGenerator = (data: CompletionData) => Promise<string[] | n
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion">;
+export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion" | "kernel_funcs">;

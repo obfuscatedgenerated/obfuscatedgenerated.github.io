@@ -12,7 +12,15 @@ import {
     UserspaceProcessManager
 } from "./processes";
 import {AbstractShell, create_shell_rpc_proxy} from "../abstract_shell";
-import {CompletionData, CompletionGenerator, Program, ProgramMain, ProgramMainData, ProgramMetadata} from "../types";
+import {
+    CompletionData,
+    CompletionGenerator, KernelFuncData,
+    KernelFuncs,
+    Program,
+    ProgramMain,
+    ProgramMainData,
+    ProgramMetadata, RequestKernelFunc
+} from "../types";
 
 import {type AbstractTerminal} from "./term_ctl";
 import {NEWLINE} from "../lib/ansi";
@@ -49,7 +57,7 @@ export interface SpawnResult {
  * @group Userspace
  * @category Kernel
  */
-export interface UserspaceKernel {
+export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
     /**
      * Whether this kernel interface has privileged access (false for UserspaceKernel interface).
      */
@@ -117,13 +125,6 @@ export interface UserspaceKernel {
      */
     spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): Promise<SpawnResult>;
 
-    /**
-     * Request privileged access from the kernel.
-     * @param reason The reason for requesting privileged access.
-     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
-     */
-    request_privilege(reason: string): Promise<Kernel | false>;
-
     find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
     list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
 
@@ -132,6 +133,11 @@ export interface UserspaceKernel {
      * @returns The completions, or null to fall back to default completion.
      */
     complete(name: string, data: CompletionData): Promise<string[] | null>;
+
+    /**
+     * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
+     */
+    request_kernel_func: RequestKernelFunc<F>;
 }
 
 /**
@@ -156,7 +162,7 @@ export interface ParsedCommandLine {
 interface EnqueuedPrivilegeRequest {
     reason: string;
     process: ProcessContext;
-    resolve: (value: Kernel | false) => void;
+    resolve: (value: boolean) => void;
 }
 
 // TODO: make it a class property if adding custom PATH support
@@ -173,6 +179,31 @@ export interface FoundProgram {
 export interface ProgramCode {
     main: ProgramMain;
     completion?: CompletionGenerator;
+    kernel_funcs?: KernelFuncs;
+}
+
+export type VirtualProgram = Program & Pick<ProgramCode, "kernel_funcs">;
+
+interface SpawnedCode {
+    found: FoundProgram;
+
+    // kernelspace programs already have this, isothreaded ones import it on their first request
+    code: Promise<ProgramCode> | null;
+
+    // userspace programs store source code to then load program again in kernelspace if a kernel_func is successfully requested
+    source: string | null;
+}
+
+export class NotAllowedError extends Error {
+    constructor(reason: string) {
+        super(`Request denied: ${reason}`);
+    }
+}
+
+export class KernelFuncNotFoundError extends Error {
+    constructor(func_name: string) {
+        super(`Kernel function ${func_name} not found`);
+    }
 }
 
 /**
@@ -207,7 +238,11 @@ export class Kernel {
         env: "unknown"
     };
 
+    // TODO: unused?
     #init_program_name: string | null = null;
+
+    // pid -> spawned code, used for resolving kernel_func requests
+    readonly #spawned_code = new Map<number, SpawnedCode>();
 
     /**
      * Whether this kernel interface has privileged access (always true for Kernel class).
@@ -374,7 +409,7 @@ export class Kernel {
         return programs;
     }
 
-    #virtual_programs: Map<string, Program> = new Map();
+    #virtual_programs: Map<string, VirtualProgram> = new Map();
 
     /**
      * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
@@ -458,7 +493,11 @@ export class Kernel {
                         throw new Error("program does not export a main function");
                     }
 
-                    return { main: main as ProgramMain, completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined };
+                    return {
+                        main: main as ProgramMain,
+                        completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined,
+                        kernel_funcs: exports.kernel_funcs as KernelFuncs | undefined
+                    };
                 }
                 default: {
                     // adding a host kind without handling it here is a compile error
@@ -596,6 +635,8 @@ export class Kernel {
                 throw e;
             }
 
+            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source: null});
+
             // create a promise that resolves when the program completes
             result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
         } else {
@@ -610,6 +651,8 @@ export class Kernel {
                 throw e;
             }
 
+            this.#spawned_code.set(process.pid, {found: program_search, source, code: null});
+
             result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
 
             // killing the process (ctrl+c, kill, power off) has to take the thread down with it
@@ -619,6 +662,8 @@ export class Kernel {
         // killing the process ends it as far as callers are concerned, even if in-realm code is still running
         const killed = new Promise<number>((resolve) => process.add_exit_listener(resolve));
         result_promise = Promise.race([result_promise, killed]);
+
+        process.add_teardown(() => this.#spawned_code.delete(process.pid));
 
         // TODO: expose function equivalent to process.kill(await result_promise) as a shorthand for programs calling others
 
@@ -873,11 +918,7 @@ export class Kernel {
         agent_proc.process.kill(approved === null ? 1 : 0);
 
         // return result
-        if (approved) {
-            resolve(this);
-        } else {
-            resolve(false);
-        }
+        resolve(approved === true);
     }
 
     #handle_privilege_request_queue() {
@@ -907,9 +948,9 @@ export class Kernel {
      * Request privileged access from the kernel.
      * @param reason The reason for requesting privileged access.
      * @param process The process requesting privileged access.
-     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
+     * @returns A boolean indicating whether privileged access should be granted.
      */
-    async request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false> {
+    async request_privilege(reason: string, process: ProcessContext): Promise<boolean> {
         // TODO: a way to skip this when already privileged? or by pid?
         // TODO: remember my answer option when /sys security is implemented
         // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
@@ -927,6 +968,48 @@ export class Kernel {
             // begin handling the queue if not already doing so
             this.#handle_privilege_request_queue();
         });
+    }
+
+    async request_kernel_func(process: ProcessContext, name: string, reason: string, input?: unknown): Promise<unknown> {
+        const spawned = this.#spawned_code.get(process.pid);
+        if (!spawned) {
+            throw new Error(`Process ${process.pid} has no spawned code to request kernel functions from.`);
+        }
+
+        const {found, code, source} = spawned;
+
+        if (!code && !source) {
+            throw new Error(`Process ${process.pid} has no code or source to request kernel functions from.`);
+        }
+
+        const granted = await this.request_privilege(reason, process);
+        if (!granted) {
+            throw new NotAllowedError("rejected by user");
+        }
+
+        let program_code: ProgramCode;
+        if (code) {
+            program_code = await code;
+        } else {
+            // load the code from source in kernel space
+            program_code = await this.load_program(found, KERNEL_HOST);
+            spawned.code = Promise.resolve(program_code);
+        }
+
+        if (!program_code.kernel_funcs || !Object.hasOwn(program_code.kernel_funcs, name)) {
+            throw new KernelFuncNotFoundError(name);
+        }
+
+        const func = program_code.kernel_funcs[name];
+
+        const data: KernelFuncData = {
+            kernel: this,
+            process,
+            term: process.terminal,
+            shell: process.shell,
+        };
+
+        return await func(data, input);
     }
 
     power_off() {
@@ -959,7 +1042,7 @@ export class Kernel {
         wm?: AbstractWindowManager,
         net_manager?: AbstractNetworkManager,
         platform?: AbstractPlatformAPI,
-        virtual_programs?: Map<string, Program>,
+        virtual_programs?: Map<string, VirtualProgram>,
         isothread_manager?: AbstractIsoThreadManager
     }) {
         this.#term = opts.term;
@@ -1015,10 +1098,16 @@ export class Kernel {
                     self.spawn(process, command, args, shell, false, process.terminal),
                 enumerable: true
             },
+
             request_privilege: {
                 value: (reason: string) => self.request_privilege(reason, process),
                 enumerable: true
             },
+            request_kernel_func: {
+                value: (name: string, reason: string, input?: unknown) => self.request_kernel_func(process, name, reason, input),
+                enumerable: true
+            },
+
             find_program: { value: (name: string) => self.find_program(name), enumerable: true },
             list_programs: { value: () => self.list_programs(), enumerable: true },
 

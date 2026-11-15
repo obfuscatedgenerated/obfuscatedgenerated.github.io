@@ -4,7 +4,7 @@ import { ImageAddon } from "@xterm/addon-image";
 
 import {ANSI, NEWLINE, word_wrap} from "./lib/ansi";
 
-import {Kernel} from "./kernel";
+import {Kernel, VirtualProgram} from "./kernel";
 
 import type {AbstractFileSystem} from "./kernel/filesystem";
 import { LocalStorageFS } from "./fs_impl/localstorage";
@@ -17,9 +17,9 @@ import "./load_global_externals";
 import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 
-import * as builtin_programs from "./programs/@ALL";
-import {LoopbackIsoThreadManager} from "./isothread_impl/loopback";
+import * as builtin_modules from "./programs/@ALL";
 import {WebWorkerIsoThreadManager} from "./isothread_impl/web_worker";
+import {KernelFuncs, Program} from "./types";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
     // create a filesystem
@@ -42,6 +42,17 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
                 }
             }, 10);
         });
+    }
+
+    // construct virtual programs (inline kernel funcs)
+    const builtin_programs: Record<string, Program> = {};
+    const virtual_programs = new Map<string, VirtualProgram>();
+
+    for (const [name, module] of Object.entries(builtin_modules)) {
+        const kernel_funcs = (module as {kernel_funcs?: KernelFuncs}).kernel_funcs;
+
+        builtin_programs[name] = module.default;
+        virtual_programs.set(name, kernel_funcs ? {...module.default, kernel_funcs} : module.default);
     }
 
     // create initial files
@@ -104,7 +115,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         fs,
         wm,
         net_manager,
-        virtual_programs: new Map(Object.entries(builtin_programs)),
+        virtual_programs,
         isothread_manager: itm
     });
     kernel.set_env_info(version, "web");
