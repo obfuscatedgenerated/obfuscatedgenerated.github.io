@@ -1,6 +1,6 @@
 import {define_local} from "./locals";
 
-interface ReadLineBufferSource {
+export interface ReadLineBufferSource {
     current_line: string;
     current_index: number;
 }
