@@ -194,15 +194,18 @@ interface SpawnedCode {
     source: string | null;
 }
 
-export class NotAllowedError extends Error {
+// programs in an isothread can't instanceof these, so they are told apart by name, which is what survives rpc
+class NotAllowedError extends Error {
     constructor(reason: string) {
         super(`Request denied: ${reason}`);
+        this.name = "NotAllowedError";
     }
 }
 
-export class KernelFuncNotFoundError extends Error {
+class KernelFuncNotFoundError extends Error {
     constructor(func_name: string) {
         super(`Kernel function ${func_name} not found`);
+        this.name = "KernelFuncNotFoundError";
     }
 }
 
@@ -452,6 +455,24 @@ export class Kernel {
         return await collect_completions(await program_code.completion(completion_data));
     }
 
+    // imported as a module so the code gets its own scope, with no access to anything in the kernel
+    async #import_program_code(source: string, source_url: string): Promise<ProgramCode> {
+        const exports = await import_module_source(source, source_url);
+
+        const default_export = exports.default as {main?: unknown, completion?: unknown} | undefined;
+        const main = exports.main ?? default_export?.main;
+
+        if (typeof main !== "function") {
+            throw new Error("program does not export a main function");
+        }
+
+        return {
+            main: main as ProgramMain,
+            completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined,
+            kernel_funcs: exports.kernel_funcs as KernelFuncs | undefined
+        };
+    }
+
     /**
      * Loads a program's code in the given host. Builtins always come from the virtual program store.
      */
@@ -482,22 +503,7 @@ export class Kernel {
             switch (host.kind) {
                 case "kernel": {
                     const code_str = await this.#fs.read_file(code_path) as string;
-
-                    // imported as a module so the code gets its own scope, with no access to anything in the kernel
-                    const exports = await import_module_source(code_str, code_path);
-
-                    const default_export = exports.default as {main?: unknown, completion?: unknown} | undefined;
-                    const main = exports.main ?? default_export?.main;
-
-                    if (typeof main !== "function") {
-                        throw new Error("program does not export a main function");
-                    }
-
-                    return {
-                        main: main as ProgramMain,
-                        completion: (exports.completion ?? default_export?.completion) as CompletionGenerator | undefined,
-                        kernel_funcs: exports.kernel_funcs as KernelFuncs | undefined
-                    };
+                    return await this.#import_program_code(code_str, code_path);
                 }
                 default: {
                     // adding a host kind without handling it here is a compile error
@@ -970,37 +976,47 @@ export class Kernel {
         });
     }
 
+    /**
+     * Runs one of the calling process's own kernel functions in kernel space, after prompting. Typed per program via {@link UserspaceKernel.request_kernel_func}.
+     */
     async request_kernel_func(process: ProcessContext, name: string, reason: string, input?: unknown): Promise<unknown> {
         const spawned = this.#spawned_code.get(process.pid);
         if (!spawned) {
             throw new Error(`Process ${process.pid} has no spawned code to request kernel functions from.`);
         }
 
-        const {found, code, source} = spawned;
-
-        if (!code && !source) {
-            throw new Error(`Process ${process.pid} has no code or source to request kernel functions from.`);
+        if (typeof name !== "string") {
+            throw new KernelFuncNotFoundError(String(name));
         }
 
-        const granted = await this.request_privilege(reason, process);
+        // code already loaded in kernel space can be checked before bothering the user
+        if (spawned.code) {
+            const loaded_code = await spawned.code;
+            if (!loaded_code.kernel_funcs || !Object.hasOwn(loaded_code.kernel_funcs, name)) {
+                throw new KernelFuncNotFoundError(name);
+            }
+        }
+
+        const granted = await this.request_privilege(`${spawned.found.metadata.name} wants to run its kernel function "${name}": ${reason}`, process);
         if (!granted) {
             throw new NotAllowedError("rejected by user");
         }
 
-        let program_code: ProgramCode;
-        if (code) {
-            program_code = await code;
-        } else {
-            // load the code from source in kernel space
-            program_code = await this.load_program(found, KERNEL_HOST);
-            spawned.code = Promise.resolve(program_code);
+        if (!spawned.code) {
+            if (spawned.source === null) {
+                throw new Error(`Process ${process.pid} has no code or source to request kernel functions from.`);
+            }
+
+            // imported from the source the process was spawned with (not re-read from disk, which may have changed since), and only once granted
+            // the promise is stored so requests arriving together share one import
+            spawned.code = this.#import_program_code(spawned.source, spawned.found.code_path ?? spawned.found.metadata.name);
         }
+
+        const program_code = await spawned.code;
 
         if (!program_code.kernel_funcs || !Object.hasOwn(program_code.kernel_funcs, name)) {
             throw new KernelFuncNotFoundError(name);
         }
-
-        const func = program_code.kernel_funcs[name];
 
         const data: KernelFuncData = {
             kernel: this,
@@ -1009,7 +1025,7 @@ export class Kernel {
             shell: process.shell,
         };
 
-        return await func(data, input);
+        return await program_code.kernel_funcs[name](data, input);
     }
 
     power_off() {
@@ -1099,10 +1115,6 @@ export class Kernel {
                 enumerable: true
             },
 
-            request_privilege: {
-                value: (reason: string) => self.request_privilege(reason, process),
-                enumerable: true
-            },
             request_kernel_func: {
                 value: (name: string, reason: string, input?: unknown) => self.request_kernel_func(process, name, reason, input),
                 enumerable: true
