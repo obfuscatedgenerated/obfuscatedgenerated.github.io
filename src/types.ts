@@ -66,6 +66,7 @@ export interface KernelFuncData {
 /**
  * A function of a userspace program that runs in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
  * The input comes from the program's untrusted side, so it should be validated before use.
+ * Note that kernel funcs do not run in the same context/module as main, so they cannot share state or variables. Everything must be passed through the input and return value.
  */
 export type KernelFunc<Input = never, Result = unknown> = (data: KernelFuncData, input: Input) => Result | Promise<Result>;
 export type KernelFuncs = Record<string, KernelFunc<any, any>>;
