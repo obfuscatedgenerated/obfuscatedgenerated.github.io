@@ -10,8 +10,8 @@ export interface ProgramMainData<K extends EitherKernel = UserspaceKernel, T ext
     /**
      Methods to interact with the kernel.<br />
      By default, this is the {@link UserspaceKernel} interface.<br />
-     If you expect your program to have immediate privileged access, (i.e. init system, drivers) use the {@link PrivilegedProgram} types / Program<Kernel> generics.
-     Otherwise, declare kernel_funcs and use {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} to run them in kernel space.
+     Programs that need full access for their whole run (i.e. init system, drivers) set space: "kernel", and get the {@link Kernel} instead.
+     Otherwise, export kernel_funcs and use {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} to run them in kernel space.
      **/
     kernel: K,
 
@@ -55,6 +55,8 @@ export type ProgramMain<K extends EitherKernel = UserspaceKernel> = (data: Progr
 
 /**
  * Data given to a kernel function: the real kernel, and the calling process's own context, so anything it creates is owned (and cleaned up) by the caller.
+ * @group Program Types
+ * @category Kernel Functions
  */
 export interface KernelFuncData {
     kernel: Kernel;
@@ -67,6 +69,8 @@ export interface KernelFuncData {
  * A function of a userspace program that runs in kernel space when requested with {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} and granted.
  * The input comes from the program's untrusted side, so it should be validated before use.
  * Note that kernel funcs do not run in the same context/module as main, so they cannot share state or variables. Everything must be passed through the input and return value.
+ * @group Program Types
+ * @category Kernel Functions
  */
 export type KernelFunc<Input = never, Result = unknown> = (data: KernelFuncData, input: Input) => Result | Promise<Result>;
 export type KernelFuncs = Record<string, KernelFunc<any, any>>;
@@ -79,6 +83,8 @@ type SectionInputArgs<F extends SectionFunc> = undefined extends SectionInput<F>
 
 /**
  * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted.
+ * @group Program Types
+ * @category Kernel Functions
  */
 export type RequestKernelFunc<F extends KernelFuncs> = <N extends keyof F & string>(
     name: N,
@@ -88,6 +94,8 @@ export type RequestKernelFunc<F extends KernelFuncs> = <N extends keyof F & stri
 
 /**
  * Data given to a thread function: the same userspace access as the program's main, whatever space the program itself runs in.
+ * @group Program Types
+ * @category Threads
  */
 export interface ThreadData {
     kernel: UserspaceKernel;
@@ -98,12 +106,16 @@ export interface ThreadData {
 /**
  * A function of a program that runs in an isothread of its own when requested with {@link UserspaceProcessContext.run_thread process.run_thread()}, keeping heavy work off the thread the program runs on.
  * Note that thread funcs do not run in the same context/module as main, so they cannot share state or variables. Everything must be passed through the input and return value.
+ * @group Program Types
+ * @category Threads
  */
 export type ThreadFunc<Input = never, Result = unknown> = (data: ThreadData, input: Input) => Result | Promise<Result>;
 export type ThreadFuncs = Record<string, ThreadFunc<any, any>>;
 
 /**
  * Runs one of the calling program's own thread functions in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if the function is not defined in the program's threads export.
+ * @group Program Types
+ * @category Threads
  */
 export type RunThread<T extends ThreadFuncs> = <N extends keyof T & string>(
     name: N,
@@ -112,6 +124,8 @@ export type RunThread<T extends ThreadFuncs> = <N extends keyof T & string>(
 
 /**
  * The sections a program exports besides its main: pass `{kernel_funcs: typeof kernel_funcs, threads: typeof threads}` (or just the ones the program has) to the Program generic to get type safety when requesting them.
+ * @group Program Types
+ * @category Programs
  */
 export interface ProgramSections {
     kernel_funcs?: KernelFuncs;
@@ -215,7 +229,7 @@ export interface BaseProgram<D extends ProgramMainData<EitherKernel> = ProgramMa
     completion?: CompletionGenerator;
 
     /**
-     * Should be set to "2.0.0" for programs that have been ported to the 2.0.0+ API. if not set, considered to be "1.x" legacy program that will not run.
+     * The version of the program API the program is written for, e.g. "3.0.0". Programs written for an older major version than the OS's will not run. If not set, the program is considered a "1.x" legacy program.
      */
     compat?: string;
 

@@ -46,7 +46,7 @@ export {
  * @group Userspace
  * @category Windowing
  */
-export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent, UserspaceAccessibleCompositionLayer} from "../kernel/windowing";
+export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEvent, UserspaceAccessibleCompositionLayer, ScreenSize} from "../kernel/windowing";
 
 /**
  * @group Userspace

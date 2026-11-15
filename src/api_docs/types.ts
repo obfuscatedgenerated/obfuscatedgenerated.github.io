@@ -20,3 +20,34 @@ export {
     CompletionGenerator,
     CompletionData,
 } from "../types";
+
+/**
+ * @group Program Types
+ * @category Kernel Functions
+ */
+export {
+    KernelFunc,
+    KernelFuncs,
+    KernelFuncData,
+    RequestKernelFunc,
+} from "../types";
+
+/**
+ * @group Program Types
+ * @category Threads
+ */
+export {
+    ThreadFunc,
+    ThreadFuncs,
+    ThreadData,
+    RunThread,
+} from "../types";
+
+/**
+ * @group Program Types
+ * @category Programs
+ */
+export {
+    ProgramSections,
+    UserspaceProgramMainData,
+} from "../types";
