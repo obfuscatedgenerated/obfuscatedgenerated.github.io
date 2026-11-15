@@ -1,4 +1,5 @@
 import { ProcessContext } from "./processes";
+import { mirror_source, MirrorSource } from "./rpc";
 /**
  * Error thrown when a path is not found.
  *
@@ -116,8 +117,9 @@ export interface UserspaceFileSystem {
  * @group Kernel (Privileged)
  * @category Filesystem
  */
-export declare abstract class AbstractFileSystem {
+export declare abstract class AbstractFileSystem implements MirrorSource {
     #private;
+    readonly [mirror_source]: true;
     _initialised: boolean;
     _root: string;
     _home: string;

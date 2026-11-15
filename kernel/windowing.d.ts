@@ -1,3 +1,4 @@
+import { mirror_source, MirrorSource } from "./rpc";
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 export type UserspaceAccessibleCompositionLayer = "background" | "normal" | "top";
 declare const PRIVILEGED_LAYERS: readonly ["overlay", "administrative"];
@@ -14,6 +15,7 @@ export interface UserspaceOtherWindow {
     readonly y: string | number;
     readonly visible: boolean;
     readonly maximised: boolean;
+    readonly maximisable: boolean;
     readonly layer: WindowCompositionLayer;
 }
 export interface UserspaceWindow extends UserspaceOtherWindow {
@@ -26,6 +28,7 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
     y: string | number;
     visible: boolean;
     maximised: boolean;
+    maximisable: boolean;
     readonly layer: WindowCompositionLayer;
     request_layer(new_layer: UserspaceAccessibleCompositionLayer): void;
     center(): void;
@@ -45,7 +48,8 @@ export interface UserspaceWindow extends UserspaceOtherWindow {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export declare abstract class AbstractWindow {
+export declare abstract class AbstractWindow implements MirrorSource {
+    readonly [mirror_source]: true;
     abstract readonly id: number;
     abstract readonly dom: ShadowRoot;
     abstract readonly manager: AbstractWindowManager;
@@ -86,8 +90,19 @@ export declare abstract class AbstractWindow {
     create_userspace_proxy_as_other_window(): UserspaceOtherWindow;
     create_userspace_proxy_as_full_window(): UserspaceWindow;
 }
+/**
+ * Size of the area windows can occupy, in CSS pixels.
+ */
+export interface ScreenSize {
+    width: number;
+    height: number;
+}
 export interface UserspaceWindowManager {
     get_unique_manager_type_name(): string;
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Read synchronously, and kept up to date as it changes.
+     */
+    get_screen_size(): ScreenSize;
     get_all_windows(): UserspaceOtherWindow[];
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
@@ -97,8 +112,13 @@ export interface UserspaceWindowManager {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export declare abstract class AbstractWindowManager {
+export declare abstract class AbstractWindowManager implements MirrorSource {
+    readonly [mirror_source]: true;
     abstract get_unique_manager_type_name(): string;
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Implementations call notify_mirror_change(this) when it changes.
+     */
+    abstract get_screen_size(): ScreenSize;
     abstract get Window(): new (owner_pid: number) => AbstractWindow;
     abstract get_all_windows(): AbstractWindow[];
     abstract get_window_by_id(id: number): AbstractWindow | null;

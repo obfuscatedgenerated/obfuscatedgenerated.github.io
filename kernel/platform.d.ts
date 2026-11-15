@@ -23,7 +23,15 @@ export interface UserspacePlatformAPI {
     get_capabilities(): PlatformCapability[];
     supports(capability_name: string): boolean;
     call(capability_name: string, args?: unknown): Promise<unknown>;
+    /**
+     * Opens a URL outside the OS, e.g. in a new browser tab. http(s) URLs open directly; any other scheme (e.g. steam://) asks the user first, and rejects with a "NotAllowedError" if denied.
+     */
+    open_url(url: string): Promise<void>;
 }
+/**
+ * Asks the user to confirm something on behalf of a process. Resolves true if confirmed.
+ */
+export type PlatformConfirm = (reason: string) => Promise<boolean>;
 /**
  * Base class for platform specific API injection.
  *
@@ -37,7 +45,18 @@ export declare abstract class AbstractPlatformAPI {
     abstract get_platform_name(): string;
     abstract get_capabilities(): PlatformCapability[];
     protected abstract _call_internal(capability_name: string, args: unknown): Promise<unknown>;
+    /**
+     * Opens a URL outside the OS. The URL is already validated, and confirmed by the user if it isn't http(s).
+     */
+    protected abstract _open_url(url: URL): Promise<void>;
+    /**
+     * Opens a URL outside the OS. Kernel side, so it never asks: userspace goes through the proxy, which does.
+     */
+    open_url(url: string | URL): Promise<void>;
     supports(capability_name: string): boolean;
     call(capability_name: string, args?: unknown): Promise<unknown>;
-    create_userspace_proxy(): UserspacePlatformAPI;
+    /**
+     * @param confirm Asks the user on behalf of the process the proxy belongs to, used before opening non-http(s) URLs.
+     */
+    create_userspace_proxy(confirm: PlatformConfirm): UserspacePlatformAPI;
 }

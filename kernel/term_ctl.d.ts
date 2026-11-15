@@ -1,4 +1,5 @@
 import { ANSI } from "../lib/ansi";
+import { mirror_source, MirrorSource } from "./rpc";
 export interface KeyEvent {
     key: string;
     domEvent: KeyboardEvent;
@@ -60,6 +61,11 @@ export interface UserspaceTerminal {
     register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
     /** @returns A function that unregisters the handler. */
     register_on_printable_key_event_handler(handler: UserspaceKeyEventHandler): () => void;
+    /**
+     * Ctrl+C calls the most recently pushed handler, before any key handler runs.
+     * @returns A function that removes the handler.
+     */
+    push_interrupt_handler(handler: () => void): () => void;
     get_custom_flag(flag: string): unknown;
     set_custom_flag(flag: string, value: unknown): void;
     supports_custom_flag(flag: string): boolean;
@@ -82,8 +88,9 @@ export interface UserspaceTerminal {
  * @group Kernel (Privileged)
  * @category Terminal
  */
-export declare abstract class AbstractTerminal {
+export declare abstract class AbstractTerminal implements MirrorSource {
     #private;
+    readonly [mirror_source]: true;
     protected _kernel_has_panicked: boolean;
     /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
     get ansi(): Readonly<{
@@ -197,6 +204,7 @@ export declare abstract class AbstractTerminal {
      * @param high_priority - If true, the handler will be placed at the beginning of the handler list (cannot run before the default printable key handler)
      */
     register_on_printable_key_event_handler: (handler: KeyEventHandler, high_priority?: boolean) => () => void;
+    push_interrupt_handler: (handler: () => void) => () => void;
     protected _enqueue_key_event: (e: KeyEvent) => void;
     protected _simulate_typing(text: string): void;
     wait_for_keypress: () => Promise<KeyEvent>;

@@ -1,3 +1,4 @@
+import { mirror_source, MirrorSource } from "./rpc";
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 export type SocketDataListener = (data: Uint8Array) => void | Promise<void>;
 export type SocketCloseListener = () => void | Promise<void>;
@@ -54,10 +55,12 @@ export interface UserspaceClientSocket {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export declare abstract class AbstractClientSocket {
+export declare abstract class AbstractClientSocket implements MirrorSource {
     #private;
+    readonly [mirror_source]: true;
     readonly id: string;
-    ready_state: SocketReadyState;
+    get ready_state(): SocketReadyState;
+    protected set_ready_state(state: SocketReadyState): void;
     protected readonly _data_listeners: Set<SocketDataListener>;
     protected constructor(id: string);
     add_event_listener(event: ClientSocketEvent, callback: ClientSocketEventListener): void;
@@ -104,7 +107,8 @@ export interface UserspaceNetworkManager {
  * @group Kernel (Privileged)
  * @category Networking
  */
-export declare abstract class AbstractNetworkManager {
+export declare abstract class AbstractNetworkManager implements MirrorSource {
+    readonly [mirror_source]: true;
     protected _port_map: Map<number, AbstractServerSocket>;
     get bound_ports(): number[];
     abstract get_unique_manager_type_name(): string;

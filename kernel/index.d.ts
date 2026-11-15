@@ -1,12 +1,12 @@
-import { ProgramRegistry, UserspaceProgramRegistry } from "./prog_registry";
 import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
-import { SoundRegistry } from "./sfx_registry";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { AbstractPlatformAPI, UserspacePlatformAPI } from "./platform";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager } from "./processes";
-import type { AbstractShell } from "../abstract_shell";
+import { AbstractShell } from "../abstract_shell";
+import { CompletionData, CompletionGenerator, KernelFuncs, Program, ProgramMain, ProgramMetadata, RequestKernelFunc, ThreadFuncs } from "../types";
 import { type AbstractTerminal } from "./term_ctl";
+import { AbstractIsoThreadManager } from "./isothreads";
 /**
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
@@ -27,19 +27,11 @@ export interface SpawnResult {
  * @group Userspace
  * @category Kernel
  */
-export interface UserspaceKernel {
+export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
     /**
      * Whether this kernel interface has privileged access (false for UserspaceKernel interface).
      */
     readonly privileged: boolean;
-    /**
-     * Access the {@link UserspaceProgramRegistry} for this kernel.
-     */
-    get_program_registry(): UserspaceProgramRegistry;
-    /**
-     * Access the {@link SoundRegistry} for this kernel.
-     */
-    get_sound_registry(): SoundRegistry;
     /**
      * Access the chosen {@link UserspaceFileSystem} for this kernel.
      */
@@ -76,6 +68,8 @@ export interface UserspaceKernel {
      * Access the {@link UserspaceIPCManager} for this kernel.
      */
     get_ipc(): UserspaceIPCManager;
+    has_isothread_manager(): boolean;
+    get_isothread_manager_unique_type_name(): string | null;
     /**
      * Access the version and environment info assigned to this kernel.
      */
@@ -90,13 +84,25 @@ export interface UserspaceKernel {
      * @param shell The shell that is spawning this process, if any.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): SpawnResult;
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): Promise<SpawnResult>;
+    find_program(name: string): Promise<{
+        code_path?: string;
+        metadata: ProgramMetadata;
+    } | null>;
+    list_programs(): Promise<{
+        name: string;
+        metadata: ProgramMetadata;
+        builtin: boolean;
+    }[]>;
     /**
-     * Request privileged access from the kernel.
-     * @param reason The reason for requesting privileged access.
-     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
+     * Runs a program's tab completion. Isolated programs complete in their own thread, so their code never loads in the caller's realm.
+     * @returns The completions, or null to fall back to default completion.
      */
-    request_privilege(reason: string): Promise<Kernel | false>;
+    complete(name: string, data: CompletionData): Promise<string[] | null>;
+    /**
+     * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
+     */
+    request_kernel_func: RequestKernelFunc<F>;
 }
 /**
  * Parsed command line structure.
@@ -116,6 +122,24 @@ export interface ParsedCommandLine {
     raw_parts: string[];
     run_in_bg: boolean;
 }
+export interface FoundProgram {
+    code_path: string | null;
+    metadata: ProgramMetadata;
+}
+export interface ProgramCode {
+    main: ProgramMain;
+    completion?: CompletionGenerator;
+    kernel_funcs?: KernelFuncs;
+    threads?: ThreadFuncs;
+}
+export type VirtualProgram = Program & Pick<ProgramCode, "kernel_funcs" | "threads">;
+/**
+ * Where program code is evaluated. Only kernelspace exists until isothreads are implemented; an isothread host will be added as another kind.
+ */
+export type ProgramCodeHost = {
+    readonly kind: "kernel";
+};
+export declare const KERNEL_HOST: ProgramCodeHost;
 /**
  * Interface for interacting with the kernel.
  *
@@ -134,14 +158,6 @@ export declare class Kernel {
      * Whether the kernel has panicked.
      */
     get panicked(): boolean;
-    /**
-     * Access the {@link ProgramRegistry} for this kernel.
-     */
-    get_program_registry(): ProgramRegistry;
-    /**
-     * Access the {@link SoundRegistry} for this kernel.
-     */
-    get_sound_registry(): SoundRegistry;
     /**
      * Access the chosen {@link AbstractFileSystem} implementation for this kernel.
      */
@@ -178,6 +194,8 @@ export declare class Kernel {
      * Access the {@link IPCManager} for this kernel.
      */
     get_ipc(): IPCManager;
+    get_isothread_manager(): AbstractIsoThreadManager | null;
+    has_isothread_manager(): boolean;
     /**
      * Access the version and environment info assigned to this kernel.
      */
@@ -191,17 +209,32 @@ export declare class Kernel {
      * @param env Custom string representing the environment OllieOS is running in (i.e. "web", "node", etc).
      */
     set_env_info(version: string, env: string): void;
+    find_program(name: string): Promise<FoundProgram | null>;
+    list_programs(): Promise<{
+        name: string;
+        metadata: ProgramMetadata;
+        builtin: boolean;
+    }[]>;
+    /**
+     * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
+     * @returns The completions, or null to fall back to default completion.
+     */
+    complete(name: string, data: CompletionData): Promise<string[] | null>;
+    /**
+     * Loads a program's code in the given host. Builtins always come from the virtual program store.
+     */
+    load_program(name_or_found: string | FoundProgram, host: ProgramCodeHost): Promise<ProgramCode>;
     /**
      * Spawn a new process.
      * @param cmd_or_parse Either a command string or a pre-parsed command line to execute.
      * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
-     * @param start_privileged Whether to start the process with privileged kernel access. The process will not need to use {@link request_privilege} if this is true!!!
+     * @param start_privileged Whether the spawner vouches for the program, so it isn't asked about: a kernelspace program runs without the prompt to allow it, and a userspace program's kernel funcs run without asking. It never gives a userspace program the kernel.
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn: (spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal) => SpawnResult;
+    spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult>;
     /**
      * Throw all the toys out of the pram.
      * @param message The panic message to show at the top of the panic screen.
@@ -219,12 +252,28 @@ export declare class Kernel {
      * Request privileged access from the kernel.
      * @param reason The reason for requesting privileged access.
      * @param process The process requesting privileged access.
-     * @returns A promise that resolves to a privileged {@link Kernel} interface if approved, or false if denied.
+     * @returns A boolean indicating whether privileged access should be granted.
      */
-    request_privilege(reason: string, process: ProcessContext): Promise<Kernel | false>;
+    request_privilege(reason: string, process: ProcessContext): Promise<boolean>;
+    /**
+     * Runs one of the calling process's own kernel functions in kernel space, after prompting. Typed per program via {@link UserspaceKernel.request_kernel_func}.
+     */
+    request_kernel_func(process: ProcessContext, name: string, reason: string, input?: unknown): Promise<unknown>;
+    /**
+     * Runs one of the calling process's own thread functions, in an isothread when possible. Typed per program via {@link UserspaceProcessContext.run_thread}.
+     */
+    run_thread(process: ProcessContext, name: string, input?: unknown): Promise<unknown>;
     power_off(): void;
     reboot(): void;
-    constructor(term: AbstractTerminal, fs: AbstractFileSystem, prog_registry?: ProgramRegistry, sound_registry?: SoundRegistry, wm?: AbstractWindowManager, net_manager?: AbstractNetworkManager, platform?: AbstractPlatformAPI);
+    constructor(opts: {
+        term: AbstractTerminal;
+        fs: AbstractFileSystem;
+        wm?: AbstractWindowManager;
+        net_manager?: AbstractNetworkManager;
+        platform?: AbstractPlatformAPI;
+        virtual_programs?: Map<string, VirtualProgram>;
+        isothread_manager?: AbstractIsoThreadManager;
+    });
     /**
      * Create a userspace proxy of this kernel for use in a userspace process.
      * @param process The process to create the proxy for.

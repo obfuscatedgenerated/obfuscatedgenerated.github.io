@@ -1,6 +1,6 @@
 {
   "name": "ollieos",
-  "version": "2.10.1",
+  "version": "3.0.0",
   "description": "",
   "main": "index.js",
   "types": "index.d.ts",
@@ -16,7 +16,6 @@
   "homepage": "https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io#readme",
   "dependencies": {
     "@xterm/xterm": "^5.5.0",
-    "howler": "^2.2.3",
     "@types/html-to-text": "^9.0.1"
   }
 }

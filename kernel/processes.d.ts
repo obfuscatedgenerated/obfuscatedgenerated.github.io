@@ -3,6 +3,9 @@ import type { AbstractShell } from "../abstract_shell";
 import type { ParsedCommandLine } from "./index";
 import { AbstractClientSocket, AbstractNetworkManager, AbstractServerSocket, NetworkManagerEvent, NetworkManagerEventListener, UserspaceClientSocket, UserspaceServerSocket } from "./network";
 import { AbstractTerminal, UserspaceTerminal } from "./term_ctl";
+import { mirror_source, MirrorSource } from "./rpc";
+import type { RunThread, ThreadFuncs } from "../types";
+type ThreadRunner = (process: ProcessContext, name: string, input: unknown) => Promise<unknown>;
 export interface IPCMessage {
     from: number;
     to: number;
@@ -52,7 +55,11 @@ export interface UserspaceOtherProcessContext {
     readonly attachment: ProcessAttachment;
     readonly source_command: ParsedCommandLine;
 }
-export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> extends UserspaceOtherProcessContext {
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T>;
     cwd: string;
     readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
@@ -64,15 +71,16 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     has_timeout(id: number): boolean;
     create_interval(callback: () => void, interval: number): number;
     clear_interval(id: number): void;
-    create_window(): UserspaceWindow | null;
+    create_window(): UserspaceWindow;
     network_listen(port: number): Promise<UserspaceServerSocket>;
     network_connect(host: string, port: number): Promise<UserspaceClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     network_remove_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
     get bound_ports(): number[];
 }
-export declare class ProcessContext {
+export declare class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements MirrorSource {
     #private;
+    readonly [mirror_source]: true;
     constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd?: string);
     get pid(): number;
     get cwd(): string;
@@ -89,6 +97,10 @@ export declare class ProcessContext {
     detach(silently?: boolean): void;
     dispose_resources(): void;
     kill(exit_code?: number): void;
+    /**
+     * Kernel only. Runs once the process's own exit listeners have finished (or timed out), e.g. to terminate its isothread without cutting off its cleanup.
+     */
+    add_teardown(teardown: () => void): void;
     add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
     create_timeout(callback: () => void, delay: number, on_cancel?: () => void): number;
     cancel_timeout(id: number): void;
@@ -97,7 +109,16 @@ export declare class ProcessContext {
     has_interval(id: number): boolean;
     clear_interval(id: number): void;
     wait_for_timeout(id: number): Promise<boolean>;
-    create_window(): AbstractWindow | null;
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T>;
+    /**
+     * Kernel only. Sets a window made ahead of time for the process, which its first create_window call from userspace returns instead of making a new one.
+     * Used when the program runs inside its window (a frame isothread).
+     */
+    set_primary_window(wind: AbstractWindow): void;
+    create_window(): AbstractWindow;
     network_listen(port: number): Promise<AbstractServerSocket>;
     network_connect(host: string, port: number): Promise<AbstractClientSocket>;
     network_add_manager_listener(event: NetworkManagerEvent, listener: NetworkManagerEventListener): void;
@@ -115,6 +136,11 @@ export interface UserspaceProcessManager {
 export declare class ProcessManager {
     #private;
     constructor(wm?: AbstractWindowManager | null, net_manager?: AbstractNetworkManager | null);
+    /**
+     * Kernel only. Sets how processes run their thread functions, as that needs the kernel (program code and the isothread manager).
+     */
+    set_thread_runner(runner: ThreadRunner): void;
+    _run_thread(process: ProcessContext, name: string, input: unknown): Promise<unknown>;
     get window_manager(): AbstractWindowManager | null;
     get ipc_manager(): IPCManager;
     get network_manager(): AbstractNetworkManager | null;
@@ -126,3 +152,4 @@ export declare class ProcessManager {
     kill(pid: number, exit_code?: number): boolean;
     create_userspace_proxy(process_pid: number): UserspaceProcessManager;
 }
+export {};

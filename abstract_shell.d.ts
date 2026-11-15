@@ -19,3 +19,5 @@ export declare abstract class AbstractShell {
     abstract get memory(): AbstractShellMemory;
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
+export declare const create_shell_memory_rpc_proxy: (memory: AbstractShellMemory) => AbstractShellMemory;
+export declare const create_shell_rpc_proxy: (shell: AbstractShell) => AbstractShell;
