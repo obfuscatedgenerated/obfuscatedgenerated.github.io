@@ -102,7 +102,7 @@ export const kernel_funcs = {
             subproc.process.kill(code);
 
             // get the gui props of the command
-            const program_search = await kernel.find_program(command);
+            const program_search = await kernel.find_program(command, process.cwd);
             if (!program_search) {
                 // program no longer exists, just close the window
                 wind.close();

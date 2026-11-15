@@ -2,6 +2,10 @@
 
 Major versions and the minor versions that added something worth mentioning. Patch releases and anything not listed are in the tags and git history.
 
+## 3.1.0: Relative program invocation
+
+Programs can now be invoked relative to the current working directory, so `./program` runs a program in the current directory, and `../program` runs one in the parent directory.
+
 ## 3.0.0: Isothreads
 
 Every userspace program now runs isolated, in a thread of its own, and talks to the kernel through an RPC layer. A misbehaving or malicious program can no longer reach the kernel, the filesystem's storage, or the page.

@@ -185,6 +185,9 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      */
     spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | UserspaceShell): Promise<UserspaceSpawnResult>;
 
+    /**
+     * Finds a program by name in the program directories, or by path (relative to the process's working directory) if the name contains a "/".
+     */
     find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
     list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
 
@@ -234,6 +237,9 @@ const PROGRAM_SEARCH_DIRS: { dir: string, builtin: boolean }[] = [
 export interface FoundProgram {
     code_path: string | null;
     metadata: ProgramMetadata;
+
+    // how the program is named to the user, e.g. in permission prompts. a program run by path shows the path too, as any file can claim any name
+    display_name: string;
 }
 
 export interface ProgramCode {
@@ -420,9 +426,17 @@ export class Kernel {
         this.#env_info.env = env;
     }
 
-    async find_program(name: string): Promise<FoundProgram | null> {
+    /**
+     * Finds a program by name in the program directories, or by path if the name contains a "/". As on Linux, the working directory is never searched for a bare name, so a file there can't stand in for a real program.
+     * @param cwd The directory a relative path is resolved from.
+     */
+    async find_program(name: string, cwd = "/"): Promise<FoundProgram | null> {
+        if (name.includes("/")) {
+            return await this.#find_program_by_path(name, cwd);
+        }
+
         // names are single path segments, so they can never escape the search directories
-        if (name === "" || name === "." || name === ".." || name.includes("/")) {
+        if (name === "" || name === "." || name === "..") {
             return null;
         }
 
@@ -436,7 +450,7 @@ export class Kernel {
 
             try {
                 const metadata = JSON.parse(await fs.read_file(metadata_path) as string) as ProgramMetadata;
-                return {code_path: builtin ? null : `${dir}/${name}.js`, metadata};
+                return {code_path: builtin ? null : `${dir}/${name}.js`, metadata, display_name: metadata.name};
             } catch (e) {
                 console.error(`Failed to parse metadata for program ${name} in ${dir}:`, e);
                 return null;
@@ -444,6 +458,27 @@ export class Kernel {
         }
 
         return null;
+    }
+
+    // a program run by path is its .js and .json files, given with or without the .js. it is never a builtin
+    async #find_program_by_path(path: string, cwd: string): Promise<FoundProgram | null> {
+        const fs = this.get_fs();
+
+        const base_path = fs.absolute(path.replace(/\.js$/, ""), cwd);
+        const code_path = `${base_path}.js`;
+        const metadata_path = `${base_path}.json`;
+
+        if (!(await fs.exists(code_path)) || !(await fs.exists(metadata_path))) {
+            return null;
+        }
+
+        try {
+            const metadata = JSON.parse(await fs.read_file(metadata_path) as string) as ProgramMetadata;
+            return {code_path, metadata, display_name: `${metadata.name} (${path})`};
+        } catch (e) {
+            console.error(`Failed to parse metadata for program at ${path}:`, e);
+            return null;
+        }
     }
 
     async list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]> {
@@ -489,8 +524,8 @@ export class Kernel {
      * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
      * @returns The completions, or null to fall back to default completion.
      */
-    async complete(name: string, data: CompletionRequest): Promise<string[] | null> {
-        const found = await this.find_program(name);
+    async complete(name: string, data: CompletionRequest, cwd = "/"): Promise<string[] | null> {
+        const found = await this.find_program(name, cwd);
         if (!found) {
             return null;
         }
@@ -632,16 +667,16 @@ export class Kernel {
         const args = parsed_line.args.slice();
 
         // search for the command
-        const program_search = await this.find_program(command);
+        const program_search = await this.find_program(command, spawning_process ? spawning_process.cwd : "/");
         if (!program_search) {
             throw new Error(`Command not found: ${command}`);
         }
 
         const program_metadata = program_search.metadata;
 
-        // validate that the name stored in the program matches the command called
+        // validate that the name stored in the program matches the command called (a program run by path is called by its path instead)
         // under normal circumstances this should always be true, but doing this prevents obscure spoofing exploits
-        if (program_metadata.name !== command) {
+        if (!command.includes("/") && program_metadata.name !== command) {
             throw new Error(`Program name mismatch for command ${command}: expected ${command}, got ${program_metadata.name}`);
         }
 
@@ -670,7 +705,7 @@ export class Kernel {
 
         if (kernelspace && !start_privileged) {
             // not started by a trusted spawner, but the program wants to run in kernel space, so ask
-            const maybe_kernel = await this.request_privilege(`Program ${program_metadata.name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process);
+            const maybe_kernel = await this.request_privilege(`Program ${program_search.display_name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process);
             if (!maybe_kernel) {
                 // abort spawn if the user denies the request
                 process.kill(1);
@@ -1090,7 +1125,7 @@ export class Kernel {
             }
         }
 
-        const granted = spawned.kernel_funcs_granted || await this.request_privilege(`${spawned.found.metadata.name} wants to run its kernel function "${name}": ${reason}`, process);
+        const granted = spawned.kernel_funcs_granted || await this.request_privilege(`${spawned.found.display_name} wants to run its kernel function "${name}": ${reason}`, process);
         if (!granted) {
             throw new NotAllowedError("rejected by user");
         }
@@ -1248,7 +1283,7 @@ export class Kernel {
                 enumerable: true
             },
 
-            find_program: { value: (name: string) => self.find_program(name), enumerable: true },
+            find_program: { value: (name: string) => self.find_program(name, process.cwd), enumerable: true },
             list_programs: { value: () => self.list_programs(), enumerable: true },
 
             // loading program code was never exposed directly: it would import (and run) other programs' code in the kernel realm, escaping isolation
@@ -1258,7 +1293,7 @@ export class Kernel {
                         throw new Error("complete only accepts a string name in userspace");
                     }
 
-                    return self.complete(name, data);
+                    return self.complete(name, data, process.cwd);
                 },
                 enumerable: true
             }
