@@ -1,4 +1,4 @@
-import {AbstractWindow, AbstractWindowManager, WindowCompositionLayer, WindowEvent} from "../kernel/windowing";
+import {AbstractWindow, AbstractWindowManager, type ScreenSize, WindowCompositionLayer, WindowEvent} from "../kernel/windowing";
 import {notify_mirror_change} from "../kernel/rpc";
 
 interface LayerZRange {
@@ -98,11 +98,17 @@ export class DOMWindowManager extends AbstractWindowManager {
         this.#window_map.clear();
     }
 
+    get_screen_size(): ScreenSize {
+        return {width: window.innerWidth, height: window.innerHeight};
+    }
+
     constructor() {
         super();
 
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const manager = this;
+
+        window.addEventListener("resize", () => notify_mirror_change(this));
 
         // track click events to keep track of active element (inc top bar)
         let active_window_root: HTMLDivElement | null = null;

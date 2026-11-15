@@ -41,6 +41,9 @@ export class WebFrameIsoThreadManager extends AbstractIsoThreadManager {
 
         // allow-scripts without allow-same-origin gives the frame an opaque origin
         frame.sandbox.add("allow-scripts");
+
+        // alert, confirm and prompt, which some libraries need (e.g. pyodide's default stdin). they can't reach the os, only block the page
+        frame.sandbox.add("allow-modals");
         frame.srcdoc = FRAME_SRCDOC;
         frame.style.display = "block";
         frame.style.width = "100%";

@@ -19,6 +19,7 @@ import {XTermTerminal} from "./term_impl/xterm";
 
 import * as builtin_modules from "./programs/@ALL";
 import {WebIsoThreadManager} from "./isothread_impl/web";
+import {WebPlatformAPI} from "./platform_impl/web";
 import {KernelFuncs, Program, ThreadFuncs} from "./types";
 
 export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void>) => {
@@ -115,6 +116,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         fs,
         wm,
         net_manager,
+        platform: new WebPlatformAPI(),
         virtual_programs,
         isothread_manager: itm
     });

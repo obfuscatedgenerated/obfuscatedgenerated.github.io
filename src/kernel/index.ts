@@ -195,6 +195,9 @@ interface SpawnedCode {
 
     // userspace programs store source code to then load program again in kernelspace if a kernel_func is successfully requested
     source: string | null;
+
+    // set when a trusted spawner started the process with start_privileged, so its kernel funcs run without asking
+    kernel_funcs_granted: boolean;
 }
 
 // programs in an isothread can't instanceof these, so they are told apart by name, which is what survives rpc
@@ -535,7 +538,7 @@ export class Kernel {
      * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
-     * @param start_privileged Whether to start the process with privileged kernel access. The process will not need to use {@link request_privilege} if this is true!!!
+     * @param start_privileged Whether the spawner vouches for the program, so it isn't asked about: a kernelspace program runs without the prompt to allow it, and a userspace program's kernel funcs run without asking. It never gives a userspace program the kernel.
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
@@ -602,23 +605,27 @@ export class Kernel {
         // create new process context, inheriting cwd from spawning process (or root if spawned by kernel)
         const process = this.#process_manager.create_process(term, parsed_line, shell, spawning_process ? spawning_process.cwd : "/");
 
-        if (!start_privileged && program_metadata.space === "kernel") {
-            // not granted force privilege, but the program wants to run in kernel space, so ask
+        // only kernelspace programs ever get the real kernel. start_privileged means the spawner is trusted, so it skips prompts rather than elevating:
+        // a kernelspace program skips the prompt to run, and a userspace program's kernel funcs run without asking
+        const kernelspace = program_metadata.space === "kernel";
+
+        if (kernelspace && !start_privileged) {
+            // not started by a trusted spawner, but the program wants to run in kernel space, so ask
             const maybe_kernel = await this.request_privilege(`Program ${program_metadata.name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process);
             if (!maybe_kernel) {
                 // abort spawn if the user denies the request
                 process.kill(1);
                 throw new Error(`Program ${program_metadata.name} requires privileged access to run, but the request was denied.`);
             }
-
-            start_privileged = true;
         }
+
+        const kernel_funcs_granted = !kernelspace && start_privileged === true;
 
         // protect from pollution
         const data = Object.create(null) as ProgramMainData<UserspaceKernel | Kernel>;
 
         // provide either privileged or userspace kernel access
-        if (start_privileged) {
+        if (kernelspace) {
             data.kernel = this;
             data.process = process;
         } else {
@@ -626,19 +633,19 @@ export class Kernel {
             data.process = process.create_userspace_proxy();
         }
 
-        data.term = start_privileged ? term : term.create_userspace_proxy();
+        data.term = kernelspace ? term : term.create_userspace_proxy();
         data.args = args;
-        data.shell = start_privileged || !shell ? shell : create_shell_rpc_proxy(shell);
+        data.shell = kernelspace || !shell ? shell : create_shell_rpc_proxy(shell);
         data.unsubbed_args = parsed_line.unsubbed_args;
         data.raw_parts = parsed_line.raw_parts;
-        data.sdk = start_privileged ? sdk : undefined;
+        data.sdk = kernelspace ? sdk : undefined;
 
         Object.freeze(data);
 
         let result_promise: Promise<number>;
 
         const itm = this.get_isothread_manager();
-        if (start_privileged || !itm || !program_search.code_path) {
+        if (kernelspace || !itm || !program_search.code_path) {
             // running in kernel space, so don't use an isothread
             // TODO: the last condition allows virtual programs to run in kernel space. this is because there is no code to treat as a string yet (not yet written to fs)
 
@@ -659,7 +666,7 @@ export class Kernel {
                 throw e;
             }
 
-            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source});
+            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source, kernel_funcs_granted});
 
             // create a promise that resolves when the program completes
             result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
@@ -675,7 +682,7 @@ export class Kernel {
                 throw e;
             }
 
-            this.#spawned_code.set(process.pid, {found: program_search, source, code: null});
+            this.#spawned_code.set(process.pid, {found: program_search, source, code: null, kernel_funcs_granted});
 
             try {
                 result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
@@ -1024,7 +1031,7 @@ export class Kernel {
             }
         }
 
-        const granted = await this.request_privilege(`${spawned.found.metadata.name} wants to run its kernel function "${name}": ${reason}`, process);
+        const granted = spawned.kernel_funcs_granted || await this.request_privilege(`${spawned.found.metadata.name} wants to run its kernel function "${name}": ${reason}`, process);
         if (!granted) {
             throw new NotAllowedError("rejected by user");
         }
@@ -1154,7 +1161,7 @@ export class Kernel {
         const net_mgr = self.get_network_manager();
         const net_mgr_proxy = net_mgr ? net_mgr.create_userspace_proxy() : null;
         const platform = self.get_platform();
-        const platform_proxy = platform ? platform.create_userspace_proxy() : null;
+        const platform_proxy = platform ? platform.create_userspace_proxy((reason) => self.request_privilege(reason, process)) : null;
 
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },
@@ -1200,7 +1207,6 @@ export class Kernel {
 
         return finalise_userspace_proxy(proxy, {
             privileged: "constant",
-            get_program_registry: "eager_handle",
             get_fs: "eager_handle",
             get_window_manager: "eager_handle",
             has_window_manager: "constant",

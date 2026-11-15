@@ -270,8 +270,22 @@ export abstract class AbstractWindow implements MirrorSource {
     }
 }
 
+/**
+ * Size of the area windows can occupy, in CSS pixels.
+ */
+export interface ScreenSize {
+    width: number;
+    height: number;
+}
+
 export interface UserspaceWindowManager {
     get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Read synchronously, and kept up to date as it changes.
+     */
+    get_screen_size(): ScreenSize;
+
     get_all_windows(): UserspaceOtherWindow[];
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
@@ -282,8 +296,15 @@ export interface UserspaceWindowManager {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export abstract class AbstractWindowManager {
+export abstract class AbstractWindowManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Implementations call notify_mirror_change(this) when it changes.
+     */
+    abstract get_screen_size(): ScreenSize;
 
     abstract get Window(): new (owner_pid: number) => AbstractWindow;
 
@@ -300,6 +321,7 @@ export abstract class AbstractWindowManager {
 
         Object.defineProperties(proxy, {
             get_unique_manager_type_name: { value: () => self.get_unique_manager_type_name(), enumerable: true },
+            get_screen_size: { value: () => self.get_screen_size(), enumerable: true },
             get_all_windows: {
                 value: () => self.get_all_windows().map((win) => win.create_userspace_proxy_as_other_window()),
                 enumerable: true
@@ -315,7 +337,10 @@ export abstract class AbstractWindowManager {
 
         return finalise_userspace_proxy(proxy, {
             get_unique_manager_type_name: "constant",
-        });
+            get_screen_size: "mirrored",
+        }, [
+            self
+        ]);
     }
 }
 
