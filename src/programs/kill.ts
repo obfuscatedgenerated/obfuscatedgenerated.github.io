@@ -44,7 +44,7 @@ export default {
             return 1;
         }
 
-        pm.kill(pid, 143); // SIGTERM
+        await pm.kill(pid, 143); // SIGTERM
         return 0;
     }
 } satisfies Program;

@@ -19,6 +19,7 @@ export {
 export {
     CompletionGenerator,
     CompletionData,
+    CompletionRequest,
 } from "../types";
 
 /**

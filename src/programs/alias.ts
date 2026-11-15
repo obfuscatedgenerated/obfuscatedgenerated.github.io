@@ -26,7 +26,7 @@ export default {
 
         if (data.args.length === 0) {
             // display all aliases
-            const aliases = shell.memory.list_aliases();
+            const aliases = await shell.memory.list_aliases();
             for (const [name, value] of aliases.entries()) {
                 term.writeln(`alias ${name}='${value}'`);
             }

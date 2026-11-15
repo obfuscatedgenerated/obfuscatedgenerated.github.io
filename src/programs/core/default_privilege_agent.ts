@@ -42,7 +42,7 @@ export default {
 
         // retry until we can listen to the channel (may be some delay between process start and channel assignment)
         while (!listening && retries < 20) {
-            listening = ipc.channel_listen(channel_id, async (msg) => {
+            listening = await ipc.channel_listen(channel_id, async (msg) => {
                 if (handling_request) {
                     // already handling a request, ignore new ones
                     return;

@@ -9,6 +9,7 @@ import type {ThreadEntry} from "../../kernel/isothreads";
 import "../../lib/ansi";
 import "../../lib/capabilities";
 import "../../lib/path";
+import "../../lib/read_line_buffer";
 import "../../lib/timers";
 import {set_frame_dom} from "../../lib/window_dom";
 

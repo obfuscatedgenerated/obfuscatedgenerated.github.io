@@ -1,5 +1,6 @@
 import type {Program} from "../../types";
-import type {ProcessContext} from "../../kernel/processes";
+import type {UserspaceSpawnedProcessContext} from "../../kernel/processes";
+import type {Remote} from "../../kernel/rpc";
 import {ANSI} from "../../lib/ansi";
 
 export default {
@@ -47,13 +48,13 @@ export default {
 
         let running = true;
         let final_code = 0;
-        let current_shell_process: ProcessContext;
+        let current_shell_process: Remote<UserspaceSpawnedProcessContext>;
 
         // on exit, force shell to exit too
         // TODO: add process ownership to automatically kill child processes
         const proc_mgr = kernel.get_process_manager();
         process.add_exit_listener(async (exit_code) => {
-            if (current_shell_process && proc_mgr.get_process(current_shell_process.pid)) {
+            if (current_shell_process && await proc_mgr.get_process(current_shell_process.pid)) {
                 current_shell_process.kill(exit_code);
             }
 

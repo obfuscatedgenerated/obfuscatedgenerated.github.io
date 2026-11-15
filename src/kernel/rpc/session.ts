@@ -519,7 +519,8 @@ export class RPCSession {
                         throw new TypeError(`"${member}" is not a property`);
                     }
 
-                    result = Reflect.get(entry.proxy, member);
+                    // a property holding a promise (e.g. a spawn's completion) is sent once it settles, as a call's result is
+                    result = await Reflect.get(entry.proxy, member);
                     break;
                 }
                 case "set": {

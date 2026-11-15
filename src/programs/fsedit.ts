@@ -59,7 +59,7 @@ export default {
         iframe.style.width = "100%";
         iframe.style.height = "100%";
 
-        const wind = process.create_window();
+        const wind = await process.create_window();
         wind.title = "fsedit";
 
         wind.width = "75vw";
@@ -85,7 +85,7 @@ export default {
                         continue;
                     }
 
-                    const proc = kernel.get_process_manager().get_process(pid);
+                    const proc = await kernel.get_process_manager().get_process(pid);
                     if (proc && proc.source_command.command === "fsedit") {
                         other_fsedit_running = true;
                         break;

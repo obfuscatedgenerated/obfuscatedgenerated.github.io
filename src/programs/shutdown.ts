@@ -68,10 +68,10 @@ export default {
             term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
         }
 
-        process.create_timeout(() => {
+        process.create_timeout(async () => {
             // talk to ignition over ipc
             const ipc = kernel.get_ipc();
-            const channel_id = ipc.create_channel("init");
+            const channel_id = await ipc.create_channel("init");
 
             if (!channel_id) {
                 term.writeln(`${FG.red}Failed to communicate with ignition.${STYLE.reset_all}`);

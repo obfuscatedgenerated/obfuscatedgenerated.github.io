@@ -1,5 +1,5 @@
 import type {AbstractShell} from "../../../abstract_shell";
-import type {UserspaceKernel, SpawnResult} from "../../../kernel";
+import type {UserspaceKernel, UserspaceSpawnResult} from "../../../kernel";
 import {UserspaceProcessContext} from "../../../kernel/processes";
 
 import {type UserspaceTerminal} from "../../../kernel/term_ctl";
@@ -7,13 +7,14 @@ import {ANSI, NEWLINE} from "../../../lib/ansi";
 
 import {AshMemory} from "./memory";
 import {parse_line} from "./parser";
+import type {Remote} from "../../../kernel/rpc";
 
 const {PREFABS, FG, STYLE} = ANSI;
 
 export class AshShell implements AbstractShell {
-    readonly #kernel: UserspaceKernel;
-    readonly #term: UserspaceTerminal;
-    readonly #process: UserspaceProcessContext;
+    readonly #kernel: Remote<UserspaceKernel>;
+    readonly #term: Remote<UserspaceTerminal>;
+    readonly #process: Remote<UserspaceProcessContext>;
 
     readonly #memory = new AshMemory();
 
@@ -22,7 +23,7 @@ export class AshShell implements AbstractShell {
     // TODO: find a better place/way to handle this, maybe tab completion should be a class that stores its own state
     _discard_cached_matches = false;
 
-    constructor(term: UserspaceTerminal, kernel: UserspaceKernel, process: UserspaceProcessContext) {
+    constructor(term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, process: Remote<UserspaceProcessContext>) {
         this.#term = term;
         this.#kernel = kernel;
         this.#process = process;
@@ -149,7 +150,7 @@ export class AshShell implements AbstractShell {
         }
 
         // spawn the process
-        let spawn_result: SpawnResult;
+        let spawn_result: Remote<UserspaceSpawnResult>;
         try {
             spawn_result = await kernel.spawn(parsed_line, undefined, this);
         } catch (e) {
@@ -240,7 +241,7 @@ export class AshShell implements AbstractShell {
                 });
             } else if (process.is_foreground) {
                 // ctrl+c interrupts the foreground process, like a tty sending SIGINT
-                const pop_interrupt = this.#term.push_interrupt_handler(() => {
+                const pop_interrupt = await this.#term.push_interrupt_handler(() => {
                     this.#term.writeln("^C");
                     process.kill(130);
                 });

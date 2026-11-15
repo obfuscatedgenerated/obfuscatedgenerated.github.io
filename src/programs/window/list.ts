@@ -24,7 +24,7 @@ export const list_subcommand = async (data: ProgramMainData) => {
     term.write(NEWLINE);
 
     const wm = kernel.get_window_manager();
-    const all_windows = wm!.get_all_windows();
+    const all_windows = await wm!.get_all_windows();
     for (const win of all_windows) {
         if (only_visible && !win.visible) {
             continue;

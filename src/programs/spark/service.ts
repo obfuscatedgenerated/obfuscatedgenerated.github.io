@@ -31,7 +31,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
 
     // open ipc with ignition
     const ipc = kernel.get_ipc();
-    const channel_id = ipc.create_channel("init");
+    const channel_id = await ipc.create_channel("init");
 
     if (!channel_id) {
         term.writeln(`${PREFABS.error}Failed to communicate with ignition.${STYLE.reset_all}`);
@@ -44,7 +44,7 @@ export const service_subcommand = async (data: ProgramMainData) => {
     let return_code = 0;
 
     // listen for replies
-    ipc.channel_listen(channel_id, async (msg) => {
+    await ipc.channel_listen(channel_id, async (msg) => {
         const payload = msg.data as IgnitionIPCReply;
 
         if (payload.type === "data") {

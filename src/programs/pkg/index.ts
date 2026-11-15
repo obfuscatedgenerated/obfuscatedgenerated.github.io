@@ -12,8 +12,9 @@ import {helper_completion_options} from "../core/ash/tab_completion";
 import {migrate_subcommand} from "./migrate";
 import {MIGRATION_PATH} from "../../lib/pkg_migration";
 
-import type {UserspaceKernel, SpawnResult} from "../../kernel";
-import type {AbstractShell} from "../../abstract_shell";
+import type {UserspaceKernel, UserspaceSpawnResult} from "../../kernel";
+import type {UserspaceShell} from "../../abstract_shell";
+import type {Remote} from "../../kernel/rpc";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -481,7 +482,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<UserspaceShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -498,7 +499,7 @@ export const triggers = {
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult | null = null;
+        let spawn_result: Remote<UserspaceSpawnResult> | null = null;
 
         try {
             spawn_result = await kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
@@ -520,7 +521,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<UserspaceShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -537,7 +538,7 @@ export const triggers = {
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult | null = null;
+        let spawn_result: Remote<UserspaceSpawnResult> | null = null;
 
         try {
             spawn_result = await kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);

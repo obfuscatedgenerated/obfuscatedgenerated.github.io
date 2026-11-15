@@ -1,4 +1,4 @@
-import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, type sync_members} from "./rpc";
 import {window_dom} from "../lib/window_dom";
 
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
@@ -9,7 +9,28 @@ export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
 
 export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
 
+/**
+ * How the RPC layer accesses the userspace proxy of another program's window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_OTHER_WINDOW_ANNOTATIONS = {
+    id: "constant",
+    owner_pid: "constant",
+    manager: "eager_handle",
+    title: "mirrored",
+    width: "mirrored",
+    height: "mirrored",
+    x: "mirrored",
+    y: "mirrored",
+    visible: "mirrored",
+    maximised: "mirrored",
+    maximisable: "mirrored",
+    layer: "mirrored",
+} as const;
+
 export interface UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_OTHER_WINDOW_ANNOTATIONS) => void;
     readonly id: number;
     readonly manager: UserspaceWindowManager;
     readonly owner_pid: number;
@@ -26,7 +47,29 @@ export interface UserspaceOtherWindow {
     readonly layer: WindowCompositionLayer;
 }
 
+/**
+ * How the RPC layer accesses the userspace proxy of a program's own window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_WINDOW_ANNOTATIONS = {
+    id: "constant",
+    owner_pid: "constant",
+    manager: "eager_handle",
+    dom: window_dom,
+    title: "mirrored",
+    width: "mirrored",
+    height: "mirrored",
+    x: "mirrored",
+    y: "mirrored",
+    visible: "mirrored",
+    maximised: "mirrored",
+    maximisable: "mirrored",
+    layer: "mirrored",
+} as const;
+
 export interface UserspaceWindow extends UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_ANNOTATIONS) => void;
     readonly manager: UserspaceWindowManager;
     readonly dom: ShadowRoot;
 
@@ -160,20 +203,7 @@ export abstract class AbstractWindow implements MirrorSource {
             layer: { get: () => self.layer, enumerable: true }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            id: "constant",
-            owner_pid: "constant",
-            manager: "eager_handle",
-            title: "mirrored",
-            width: "mirrored",
-            height: "mirrored",
-            x: "mirrored",
-            y: "mirrored",
-            visible: "mirrored",
-            maximised: "mirrored",
-            maximisable: "mirrored",
-            layer: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_OTHER_WINDOW_ANNOTATIONS, [
             self
         ]);
     }
@@ -250,21 +280,7 @@ export abstract class AbstractWindow implements MirrorSource {
             }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            id: "constant",
-            owner_pid: "constant",
-            manager: "eager_handle",
-            dom: window_dom,
-            title: "mirrored",
-            width: "mirrored",
-            height: "mirrored",
-            x: "mirrored",
-            y: "mirrored",
-            visible: "mirrored",
-            maximised: "mirrored",
-            maximisable: "mirrored",
-            layer: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_WINDOW_ANNOTATIONS, [
             self
         ]);
     }
@@ -278,7 +294,18 @@ export interface ScreenSize {
     height: number;
 }
 
+/**
+ * How the RPC layer accesses the window manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_WINDOW_MANAGER_ANNOTATIONS = {
+    get_unique_manager_type_name: "constant",
+    get_screen_size: "mirrored",
+} as const;
+
 export interface UserspaceWindowManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_MANAGER_ANNOTATIONS) => void;
     get_unique_manager_type_name(): string;
 
     /**
@@ -335,10 +362,7 @@ export abstract class AbstractWindowManager implements MirrorSource {
             }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            get_unique_manager_type_name: "constant",
-            get_screen_size: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_WINDOW_MANAGER_ANNOTATIONS, [
             self
         ]);
     }

@@ -14,7 +14,7 @@ export default {
             return [];
         }
 
-        const alias_names = [...data.shell.memory.list_aliases().keys()];
+        const alias_names = [...(await data.shell.memory.list_aliases()).keys()];
         // TODO: check type to see why helper_completion_options wont work here
         return alias_names.filter(name => name.startsWith(data.current_partial));
     },

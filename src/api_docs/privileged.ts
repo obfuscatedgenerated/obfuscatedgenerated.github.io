@@ -4,7 +4,7 @@
  *
  * @category Kernel
  */
-export { Kernel } from "../kernel";
+export { Kernel, SpawnResult } from "../kernel";
 
 /**
  * @group Kernel (Privileged)

@@ -4,7 +4,13 @@
  *
  * @category Kernel
  */
-export {UserspaceKernel, SpawnResult, ParsedCommandLine} from "../kernel";
+export {UserspaceKernel, UserspaceSpawnResult, ParsedCommandLine} from "../kernel";
+
+/**
+ * @group Userspace
+ * @category Kernel
+ */
+export {Remote, RemoteProxy} from "../kernel/rpc";
 
 /**
  * @group Userspace
@@ -35,6 +41,7 @@ export {
     UserspaceProcessManager,
     UserspaceProcessContext,
     UserspaceOtherProcessContext,
+    UserspaceSpawnedProcessContext,
     ProcessAttachment,
     UserspaceIPCManager,
     IPCMessage,
@@ -52,7 +59,7 @@ export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEve
  * @group Userspace
  * @category Shells
  */
-export {AbstractShell, AbstractShellMemory} from "../abstract_shell";
+export {AbstractShell, AbstractShellMemory, UserspaceShell, UserspaceShellMemory} from "../abstract_shell";
 
 /**
  * @group Userspace

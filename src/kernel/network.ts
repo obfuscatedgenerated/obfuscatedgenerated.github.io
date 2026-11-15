@@ -1,4 +1,4 @@
-import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change, type remote_as_declared, type sync_members} from "./rpc";
 
 export type NetworkStateChangeListener = (is_up: boolean) => void | Promise<void>;
 
@@ -55,7 +55,20 @@ export class PortInUseError extends Error {
     }
 }
 
+/**
+ * How the RPC layer accesses the userspace proxy of a client socket: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_CLIENT_SOCKET_ANNOTATIONS = {
+    id: "constant",
+    ready_state: "mirrored",
+} as const;
+
 export interface UserspaceClientSocket {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_CLIENT_SOCKET_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "add_event_listener" | "remove_event_listener") => void;
     readonly id: string;
     readonly ready_state: SocketReadyState;
 
@@ -178,16 +191,25 @@ export abstract class AbstractClientSocket implements MirrorSource {
             return this.close();
         }
 
-        return finalise_userspace_proxy(proxy, {
-            id: "constant",
-            ready_state: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_CLIENT_SOCKET_ANNOTATIONS, [
             this
         ]);
     }
 }
 
+/**
+ * How the RPC layer accesses the userspace proxy of a server socket: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_SERVER_SOCKET_ANNOTATIONS = {
+    port: "constant",
+} as const;
+
 export interface UserspaceServerSocket {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SERVER_SOCKET_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "add_event_listener" | "remove_event_listener") => void;
     readonly port: number;
 
     add_event_listener(event: "connection", callback: UserspaceSocketConnectionListener): void;
@@ -312,13 +334,22 @@ export abstract class AbstractServerSocket {
             return this.close();
         };
 
-        return finalise_userspace_proxy(proxy, {
-            port: "constant",
-        });
+        return finalise_userspace_proxy(proxy, USERSPACE_SERVER_SOCKET_ANNOTATIONS);
     }
 }
 
+/**
+ * How the RPC layer accesses the network manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_NETWORK_MANAGER_ANNOTATIONS = {
+    get_unique_manager_type_name: "constant",
+    bound_ports: "mirrored",
+} as const;
+
 export interface UserspaceNetworkManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_NETWORK_MANAGER_ANNOTATIONS) => void;
     get bound_ports(): number[];
     get_unique_manager_type_name(): string;
     is_up(try_waiting?: boolean): Promise<boolean>;
@@ -408,10 +439,7 @@ export abstract class AbstractNetworkManager implements MirrorSource {
         Object.defineProperty(proxy, "get_unique_manager_type_name", { value: () => this.get_unique_manager_type_name(), enumerable: true });
         Object.defineProperty(proxy, "is_up", { value: (try_waiting = false) => this.is_up(try_waiting), enumerable: true });
 
-        return finalise_userspace_proxy(proxy, {
-            get_unique_manager_type_name: "constant",
-            bound_ports: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_NETWORK_MANAGER_ANNOTATIONS, [
             this
         ]);
     }

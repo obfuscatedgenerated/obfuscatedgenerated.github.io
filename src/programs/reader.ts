@@ -53,7 +53,7 @@ export default {
         // extract from ANSI to make code less verbose
         const { PREFABS, STYLE } = ANSI;
 
-        if (!term.supports_custom_flag("reader_support")) {
+        if (!await term.supports_custom_flag("reader_support")) {
             term.writeln(`${PREFABS.error}Your terminal does not support configuring screen reader mode. Either it supports it by default, or it does not support it at all.${STYLE.reset_all}`);
             return 1;
         }
@@ -67,7 +67,7 @@ export default {
             }
             case "-q":
                 // query screen reader mode
-                term.writeln(`Screen reader mode is currently ${term.get_custom_flag("reader_support") ? "on" : "off"}.`);
+                term.writeln(`Screen reader mode is currently ${await term.get_custom_flag("reader_support") ? "on" : "off"}.`);
                 return 0;
             case "-s":
                 // set screen reader mode
@@ -85,10 +85,10 @@ export default {
                 break;
             default:
                 // toggle screen reader mode
-                term.set_custom_flag("reader_support", !term.get_custom_flag("reader_support"));
+                term.set_custom_flag("reader_support", !await term.get_custom_flag("reader_support"));
         }
 
-        const state = term.get_custom_flag("reader_support") ? "on" : "off";
+        const state = await term.get_custom_flag("reader_support") ? "on" : "off";
         play_reader_sound(state);
 
         // print message
@@ -104,7 +104,7 @@ export default {
         }
 
         // save into local storage
-        localStorage.setItem("reader", term.get_custom_flag("reader_support")!.toString());
+        localStorage.setItem("reader", String(await term.get_custom_flag("reader_support")));
 
         return 0;
     }

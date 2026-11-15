@@ -27,7 +27,7 @@ export const show_subcommand = async (data: UserspaceProgramMainData<{kernel_fun
 
     // check window exists first with userspace kernel
     const userspace_wm = userspace_kernel.get_window_manager();
-    const userspace_window = userspace_wm!.get_window_by_id(window_id);
+    const userspace_window = await userspace_wm!.get_window_by_id(window_id);
     if (!userspace_window) {
         term.writeln(`${PREFABS.error}No window found with ID '${window_id}'.`)
         term.writeln(`Try 'window list' to see all open windows.${STYLE.reset_all}`);

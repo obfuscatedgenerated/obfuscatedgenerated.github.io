@@ -1,5 +1,5 @@
 import {supports_capability} from "../lib/capabilities";
-import {finalise_userspace_proxy} from "./rpc";
+import {finalise_userspace_proxy, type sync_members} from "./rpc";
 
 /**
  * Describes a platform specific capability (e.g. haptics, share sheet).
@@ -15,6 +15,16 @@ export interface PlatformCapability {
 }
 
 /**
+ * How the RPC layer accesses the platform API's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_PLATFORM_ANNOTATIONS = {
+    get_platform_name: "constant",
+    get_capabilities: "constant",
+    supports: supports_capability,
+} as const;
+
+/**
  * Interface for interacting with a platform API from userspace.
  *
  * For the privileged API base, see {@link AbstractPlatformAPI}.
@@ -23,6 +33,8 @@ export interface PlatformCapability {
  * @category Platform
  */
 export interface UserspacePlatformAPI {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PLATFORM_ANNOTATIONS) => void;
     get_platform_name(): string;
     get_capabilities(): PlatformCapability[];
     supports(capability_name: string): boolean;
@@ -130,10 +142,6 @@ export abstract class AbstractPlatformAPI {
             enumerable: true
         });
 
-        return finalise_userspace_proxy(proxy, {
-            get_platform_name: "constant",
-            get_capabilities: "constant",
-            supports: supports_capability,
-        });
+        return finalise_userspace_proxy(proxy, USERSPACE_PLATFORM_ANNOTATIONS);
     }
 }

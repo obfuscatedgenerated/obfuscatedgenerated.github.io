@@ -1,34 +1,35 @@
 import type {Kernel, UserspaceKernel} from "./kernel";
 import type {AbstractTerminal, UserspaceTerminal} from "./kernel/term_ctl";
 import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
-import type {AbstractShell} from "./abstract_shell";
+import type {AbstractShell, UserspaceShell} from "./abstract_shell";
 import type {sdk} from "./kernel/program_sdk";
+import type {Remote} from "./kernel/rpc";
 
 type EitherKernel = Kernel | UserspaceKernel;
 
 export interface ProgramMainData<K extends EitherKernel = UserspaceKernel, T extends ThreadFuncs = ThreadFuncs> {
     /**
      Methods to interact with the kernel.<br />
-     By default, this is the {@link UserspaceKernel} interface.<br />
+     By default, this is the {@link UserspaceKernel} interface, as seen across the RPC layer (see {@link Remote}).<br />
      Programs that need full access for their whole run (i.e. init system, drivers) set space: "kernel", and get the {@link Kernel} instead.
      Otherwise, export kernel_funcs and use {@link UserspaceKernel.request_kernel_func kernel.request_kernel_func()} to run them in kernel space.
      **/
-    kernel: K,
+    kernel: K extends Kernel ? K : Remote<K>,
 
     /**
      * Terminal I/O methods.
      */
-    term: K extends Kernel ? AbstractTerminal : UserspaceTerminal;
+    term: K extends Kernel ? AbstractTerminal : Remote<UserspaceTerminal>;
 
     /**
      * The shell that invoked the program, if any.
      */
-    shell?: AbstractShell;
+    shell?: K extends Kernel ? AbstractShell : Remote<UserspaceShell>;
 
     /**
      * Process context of the instanced program. Contains information and resource requesting.
      */
-    process: K extends Kernel ? ProcessContext<T> : UserspaceProcessContext<T>;
+    process: K extends Kernel ? ProcessContext<T> : Remote<UserspaceProcessContext<T>>;
 
     /**
      * Arguments passed to the program, after variable substitution (e.g. $HOME, $?, etc).
@@ -98,9 +99,9 @@ export type RequestKernelFunc<F extends KernelFuncs> = <N extends keyof F & stri
  * @category Threads
  */
 export interface ThreadData {
-    kernel: UserspaceKernel;
-    process: UserspaceProcessContext;
-    term: UserspaceTerminal;
+    kernel: Remote<UserspaceKernel>;
+    process: Remote<UserspaceProcessContext>;
+    term: Remote<UserspaceTerminal>;
 }
 
 /**
@@ -274,9 +275,9 @@ interface KernelspaceProgram<S extends ProgramSections = NoSections> extends Bas
 export type Program<S extends ProgramSections = NoSections> = UserspaceProgram<S> | KernelspaceProgram<S>;
 
 export interface CompletionData {
-    term: UserspaceTerminal,
-    kernel: UserspaceKernel,
-    shell?: AbstractShell,
+    term: Remote<UserspaceTerminal>,
+    kernel: Remote<UserspaceKernel>,
+    shell?: Remote<UserspaceShell>,
 
     args: string[],
     unsubbed_args: string[],
@@ -292,6 +293,11 @@ export interface CompletionData {
      */
     arg_index: number,
 }
+
+/**
+ * What a caller passes to {@link UserspaceKernel.complete kernel.complete()}: the completion data, with the caller's shell or its proxy. The completion itself always gets the proxy.
+ */
+export type CompletionRequest = Omit<CompletionData, "shell"> & { shell?: AbstractShell | Remote<UserspaceShell> };
 
 /**
  * Returns a list of possible completions (or as a generator). Return null to fall back to default completion behaviour (file paths).

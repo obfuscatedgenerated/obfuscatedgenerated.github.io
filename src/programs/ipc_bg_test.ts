@@ -16,7 +16,7 @@ export default {
 
         const ipc = kernel.get_ipc();
         ipc.service_register("ipc_bg_test", async (channel_id, from_pid) => {
-            ipc.channel_listen(channel_id, async (msg) => {
+            await ipc.channel_listen(channel_id, async (msg) => {
                 term.writeln(`Received message on channel ${channel_id} from PID ${msg.from}: ${JSON.stringify(msg.data)}`);
             });
         });

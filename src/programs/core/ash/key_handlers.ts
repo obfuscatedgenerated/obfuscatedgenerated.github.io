@@ -3,8 +3,9 @@ import type {UserspaceReadLineKeyHandler} from "../../../kernel/term_ctl";
 import type {AshShell} from "./core";
 import type {UserspaceKernel} from "../../../kernel";
 import {tab_complete} from "./tab_completion";
+import type {Remote} from "../../../kernel/rpc";
 
-export const make_read_line_key_handlers = (shell: AshShell, kernel: UserspaceKernel): { [key: string]: UserspaceReadLineKeyHandler } => ({
+export const make_read_line_key_handlers = (shell: AshShell, kernel: Remote<UserspaceKernel>): { [key: string]: UserspaceReadLineKeyHandler } => ({
     // arrow up - previous history
     "\x1b[A": (_e, term, buffer) => {
         const command = shell.memory.get_previous_history_entry();

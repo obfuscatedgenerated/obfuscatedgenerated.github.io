@@ -9,11 +9,13 @@ import {
     ProcessContext,
     ProcessManager,
     UserspaceIPCManager, UserspaceOtherProcessContext, UserspaceProcessContext,
-    UserspaceProcessManager
+    UserspaceProcessManager,
+    UserspaceSpawnedProcessContext
 } from "./processes";
-import {AbstractShell, create_shell_rpc_proxy} from "../abstract_shell";
+import {AbstractShell, create_shell_rpc_proxy, unwrap_shell, UserspaceShell} from "../abstract_shell";
 import {
     CompletionData,
+    CompletionRequest,
     CompletionGenerator, KernelFuncData,
     KernelFuncs,
     Program,
@@ -30,7 +32,7 @@ import {NEWLINE} from "../lib/ansi";
 import semver_validate from "semver/functions/valid";
 import semver_compare from "semver/functions/compare"
 import {sdk} from "./program_sdk";
-import {finalise_userspace_proxy, is_userspace_proxy} from "./rpc";
+import {as_remote, finalise_userspace_proxy, type remote_as_declared, type sync_members} from "./rpc";
 import {collect_completions} from "../lib/completions";
 import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
 import {AbstractIsoThreadManager} from "./isothreads";
@@ -42,14 +44,66 @@ const CURRENT_API_COMPAT = "3.0.0";
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
  * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
- *
- * @group Userspace
- * @category Kernel
  */
 export interface SpawnResult {
     process: ProcessContext;
     completion: Promise<number>;
 }
+
+/**
+ * How the RPC layer accesses a spawn result's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_SPAWN_RESULT_ANNOTATIONS = {
+    process: "eager_handle",
+} as const;
+
+/**
+ * Result of a process spawned by a userspace program.
+ * @property process The spawned process. You are responsible for killing it on an error or after execution.
+ * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export interface UserspaceSpawnResult {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SPAWN_RESULT_ANNOTATIONS) => void;
+    readonly process: UserspaceSpawnedProcessContext;
+    readonly completion: Promise<number>;
+}
+
+const create_spawn_result_proxy = (result: SpawnResult): UserspaceSpawnResult => {
+    const proxy = Object.create(null);
+    const process_proxy = result.process.create_userspace_proxy_as_spawned_process();
+
+    Object.defineProperties(proxy, {
+        process: { get: () => process_proxy, enumerable: true },
+        completion: { get: () => result.completion, enumerable: true },
+    });
+
+    return finalise_userspace_proxy(proxy, USERSPACE_SPAWN_RESULT_ANNOTATIONS);
+};
+
+/**
+ * How the RPC layer accesses the kernel's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_KERNEL_ANNOTATIONS = {
+    privileged: "constant",
+    get_fs: "eager_handle",
+    get_window_manager: "eager_handle",
+    has_window_manager: "constant",
+    get_network_manager: "eager_handle",
+    has_network_manager: "constant",
+    get_platform: "eager_handle",
+    has_platform: "constant",
+    get_process_manager: "eager_handle",
+    get_ipc: "eager_handle",
+    has_isothread_manager: "constant",
+    get_isothread_manager_unique_type_name: "constant",
+    get_env_info: "constant",
+} as const;
 
 /**
  * Interface for interacting with the kernel from userspace.
@@ -60,6 +114,10 @@ export interface SpawnResult {
  * @category Kernel
  */
 export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_KERNEL_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "request_kernel_func") => void;
     /**
      * Whether this kernel interface has privileged access (false for UserspaceKernel interface).
      */
@@ -123,9 +181,9 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * @param cmd_or_line_parse Either a command string or a pre-parsed command line to execute.
      * @param explicit_args Ignored if cmd_or_line_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
      * @param shell The shell that is spawning this process, if any.
-     * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
+     * @returns A {@link UserspaceSpawnResult} containing the process and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell): Promise<SpawnResult>;
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | UserspaceShell): Promise<UserspaceSpawnResult>;
 
     find_program(name: string): Promise<{code_path?: string, metadata: ProgramMetadata} | null>;
     list_programs(): Promise<{name: string, metadata: ProgramMetadata, builtin: boolean}[]>;
@@ -134,7 +192,7 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * Runs a program's tab completion. Isolated programs complete in their own thread, so their code never loads in the caller's realm.
      * @returns The completions, or null to fall back to default completion.
      */
-    complete(name: string, data: CompletionData): Promise<string[] | null>;
+    complete(name: string, data: CompletionRequest): Promise<string[] | null>;
 
     /**
      * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
@@ -431,17 +489,20 @@ export class Kernel {
      * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
      * @returns The completions, or null to fall back to default completion.
      */
-    async complete(name: string, data: CompletionData): Promise<string[] | null> {
+    async complete(name: string, data: CompletionRequest): Promise<string[] | null> {
         const found = await this.find_program(name);
         if (!found) {
             return null;
         }
 
+        // the completion only ever gets the shell's proxy, as for main
+        const shell = data.shell ? unwrap_shell(data.shell) : undefined;
+
         // rebuilt so only the expected fields are passed on
         const completion_data: CompletionData = {
             term: data.term,
             kernel: data.kernel,
-            shell: data.shell,
+            shell: shell ? as_remote(create_shell_rpc_proxy(shell)) : undefined,
             args: data.args,
             unsubbed_args: data.unsubbed_args,
             raw_parts: data.raw_parts,
@@ -451,11 +512,6 @@ export class Kernel {
 
         const itm = this.get_isothread_manager();
         if (itm && found.code_path && found.metadata.space !== "kernel") {
-            // the shell itself can't cross into a thread, only its rpc proxy
-            if (completion_data.shell && !is_userspace_proxy(completion_data.shell)) {
-                completion_data.shell = create_shell_rpc_proxy(completion_data.shell);
-            }
-
             const source = await this.#fs.read_file(found.code_path) as string;
             return await itm.complete(found, source, completion_data);
         }
@@ -537,12 +593,15 @@ export class Kernel {
      * @param cmd_or_parse Either a command string or a pre-parsed command line to execute.
      * @param spawning_process The process that is spawning this new process. This should only be null if you're the kernel, which you aren't!
      * @param explicit_args Ignored if cmd_or_parse is a {@link ParsedCommandLine}. Otherwise, the explicit arguments to pass to the command.
-     * @param shell The shell that is spawning this process, if any.
+     * @param given_shell The shell that is spawning this process, if any.
      * @param start_privileged Whether the spawner vouches for the program, so it isn't asked about: a kernelspace program runs without the prompt to allow it, and a userspace program's kernel funcs run without asking. It never gives a userspace program the kernel.
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    async spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult> {
+    async spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | UserspaceShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult> {
+        // a userspace program passes on the proxy of its shell, so resolve it back to the real one
+        const shell = given_shell ? unwrap_shell(given_shell) : undefined;
+
         // TODO: is passing shell around annoying? how can it be alleviated without affecting separation of concerns?
         // TODO: replace the above with process ownership :)
         // TODO: now collecting spawning process for the cwd inheritance stuff so can now trivially add ownership
@@ -629,13 +688,13 @@ export class Kernel {
             data.kernel = this;
             data.process = process;
         } else {
-            data.kernel = this.create_userspace_proxy(process);
-            data.process = process.create_userspace_proxy();
+            data.kernel = as_remote(this.create_userspace_proxy(process));
+            data.process = as_remote(process.create_userspace_proxy());
         }
 
-        data.term = kernelspace ? term : term.create_userspace_proxy();
+        data.term = kernelspace ? term : as_remote(term.create_userspace_proxy());
         data.args = args;
-        data.shell = kernelspace || !shell ? shell : create_shell_rpc_proxy(shell);
+        data.shell = kernelspace || !shell ? shell : as_remote(create_shell_rpc_proxy(shell));
         data.unsubbed_args = parsed_line.unsubbed_args;
         data.raw_parts = parsed_line.raw_parts;
         data.sdk = kernelspace ? sdk : undefined;
@@ -1077,9 +1136,9 @@ export class Kernel {
 
         // a thread only ever gets userspace access, whatever space its program runs in
         const data: ThreadData = {
-            kernel: this.create_userspace_proxy(process),
-            process: process.create_userspace_proxy(),
-            term: process.terminal.create_userspace_proxy(),
+            kernel: as_remote(this.create_userspace_proxy(process)),
+            process: as_remote(process.create_userspace_proxy()),
+            term: as_remote(process.terminal.create_userspace_proxy()),
         };
 
         const itm = this.get_isothread_manager();
@@ -1179,8 +1238,8 @@ export class Kernel {
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
                 // force the process to pass its own terminal as the one to use
-                value: (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell) =>
-                    self.spawn(process, command, args, shell, false, process.terminal),
+                value: async (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell | UserspaceShell) =>
+                    create_spawn_result_proxy(await self.spawn(process, command, args, shell, false, process.terminal)),
                 enumerable: true
             },
 
@@ -1194,7 +1253,7 @@ export class Kernel {
 
             // loading program code was never exposed directly: it would import (and run) other programs' code in the kernel realm, escaping isolation
             complete: {
-                value: (name: string, data: CompletionData) => {
+                value: (name: string, data: CompletionRequest) => {
                     if (typeof name !== "string") {
                         throw new Error("complete only accepts a string name in userspace");
                     }
@@ -1205,21 +1264,7 @@ export class Kernel {
             }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            privileged: "constant",
-            get_fs: "eager_handle",
-            get_window_manager: "eager_handle",
-            has_window_manager: "constant",
-            get_network_manager: "eager_handle",
-            has_network_manager: "constant",
-            get_platform: "eager_handle",
-            has_platform: "constant",
-            get_process_manager: "eager_handle",
-            get_ipc: "eager_handle",
-            has_isothread_manager: "constant",
-            get_isothread_manager_unique_type_name: "constant",
-            get_env_info: "constant",
-        });
+        return finalise_userspace_proxy(proxy, USERSPACE_KERNEL_ANNOTATIONS);
     }
 }
 

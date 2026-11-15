@@ -13,7 +13,7 @@ export default {
         const { kernel, term } = data;
 
         const ipc = kernel.get_ipc();
-        const channel = ipc.create_channel("ipc_bg_test");
+        const channel = await ipc.create_channel("ipc_bg_test");
         
         if (!channel) {
             term.writeln("Failed to create IPC channel to service 'ipc_bg_test'.");

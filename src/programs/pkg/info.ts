@@ -2,6 +2,7 @@ import {ANSI, NEWLINE} from "../../lib/ansi";
 import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import type { ProgramMainData } from "../../types"
 import {graph_query, is_valid_pkg_name, is_valid_pkg_version, repo_query} from "./index";
+import type {Remote} from "../../kernel/rpc";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS } = ANSI;
@@ -15,7 +16,7 @@ interface PkgInfo {
     long_desc?: string;
 }
 
-const print_info = (term: UserspaceTerminal, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
+const print_info = (term: Remote<UserspaceTerminal>, pkg_name: string, pkg_version: string, pkg_data: PkgInfo, installed: boolean) => {
     term.write(NEWLINE);
 
     term.writeln(`Package: ${STYLE.bold}${pkg_name}${STYLE.no_bold_or_dim}`);

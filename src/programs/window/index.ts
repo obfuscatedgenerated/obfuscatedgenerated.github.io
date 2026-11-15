@@ -57,7 +57,7 @@ export default {
                         return [];
                     }
 
-                    const window_ids = wm.get_all_windows().map((win) => win.id.toString());
+                    const window_ids = (await wm.get_all_windows()).map((win) => win.id.toString());
                     return helper_completion_options(window_ids)(data);
                 }
                 return [];

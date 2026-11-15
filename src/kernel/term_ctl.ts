@@ -1,5 +1,6 @@
 import {ANSI, NEWLINE, ansi_escape_regex, ansi_unescaped_regex, is_printable, non_printable_regex, word_wrap} from "../lib/ansi";
-import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+import {as_remote, finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change, type Remote, type sync_members} from "./rpc";
+import {set_buffer_index, set_buffer_line} from "../lib/read_line_buffer";
 
 export interface KeyEvent {
     key: string;
@@ -20,7 +21,32 @@ export interface ReadLineBuffer {
     set_current_index: (new_index: number) => void;
 }
 
-export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer) => void | Promise<void> | boolean | Promise<boolean>;
+export type ReadLineKeyHandler = (event: KeyEvent, term: AbstractTerminal, buffer: ReadLineBuffer & MirrorSource) => void | Promise<void> | boolean | Promise<boolean>;
+
+/**
+ * How the RPC layer accesses a read_line buffer's userspace proxy. The line and index are kept in step, and the setters run where they are called.
+ * @hidden
+ */
+export const USERSPACE_READ_LINE_BUFFER_ANNOTATIONS = {
+    current_line: "mirrored",
+    current_index: "mirrored",
+    set_current_line: set_buffer_line,
+    set_current_index: set_buffer_index,
+} as const;
+
+// a fresh proxy for each handler call, so the program starts from the buffer as it is now. writes from the program come back as sets, in order, before the handler's result
+const create_read_line_buffer_proxy = (buffer: ReadLineBuffer & MirrorSource): ReadLineBuffer => {
+    const proxy = Object.create(null);
+
+    Object.defineProperties(proxy, {
+        current_line: { get: () => buffer.current_line, set: (new_line: string) => buffer.set_current_line(new_line), enumerable: true },
+        current_index: { get: () => buffer.current_index, set: (new_index: number) => buffer.set_current_index(new_index), enumerable: true },
+        set_current_line: { value: (new_line: string) => buffer.set_current_line(new_line), enumerable: true },
+        set_current_index: { value: (new_index: number) => buffer.set_current_index(new_index), enumerable: true },
+    });
+
+    return finalise_userspace_proxy(proxy, USERSPACE_READ_LINE_BUFFER_ANNOTATIONS, [buffer]);
+};
 
 // TODO: add trust flag and privilege agent preference not visible to userspace. a trusted terminal is allowed to have the privilege agent spawned in it
 
@@ -40,11 +66,17 @@ export interface UserspaceKeyEvent {
     domEvent: { key: string; code?: string };
 }
 
-export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: UserspaceTerminal) => void | Promise<void>;
+/**
+ * A key handler a program registers. It is called with the terminal as the program sees it.
+ */
+export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: Remote<UserspaceTerminal>) => void | Promise<void>;
 
+/**
+ * A read_line key handler a program passes. It is called with the terminal as the program sees it.
+ */
 export type UserspaceReadLineKeyHandler = (
     event: UserspaceKeyEvent,
-    term: UserspaceTerminal,
+    term: Remote<UserspaceTerminal>,
     buffer: ReadLineBuffer
 ) => void | Promise<void> | boolean | Promise<boolean>;
 
@@ -71,7 +103,28 @@ const to_userspace_key_event = (event: KeyEvent): UserspaceKeyEvent => {
  * @group Userspace
  * @category Terminal
  */
+/**
+ * How the RPC layer accesses the terminal's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_TERMINAL_ANNOTATIONS = {
+    cols: "mirrored",
+    rows: "mirrored",
+    ansi: "constant",
+    newline: "constant",
+    non_printable_regex,
+    ansi_escape_regex,
+    ansi_unescaped_regex,
+    word_wrap,
+} as const;
+
+/**
+ * The userspace proxy of a terminal. Programs running in an isothread receive it as {@link Remote}<UserspaceTerminal>.
+ */
 export interface UserspaceTerminal {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_TERMINAL_ANNOTATIONS) => void;
+
     readonly cols: number;
     readonly rows: number;
 
@@ -197,16 +250,19 @@ export abstract class AbstractTerminal implements MirrorSource {
 
     // line discipline now completely handled by read_line, no global event loop
     read_line = async (custom_key_handlers: { [key_string: string]: ReadLineKeyHandler } = {}, custom_printable_handler?: ReadLineKeyHandler): Promise<string> => {
-        const buffer: ReadLineBuffer = {
+        const buffer: ReadLineBuffer & MirrorSource = {
+            [mirror_source]: true,
             current_line: "",
             current_index: 0,
 
             set_current_line: (new_line: string) => {
                 buffer.current_line = new_line;
+                notify_mirror_change(buffer);
             },
 
             set_current_index: (new_index: number) => {
                 buffer.current_index = new_index;
+                notify_mirror_change(buffer);
             }
         };
 
@@ -673,10 +729,10 @@ export abstract class AbstractTerminal implements MirrorSource {
 
         // handlers must never see the raw terminal or a DOM event, so every callback is rewrapped
         const wrap_key_handler = (handler: UserspaceKeyEventHandler): KeyEventHandler =>
-            (event) => handler(to_userspace_key_event(event), proxy);
+            (event) => handler(to_userspace_key_event(event), as_remote(proxy));
 
         const wrap_read_line_handler = (handler: UserspaceReadLineKeyHandler): ReadLineKeyHandler =>
-            (event, _term, buffer) => handler(to_userspace_key_event(event), proxy, buffer);
+            (event, _term, buffer) => handler(to_userspace_key_event(event), as_remote(proxy), create_read_line_buffer_proxy(buffer));
 
         Object.defineProperties(proxy, {
             cols: { get: () => self.cols, enumerable: true },
@@ -743,16 +799,7 @@ export abstract class AbstractTerminal implements MirrorSource {
             word_wrap: { value: (text: string, width: number) => self.word_wrap(text, width), enumerable: true },
         });
 
-        return finalise_userspace_proxy(proxy, {
-            cols: "mirrored",
-            rows: "mirrored",
-            ansi: "constant",
-            newline: "constant",
-            non_printable_regex,
-            ansi_escape_regex,
-            ansi_unescaped_regex,
-            word_wrap,
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_TERMINAL_ANNOTATIONS, [
             this
         ]);
     }
