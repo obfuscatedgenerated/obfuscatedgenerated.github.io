@@ -92,6 +92,7 @@ export interface UserspaceTerminal {
     read_line(custom_key_handlers?: {
         [key_string: string]: UserspaceReadLineKeyHandler;
     }, custom_printable_handler?: UserspaceReadLineKeyHandler): Promise<string>;
+    get_text(max_length?: number): Promise<string>;
     /** @returns A function that unregisters the handler. */
     register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
     /** @returns A function that unregisters the handler. */
