@@ -28,7 +28,7 @@ export class WebFrameIsoThreadManager extends AbstractIsoThreadManager {
         this.#entry_url = entry_url;
     }
 
-    _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null): {endpoint: KernelEndpoint, terminate(): void} {
+    _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null, loopback = false): {endpoint: KernelEndpoint, terminate(): void} {
         if (!process) {
             throw new Error("A frame isothread needs a process to own its window");
         }
@@ -44,6 +44,11 @@ export class WebFrameIsoThreadManager extends AbstractIsoThreadManager {
 
         // alert, confirm and prompt, which some libraries need (e.g. pyodide's default stdin). they can't reach the os, only block the page
         frame.sandbox.add("allow-modals");
+
+        // the browser fixes a frame's permissions when it loads, so a program allowed to reach this device's services gets it from the start
+        if (loopback) {
+            frame.allow = "loopback-network *";
+        }
         frame.srcdoc = FRAME_SRCDOC;
         frame.style.display = "block";
         frame.style.width = "100%";

@@ -2,6 +2,10 @@
 
 Major versions and the minor versions that added something worth mentioning. Patch releases and anything not listed are in the tags and git history.
 
+## 3.2.0: Loopback permission
+
+Programs can declare `needs_loopback` which will prompt the user to allow them to connect to `localhost` etc. at program start.
+
 ## 3.1.0: Program invocation by path
 
 Programs can now be invoked relative to the current working directory, so `./program` runs a program in the current directory, and `../program` runs one in the parent directory. Absolute paths are also supported, so `/tmp/program` runs a program in the `/tmp` directory.

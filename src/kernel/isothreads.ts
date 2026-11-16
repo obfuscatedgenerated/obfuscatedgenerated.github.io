@@ -66,8 +66,11 @@ export abstract class AbstractIsoThreadManager {
         return this.#threads;
     }
 
-    run(found: FoundProgram, source: string, process: ProcessContext, main_data: ProgramMainData): IsoThread {
-        const started = this._start(source, found, "main", process);
+    /**
+     * @param loopback Whether the program was allowed to connect to services on this device.
+     */
+    run(found: FoundProgram, source: string, process: ProcessContext, main_data: ProgramMainData, loopback = false): IsoThread {
+        const started = this._start(source, found, "main", process, loopback);
 
         let resolve_completion!: (exit_code: number) => void;
         let reject_completion!: (error: Error) => void;
@@ -129,8 +132,9 @@ export abstract class AbstractIsoThreadManager {
     /**
      * Runs one of a program's thread functions in a new isothread, which lives only until the function returns.
      * @param pid The process the thread belongs to: it is terminated along with that process.
+     * @param loopback Whether the process was allowed to connect to services on this device, which its threads share.
      */
-    run_thread(found: FoundProgram, source: string, pid: number, thread_name: string, input: unknown, data: ThreadData): Promise<unknown> {
+    run_thread(found: FoundProgram, source: string, pid: number, thread_name: string, input: unknown, data: ThreadData, loopback = false): Promise<unknown> {
         let running = this.#function_threads.get(pid);
         if (!running) {
             running = new Set();
@@ -142,7 +146,7 @@ export abstract class AbstractIsoThreadManager {
         }
 
         const running_threads = running;
-        const started = this._start(source, found, "thread", null);
+        const started = this._start(source, found, "thread", null, loopback);
 
         return new Promise<unknown>((resolve, reject) => {
             let settled = false;
@@ -345,6 +349,7 @@ export abstract class AbstractIsoThreadManager {
 
     /**
      * @param process The process the thread runs for, or null when it isn't running a process (e.g. completions).
+     * @param loopback Whether the thread may connect to services on this device. Never set for completions.
      */
-    abstract _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null): {endpoint: KernelEndpoint, terminate(): void};
+    abstract _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null, loopback?: boolean): {endpoint: KernelEndpoint, terminate(): void};
 }

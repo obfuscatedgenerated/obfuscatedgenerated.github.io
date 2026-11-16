@@ -263,6 +263,9 @@ interface SpawnedCode {
 
     // set when a trusted spawner started the process with start_privileged, so its kernel funcs run without asking
     kernel_funcs_granted: boolean;
+
+    // set when the program asked to connect to services on this device and was allowed, so its isothreads (main and threads) can
+    loopback_granted: boolean;
 }
 
 // programs in an isothread can't instanceof these, so they are told apart by name, which is what survives rpc
@@ -726,6 +729,16 @@ export class Kernel {
 
         const kernel_funcs_granted = !kernelspace && start_privileged === true;
 
+        // reaching services on this device is its own permission, as it gives the program nothing else. kernelspace programs run on the page, which already has it
+        let loopback_granted = false;
+        if (!kernelspace && "needs_loopback" in program_metadata && program_metadata.needs_loopback === true) {
+            loopback_granted = start_privileged === true || await this.request_privilege(`Program ${program_search.display_name} wants to connect to services on this device (e.g. a local development server).`, process);
+            if (!loopback_granted) {
+                process.kill(1);
+                throw new Error(`Program ${program_metadata.name} needs to connect to services on this device, but the request was denied.`);
+            }
+        }
+
         // protect from pollution
         const data = Object.create(null) as ProgramMainData<UserspaceKernel | Kernel>;
 
@@ -771,7 +784,7 @@ export class Kernel {
                 throw e;
             }
 
-            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source, kernel_funcs_granted});
+            this.#spawned_code.set(process.pid, {found: program_search, code: Promise.resolve(program_code), source, kernel_funcs_granted, loopback_granted});
 
             // create a promise that resolves when the program completes
             result_promise = Promise.resolve(program_code.main(data as ProgramMainData));
@@ -787,10 +800,10 @@ export class Kernel {
                 throw e;
             }
 
-            this.#spawned_code.set(process.pid, {found: program_search, source, code: null, kernel_funcs_granted});
+            this.#spawned_code.set(process.pid, {found: program_search, source, code: null, kernel_funcs_granted, loopback_granted});
 
             try {
-                result_promise = itm.run(program_search, source, process, data as ProgramMainData).completion;
+                result_promise = itm.run(program_search, source, process, data as ProgramMainData, loopback_granted).completion;
             } catch (e) {
                 // don't leave a process behind for a program that never started (e.g. needs_dom with no window manager)
                 process.kill(1);
@@ -1186,7 +1199,7 @@ export class Kernel {
         };
 
         if (spawned.source !== null) {
-            return await this.#isothread_manager.run_thread(spawned.found, spawned.source, process.pid, name, input, data);
+            return await this.#isothread_manager.run_thread(spawned.found, spawned.source, process.pid, name, input, data, spawned.loopback_granted);
         }
 
         // no source to send to an isothread (e.g. a builtin), so the function runs where the program itself does

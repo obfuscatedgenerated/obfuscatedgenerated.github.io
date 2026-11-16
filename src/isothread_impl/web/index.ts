@@ -25,14 +25,14 @@ export class WebIsoThreadManager extends AbstractIsoThreadManager {
         this.#frames = new WebFrameIsoThreadManager(entry_url);
     }
 
-    _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null): {endpoint: KernelEndpoint, terminate(): void} {
+    _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null, loopback = false): {endpoint: KernelEndpoint, terminate(): void} {
         const {metadata} = found;
 
         // only main needs the dom: completions always get a worker, which keeps them off the page's thread
         const wants_frame = entry === "main" && metadata.space !== "kernel" && metadata.needs_dom === true;
 
         return wants_frame
-            ? this.#frames._start(source, found, entry, process)
-            : this.#workers._start(source, found, entry);
+            ? this.#frames._start(source, found, entry, process, loopback)
+            : this.#workers._start(source, found, entry, null, loopback);
     }
 }
