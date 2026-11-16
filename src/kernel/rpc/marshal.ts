@@ -13,6 +13,18 @@ export interface UnmarshalHooks {
     on_handle(marker: HandleMarker): unknown;
 }
 
+/**
+ * An object with a method under this symbol is sent over RPC as what the method returns, so a class can choose how it crosses (e.g. a shell becomes callbacks into itself).
+ */
+export const to_rpc_value = Symbol.for("ollieos.to_rpc_value");
+
+interface RPCConvertible {
+    [to_rpc_value](): unknown;
+}
+
+const is_rpc_convertible = (value: object): value is RPCConvertible =>
+    typeof (value as Partial<RPCConvertible>)[to_rpc_value] === "function";
+
 const is_plain_object = (value: object): boolean => {
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
@@ -94,6 +106,12 @@ export const marshal = (value: unknown, hooks: MarshalHooks): WireValue => {
             }
 
             return set_copy as unknown as WireValue;
+        }
+
+        if (is_rpc_convertible(obj)) {
+            const converted = walk(obj[to_rpc_value]());
+            copies.set(obj, converted);
+            return converted;
         }
 
         if (!is_plain_object(obj)) {

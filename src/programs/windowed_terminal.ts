@@ -1,5 +1,4 @@
 import type {KernelFuncs, Program} from "../types";
-import {XTermTerminal} from "../term_impl/xterm";
 
 export default {
     name: "windowed_terminal",
@@ -81,6 +80,7 @@ export const kernel_funcs = {
         `;
         wind.dom.appendChild(style);
 
+        const {XTermTerminal} = await import("../term_impl/xterm");
         const subterm = new XTermTerminal();
 
         // add xterm stylesheet
@@ -90,10 +90,13 @@ export const kernel_funcs = {
 
         subterm.open(terminal_root);
 
-        // TODO: update title to reflect live command rather than just initial (maybe some custom shell hooking?)
-
         // spawn the command in the subterm
         wind.title = `Terminal - ${command}`;
+
+        // follow the title set by whatever is running in the terminal
+        subterm.on_title_change((title) => {
+            wind.title = `Terminal - ${title || command}`;
+        });
 
         let close_exit_code = 0;
         const subproc = await kernel.spawn(process, command, command_args, undefined, false, subterm);

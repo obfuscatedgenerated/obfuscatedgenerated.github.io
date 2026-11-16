@@ -4,13 +4,15 @@ import {ANSI, NEWLINE} from "../lib/ansi";
 export default {
     name: "selfdestruct",
     description: "Permanently erases the filesystem and other data, then restarts the terminal.",
+    space: "kernel",
+    reason: "Erases the filesystem and browser data.",
     usage_suffix: "",
     arg_descriptions: {},
     compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, shell, term } = data;
+        const { kernel, shell, term, process } = data;
 
         // extract from ANSI to make code less verbose
         const { FG, BG, STYLE } = ANSI;
@@ -55,6 +57,6 @@ export default {
         term.writeln(`${NEWLINE}Thank you for using OllieOS!${NEWLINE}`);
 
         // TODO: talk to ignition instead of using shutdown command
-        return await (await kernel.spawn("shutdown", ["-r", "-t", "3000"], shell)).completion;
+        return await (await kernel.spawn(process, "shutdown", ["-r", "-t", "3000"], shell)).completion;
     }
 } satisfies Program;

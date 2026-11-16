@@ -1,4 +1,4 @@
-import type {AbstractShell} from "../../../abstract_shell";
+import {AbstractShell} from "../../../abstract_shell";
 import type {UserspaceKernel, UserspaceSpawnResult} from "../../../kernel";
 import {UserspaceProcessContext} from "../../../kernel/processes";
 
@@ -11,7 +11,7 @@ import type {Remote} from "../../../kernel/rpc";
 
 const {PREFABS, FG, STYLE} = ANSI;
 
-export class AshShell implements AbstractShell {
+export class AshShell extends AbstractShell {
     readonly #kernel: Remote<UserspaceKernel>;
     readonly #term: Remote<UserspaceTerminal>;
     readonly #process: Remote<UserspaceProcessContext>;
@@ -24,6 +24,8 @@ export class AshShell implements AbstractShell {
     _discard_cached_matches = false;
 
     constructor(term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, process: Remote<UserspaceProcessContext>) {
+        super();
+
         this.#term = term;
         this.#kernel = kernel;
         this.#process = process;
@@ -112,10 +114,9 @@ export class AshShell implements AbstractShell {
             return false;
         }
 
-        let old_title = "";
+        // push the current title onto the terminal's title stack, then set it to the command
         if (edit_doc_title) {
-            old_title = document.title;
-            document.title = command;
+            term.write(`\x1b[22;2t\x1b]2;${command}\x07`);
         }
 
         // prioritise builtins
@@ -133,13 +134,15 @@ export class AshShell implements AbstractShell {
                 }
 
                 if (edit_doc_title) {
-                    document.title = old_title;
+                    // pop back to the previous title
+                    term.write("\x1b[23;2t");
                 }
 
                 return true;
             } catch (e) {
                 if (edit_doc_title) {
-                    document.title = old_title;
+                    // pop back to the previous title
+                    term.write("\x1b[23;2t");
                 }
 
                 term.writeln(`${PREFABS.error}An error occurred while executing the builtin command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}`);
@@ -155,7 +158,8 @@ export class AshShell implements AbstractShell {
             spawn_result = await kernel.spawn(parsed_line, undefined, this);
         } catch (e) {
             if (edit_doc_title) {
-                document.title = old_title;
+                // pop back to the previous title
+                term.write("\x1b[23;2t");
             }
 
             term.writeln(`${PREFABS.error}Failed to execute command: ${FG.white + STYLE.italic}${command}${STYLE.reset_all}.`);
@@ -177,7 +181,8 @@ export class AshShell implements AbstractShell {
             memory.current_history_index = 0;
 
             if (edit_doc_title) {
-                document.title = old_title;
+                // pop back to the previous title
+                term.write("\x1b[23;2t");
             }
 
             if (process.is_detached) {

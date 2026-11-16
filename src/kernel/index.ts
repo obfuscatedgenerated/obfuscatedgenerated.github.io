@@ -267,6 +267,9 @@ export interface FoundProgram {
 
     // how the program is named to the user, e.g. in permission prompts. a program run by path shows the path too, as any file can claim any name
     display_name: string;
+
+    // whether this is one of the os's own programs, whose code the kernel also holds itself
+    builtin: boolean;
 }
 
 export interface ProgramCode {
@@ -486,7 +489,11 @@ export class Kernel {
 
             try {
                 const metadata = JSON.parse(await fs.read_file(metadata_path) as string) as ProgramMetadata;
-                return {code_path: builtin ? null : `${dir}/${name}.js`, metadata, display_name: metadata.name};
+                // builtins run from their file when the platform has put one there (see builtin_code.ts), otherwise from the kernel's own copy
+                const code_path = `${dir}/${name}.js`;
+                const has_code_file = !builtin || await fs.exists(code_path);
+
+                return {code_path: has_code_file ? code_path : null, metadata, display_name: metadata.name, builtin};
             } catch (e) {
                 console.error(`Failed to parse metadata for program ${name} in ${dir}:`, e);
                 return null;
@@ -510,7 +517,9 @@ export class Kernel {
 
         try {
             const metadata = JSON.parse(await fs.read_file(metadata_path) as string) as ProgramMetadata;
-            return {code_path, metadata, display_name: `${metadata.name} (${path})`};
+            const builtin = PROGRAM_SEARCH_DIRS.some((search_dir) => search_dir.builtin && base_path === `${search_dir.dir}/${metadata.name}`);
+
+            return {code_path, metadata, display_name: `${metadata.name} (${path})`, builtin};
         } catch (e) {
             console.error(`Failed to parse metadata for program at ${path}:`, e);
             return null;
@@ -631,7 +640,8 @@ export class Kernel {
         const {code_path, metadata} = found;
 
         try {
-            if (!code_path) {
+            // builtins always load the kernel's own copy in kernel space, so they share its modules (a second copy of e.g. the rpc registry wouldn't recognise the kernel's proxies)
+            if (!code_path || found.builtin) {
                 const builtin = this.#virtual_programs.get(metadata.name);
                 if (!builtin) {
                     throw new Error("not in the virtual program store");
@@ -798,7 +808,7 @@ export class Kernel {
             let program_code: ProgramCode;
             let source: string | null = null;
             try {
-                if (program_search.code_path) {
+                if (program_search.code_path && !program_search.builtin) {
                     source = await this.#fs.read_file(program_search.code_path) as string;
                     program_code = await this.#import_program_code(source, program_search.code_path);
                 } else {
@@ -1186,13 +1196,18 @@ export class Kernel {
         }
 
         if (!spawned.code) {
-            if (spawned.source === null) {
-                throw new Error(`Process ${process.pid} has no code or source to request kernel functions from.`);
-            }
+            if (spawned.found.builtin) {
+                // builtins use the kernel's own copy, see load_program
+                spawned.code = this.load_program(spawned.found, KERNEL_HOST);
+            } else {
+                if (spawned.source === null) {
+                    throw new Error(`Process ${process.pid} has no code or source to request kernel functions from.`);
+                }
 
-            // imported from the source the process was spawned with (not re-read from disk, which may have changed since), and only once granted
-            // the promise is stored so requests arriving together share one import
-            spawned.code = this.#import_program_code(spawned.source, spawned.found.code_path ?? spawned.found.metadata.name);
+                // imported from the source the process was spawned with (not re-read from disk, which may have changed since), and only once granted
+                // the promise is stored so requests arriving together share one import
+                spawned.code = this.#import_program_code(spawned.source, spawned.found.code_path ?? spawned.found.metadata.name);
+            }
         }
 
         const program_code = await spawned.code;

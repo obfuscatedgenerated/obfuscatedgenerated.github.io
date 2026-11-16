@@ -4,6 +4,8 @@ import {ANSI} from "../lib/ansi";
 export default {
     name: "fsedit",
     description: "Opens the fsedit program to edit the filesystem.",
+    space: "kernel",
+    reason: "Opens the fsedit program to edit the filesystem contents.",
     usage_suffix: "[directory]",
     arg_descriptions: {
         "Arguments:": {
@@ -28,14 +30,16 @@ export default {
         const fs_name = fs.get_unique_fs_type_name();
 
         // check args
-        let dir = fs.get_cwd();
+        let dir = fs.absolute(process.cwd);
         if (args.length > 1) {
             term.writeln(`${PREFABS.error}Too many arguments.${STYLE.reset_all}`);
             return 1;
         } else if (args.length === 1) {
             // set dir
-            dir = fs.absolute(args[0]);
+            dir = fs.absolute(args[0], process.cwd);
         }
+
+        console.log(dir)
 
         // check if directory exists
         if (!(await fs.dir_exists(dir))) {

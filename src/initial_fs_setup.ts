@@ -549,7 +549,7 @@ const setup_bin = async (fs: AbstractFileSystem, builtin_programs: Record<string
     }
 
     // for each builtin program, put the json metadata in /bin/<program_name>.json
-    // TODO: make builtins real js files, for now we save metadata but still hold main in memory
+    // the code goes in /bin/<program_name>.js where the platform provides it (see builtin_code.ts), otherwise the kernel runs its own copy
     for (const [program_name, prog] of Object.entries(builtin_programs)) {
         const program = prog as Program;
         const program_metadata = {
@@ -567,7 +567,7 @@ const setup_bin = async (fs: AbstractFileSystem, builtin_programs: Record<string
     const bin_files = await fs.list_dir(absolute_bin);
     for (const file of bin_files) {
         const file_name = file.split("/").pop() || "";
-        const program_name = file_name.replace(/\.json$/, "");
+        const program_name = file_name.replace(/\.(json|js)$/, "");
         if (!(program_name in builtin_programs)) {
             await fs.delete_file(fs.join(absolute_bin, file_name));
         }

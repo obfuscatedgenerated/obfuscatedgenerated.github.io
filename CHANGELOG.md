@@ -2,6 +2,10 @@
 
 Major versions and the minor versions that added something worth mentioning. Patch releases and anything not listed are in the tags and git history.
 
+## 3.3.0: Built in programs now use isothreads
+
+On the release of v3, builtin programs remained imported as a module and thus could not run in an isothread. Now they are stored as files under `/bin` and so userspace programs can run them in their own thread, isolated from the kernel. The builtin code is fetched from the repo on first boot, and only updated if it has changed.
+
 ## 3.2.0: Loopback permission
 
 Programs can declare `needs_loopback` which will prompt the user to allow them to connect to `localhost` etc. at program start.

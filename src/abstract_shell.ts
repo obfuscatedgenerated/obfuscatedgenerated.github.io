@@ -1,6 +1,72 @@
 // TODO: as these are just interfaces, where do they belong? not particularly part of the kernel but feels odd to have them loose. maybe part of a types directory with types.ts?
 
-import {finalise_userspace_proxy, is_userspace_proxy, type Remote, type sync_members} from "./kernel/rpc";
+import {finalise_userspace_proxy, is_userspace_proxy, type Remote, type sync_members, to_rpc_value} from "./kernel/rpc";
+
+/**
+ * The memory part of a {@link ShellHandle}. The history index is a getter and setter pair, as a property can't call back into the shell.
+ * @hidden
+ */
+export interface ShellMemoryHandle {
+    get_current_history_index(): number;
+    set_current_history_index(index: number): void;
+    clear_history(): void;
+    get_previous_history_entry(): string | undefined;
+    get_next_history_entry(): string | undefined;
+    add_history_entry(entry: string): void;
+    list_variables(): Map<string, string>;
+    get_variable(name: string): string | undefined;
+    set_variable(name: string, value: string): void;
+    unset_variable(name: string): boolean;
+    list_aliases(): Map<string, string>;
+    get_alias(name: string): string | undefined;
+    set_alias(name: string, value: string): void;
+    unset_alias(name: string): boolean;
+}
+
+/**
+ * What a shell is sent over RPC as, since a class instance can't be. Its functions become callbacks into the shell.
+ * @hidden
+ */
+export interface ShellHandle {
+    readonly name: string;
+    readonly memory: ShellMemoryHandle;
+    execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
+}
+
+// the same handle every time, so the kernel sees the same callbacks and resolves them to the same shell
+const handles_by_shell = new WeakMap<AbstractShell, ShellHandle>();
+
+// what a shell becomes when sent over RPC
+const create_shell_handle = (shell: AbstractShell): ShellHandle => {
+    const existing = handles_by_shell.get(shell);
+    if (existing) {
+        return existing;
+    }
+
+    const handle: ShellHandle = {
+        name: shell.name,
+        memory: {
+            get_current_history_index: () => shell.memory.current_history_index,
+            set_current_history_index: (index) => { shell.memory.current_history_index = index; },
+            clear_history: () => shell.memory.clear_history(),
+            get_previous_history_entry: () => shell.memory.get_previous_history_entry(),
+            get_next_history_entry: () => shell.memory.get_next_history_entry(),
+            add_history_entry: (entry) => shell.memory.add_history_entry(entry),
+            list_variables: () => shell.memory.list_variables(),
+            get_variable: (name) => shell.memory.get_variable(name),
+            set_variable: (name, value) => shell.memory.set_variable(name, value),
+            unset_variable: (name) => shell.memory.unset_variable(name),
+            list_aliases: () => shell.memory.list_aliases(),
+            get_alias: (name) => shell.memory.get_alias(name),
+            set_alias: (name, value) => shell.memory.set_alias(name, value),
+            unset_alias: (name) => shell.memory.unset_alias(name),
+        },
+        execute: (line, edit_doc_title, program_final_completion_callback) => shell.execute(line, edit_doc_title, program_final_completion_callback),
+    };
+
+    handles_by_shell.set(shell, handle);
+    return handle;
+};
 
 export abstract class AbstractShellMemory {
     abstract get current_history_index(): number;
@@ -40,6 +106,14 @@ export abstract class AbstractShell {
 
     // edit_doc_title should default to true in implementations
     abstract execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
+
+    /**
+     * A shell crosses RPC (e.g. when passed to spawn) as callbacks into itself, so shells can be passed around like any other value.
+     * @hidden
+     */
+    [to_rpc_value](): ShellHandle {
+        return create_shell_handle(this);
+    }
 
     // TODO: expose parse method
 }
@@ -84,12 +158,64 @@ export interface UserspaceShell {
     execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
 
+// kernel side of a shell handle. its callbacks into the program return promises, which is fine as only userspace reads a shell's memory (through its proxy, where everything is awaited anyway)
+class HandleShell extends AbstractShell {
+    readonly name: string;
+    readonly #handle: ShellHandle;
+    readonly #memory: AbstractShellMemory;
+
+    constructor(handle: ShellHandle) {
+        super();
+
+        this.name = handle.name;
+        this.#handle = handle;
+
+        const handle_memory = handle.memory;
+        this.#memory = {
+            get current_history_index() {
+                return handle_memory.get_current_history_index();
+            },
+            set current_history_index(index: number) {
+                void handle_memory.set_current_history_index(index);
+            },
+            clear_history: () => handle_memory.clear_history(),
+            get_previous_history_entry: () => handle_memory.get_previous_history_entry(),
+            get_next_history_entry: () => handle_memory.get_next_history_entry(),
+            add_history_entry: (entry: string) => handle_memory.add_history_entry(entry),
+            list_variables: () => handle_memory.list_variables(),
+            get_variable: (name: string) => handle_memory.get_variable(name),
+            set_variable: (name: string, value: string) => handle_memory.set_variable(name, value),
+            unset_variable: (name: string) => handle_memory.unset_variable(name),
+            list_aliases: () => handle_memory.list_aliases(),
+            get_alias: (name: string) => handle_memory.get_alias(name),
+            set_alias: (name: string, value: string) => handle_memory.set_alias(name, value),
+            unset_alias: (name: string) => handle_memory.unset_alias(name),
+        } as AbstractShellMemory;
+    }
+
+    get memory(): AbstractShellMemory {
+        return this.#memory;
+    }
+
+    execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean> {
+        return this.#handle.execute(line, edit_doc_title, program_final_completion_callback);
+    }
+}
+
+// a handle arrives as a fresh copy each call, but its callbacks are the same each time, so its shell is looked up by one of them
+const shells_by_handle_execute = new WeakMap<ShellHandle["execute"], HandleShell>();
+
+const is_shell_handle = (value: unknown): value is ShellHandle => {
+    const candidate = value as Partial<ShellHandle>;
+    return typeof candidate.name === "string" && typeof candidate.execute === "function" && typeof candidate.memory === "object" && candidate.memory !== null;
+};
+
 // a shell is always given out as the same proxy, and a proxy handed back (e.g. to spawn) resolves to its shell
 const proxies_by_shell = new WeakMap<AbstractShell, UserspaceShell>();
 const shells_by_proxy = new WeakMap<UserspaceShell, AbstractShell>();
 
 /**
- * Kernel only. Resolves a shell given by a program back to the real shell (a stub the program passes arrives as its proxy). Returns undefined for a proxy the kernel didn't make.
+ * Kernel only. Resolves a shell given by a program back to the real shell: a stub the program passes arrives as its proxy, and a {@link ShellHandle} from a shell running in an isothread is wrapped as a shell. Returns undefined for anything else.
  */
 export const unwrap_shell = (shell: AbstractShell | UserspaceShell | Remote<UserspaceShell>): AbstractShell | undefined => {
     const unwrapped = shells_by_proxy.get(shell as UserspaceShell);
@@ -97,7 +223,29 @@ export const unwrap_shell = (shell: AbstractShell | UserspaceShell | Remote<User
         return unwrapped;
     }
 
-    return is_userspace_proxy(shell) ? undefined : shell as AbstractShell;
+    if (is_userspace_proxy(shell)) {
+        return undefined;
+    }
+
+    // a real shell is a class instance, while a handle arrives as a plain object
+    const prototype = Object.getPrototypeOf(shell);
+    if (prototype !== Object.prototype && prototype !== null) {
+        return shell as AbstractShell;
+    }
+
+    const handle: unknown = shell;
+    if (!is_shell_handle(handle)) {
+        return undefined;
+    }
+
+    const existing = shells_by_handle_execute.get(handle.execute);
+    if (existing) {
+        return existing;
+    }
+
+    const wrapped = new HandleShell(handle);
+    shells_by_handle_execute.set(handle.execute, wrapped);
+    return wrapped;
 };
 
 // only used by the rpc layer to send a shell to a program running behind rpc

@@ -92,19 +92,10 @@ export default {
         play_reader_sound(state);
 
         // print message
-        term.writeln(`Screen reader mode was turned ${state}. This setting is saved in your browser's local storage. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
+        term.writeln(`Screen reader mode was turned ${state}. This setting is saved in /etc/reader. Use the ${PREFABS.program_name}reader${STYLE.reset_all} command to toggle it.`);
 
-        // remove hint element if screen reader mode is on
-        if (state === "on") {
-            const hint = document.querySelector("#screenreader_hint");
-
-            if (hint) {
-                hint.remove();
-            }
-        }
-
-        // save into local storage
-        localStorage.setItem("reader", String(await term.get_custom_flag("reader_support")));
+        // save so ash turns it back on at login
+        await kernel.get_fs().write_file("/etc/reader", String(await term.get_custom_flag("reader_support")), true);
 
         return 0;
     }

@@ -26,7 +26,6 @@ export * as rm from "./rm";
 export * as bugreport from "./bugreport";
 export * as repo from "./repo";
 export * as rss from "./rss";
-export * as legacy from "./legacy";
 export * as tour from "./tour";
 export * as pkg from "./pkg";
 export * as touch from "./touch";
@@ -54,6 +53,5 @@ export * as trigger_create_trigger from "./pkg/triggers/create_trigger";
 export * as trigger_remove_trigger from "./pkg/triggers/remove_trigger";
 
 // TODO: copy program
-// TODO: create an API for creating programs, mount any programs found in /bin/ (dont list in help)
 // TODO: video player from files or youtube using ascii video streaming or some super duper optimised sixel
 // TODO: bonus programs such as the video player can be packages now! i think everything else should stay embedded
