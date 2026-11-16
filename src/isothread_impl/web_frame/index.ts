@@ -62,6 +62,9 @@ export class WebFrameIsoThreadManager extends AbstractIsoThreadManager {
 
         wind.dom.appendChild(frame);
 
+        // the frame is the window's content, so focusing the window gives the program the keyboard
+        wind.add_event_listener("focus", () => frame.focus());
+
         // the frame is the program, so once its window is gone the process can't go on
         wind.add_event_listener("close", () => {
             setTimeout(() => process.kill(0), CLOSE_GRACE_MS);

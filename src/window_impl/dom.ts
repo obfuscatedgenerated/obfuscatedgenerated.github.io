@@ -277,6 +277,11 @@ export class DOMWindowManager extends AbstractWindowManager {
                 }
 
                 this._window_root.focus();
+                this._activate();
+            }
+
+            // brings the window to the front and marks it active, without moving keyboard focus (which may be inside its content, e.g. a frame)
+            private _activate() {
                 this._window_root.style.zIndex = manager.#get_next_z(this.layer).toString();
 
                 if (active_window_root && active_window_root !== this._window_root) {
@@ -316,7 +321,7 @@ export class DOMWindowManager extends AbstractWindowManager {
 
                 setTimeout(() => {
                     if (document.activeElement === this._content_host) {
-                        this.focus();
+                        this._activate();
                     }
                 }, 0);
             }
