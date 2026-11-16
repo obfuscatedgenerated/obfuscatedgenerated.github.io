@@ -204,6 +204,12 @@ interface UserspaceProgram<S extends ProgramSections = NoSections> extends BaseP
      * It is just as isolated, but shares the page's thread, and can only have one window.
      */
     needs_dom?: boolean;
+    /**
+     * Default false. If true, the program can connect to services on this device (localhost), e.g. a local development server.
+     * The user is asked when the program is spawned (unless a trusted spawner started it with start_privileged), and the program doesn't run if they refuse.
+     * It gives the program nothing else: no kernel access, and nothing on the rest of the local network.
+     */
+    needs_loopback?: boolean;
 }
 interface KernelspaceProgram<S extends ProgramSections = NoSections> extends BaseProgram<ProgramMainData<Kernel, ThreadsOf<S>>> {
     /**
