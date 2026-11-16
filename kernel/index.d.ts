@@ -2,7 +2,7 @@ import { AbstractFileSystem, type UserspaceFileSystem } from "./filesystem";
 import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { AbstractPlatformAPI, UserspacePlatformAPI } from "./platform";
-import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceProcessContext, UserspaceProcessManager, UserspaceSpawnedProcessContext } from "./processes";
+import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceOtherProcessContext, UserspaceProcessContext, UserspaceProcessManager, UserspaceSpawnedProcessContext } from "./processes";
 import { AbstractShell, UserspaceShell } from "../abstract_shell";
 import { CompletionRequest, CompletionGenerator, KernelFuncs, Program, ProgramMain, ProgramMetadata, RequestKernelFunc, ThreadFuncs } from "../types";
 import { type AbstractTerminal } from "./term_ctl";
@@ -167,6 +167,29 @@ export interface ParsedCommandLine {
     raw_parts: string[];
     run_in_bg: boolean;
 }
+/**
+ * What a privilege request asks for, so the privilege agent can describe it accurately:
+ * - kernel: running a program in kernel space, with full access to the kernel
+ * - kernel_func: running one of a program's kernel functions in kernel space
+ * - loopback: letting a program connect to services on this device
+ * - confirm: confirming an action for a program, e.g. opening a URL in another application
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export type PrivilegeRequestKind = "kernel" | "kernel_func" | "loopback" | "confirm";
+/**
+ * What the kernel sends a privilege agent over its channel. For kernel and kernel_func requests, the reason comes from the program; for the others, the kernel wrote it.
+ * Older agents that don't know about kinds treat every request as a kernel request.
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export interface PrivilegeAgentRequest {
+    process: UserspaceOtherProcessContext;
+    reason: string;
+    kind: PrivilegeRequestKind;
+}
 export interface FoundProgram {
     code_path: string | null;
     metadata: ProgramMetadata;
@@ -302,9 +325,10 @@ export declare class Kernel {
      * Request privileged access from the kernel.
      * @param reason The reason for requesting privileged access.
      * @param process The process requesting privileged access.
+     * @param kind What is being asked for, so the privilege agent can describe it.
      * @returns A boolean indicating whether privileged access should be granted.
      */
-    request_privilege(reason: string, process: ProcessContext): Promise<boolean>;
+    request_privilege(reason: string, process: ProcessContext, kind?: PrivilegeRequestKind): Promise<boolean>;
     /**
      * Runs one of the calling process's own kernel functions in kernel space, after prompting. Typed per program via {@link UserspaceKernel.request_kernel_func}.
      */
