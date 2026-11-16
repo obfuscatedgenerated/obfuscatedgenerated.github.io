@@ -13,7 +13,6 @@ import { initial_fs_setup } from "./initial_fs_setup";
 
 import {DOMWindowManager} from "./window_impl/dom";
 
-import "./load_global_externals";
 import {PorterBridgeNetworkManager} from "./network_impl/porter";
 import {XTermTerminal} from "./term_impl/xterm";
 

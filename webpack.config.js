@@ -18,30 +18,7 @@ function hb_build() {
     const package = require("./package.json");
     let version = package.version;
 
-    // TODO: phase out importmap loading for the new global system
-    // the new system will use less network and memory and is more compatible, but we can't just delete it as it will break old packages
-    let deps = package.dependencies;
-    let unpkg_deps = {};
-
-    // can't do imgtoascii
-    delete deps["imgtoascii"];
-
-    // replace version field of dependencies with unpkg link at specific version
-    for (let dep in deps) {
-        unpkg_deps[dep] = `https://unpkg.com/${dep}@${deps[dep]}`;
-    }
-
-    // inject a fake dep, xterm, that points to @xterm/xterm to help support older compiled ollieos programs
-    // alias other renamed modules to their new names
-    unpkg_deps["xterm"] = `https://unpkg.com/@xterm/xterm@${deps["@xterm/xterm"]}`;
-    unpkg_deps["xterm-addon-fit"] = `https://unpkg.com/@xterm/addon-fit@${deps["@xterm/addon-fit"]}`;
-    unpkg_deps["xterm-addon-image"] = `https://unpkg.com/@xterm/addon-image@${deps["@xterm/addon-image"]}`;
-    unpkg_deps["xterm-addon-web-links"] = `https://unpkg.com/@xterm/addon-web-links@${deps["@xterm/addon-web-links"]}`;
-
-    let unpkg_imp_map = {"imports": unpkg_deps};
-    unpkg_imp_map = JSON.stringify(unpkg_imp_map);
-
-    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, unpkg_imp_map, build_year: new Date().getFullYear() });
+    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, build_year: new Date().getFullYear() });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
 
