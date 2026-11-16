@@ -154,17 +154,17 @@ export interface UserspaceTerminal {
     set_custom_flag(flag: string, value: unknown): void;
     supports_custom_flag(flag: string): boolean;
 
-    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ANSI` from `ollieos/lib/ansi` instead. */
     readonly ansi: typeof ANSI;
-    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
+    /** @deprecated Import `NEWLINE` from `ollieos/lib/ansi` instead. */
     readonly newline: string;
-    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `non_printable_regex()` from `ollieos/lib/ansi` instead. */
     readonly non_printable_regex: RegExp;
-    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/lib/ansi` instead. */
     readonly ansi_escape_regex: RegExp;
-    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/lib/ansi` instead. */
     readonly ansi_unescaped_regex: RegExp;
-    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `word_wrap()` from `ollieos/lib/ansi` instead. */
     word_wrap(text: string, width: number): string;
 }
 
@@ -190,27 +190,27 @@ export abstract class AbstractTerminal implements MirrorSource {
 
     // deprecated aliases kept for packages built before the ansi lib existed. remove in a future major
 
-    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ANSI` from `ollieos/lib/ansi` instead. */
     get ansi() {
         return ANSI;
     }
 
-    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
+    /** @deprecated Import `NEWLINE` from `ollieos/lib/ansi` instead. */
     get newline() {
         return NEWLINE;
     }
 
-    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `non_printable_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get non_printable_regex() {
         return non_printable_regex();
     }
 
-    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get ansi_escape_regex() {
         return ansi_escape_regex();
     }
 
-    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get ansi_unescaped_regex() {
         return ansi_unescaped_regex();
     }
@@ -670,7 +670,7 @@ export abstract class AbstractTerminal implements MirrorSource {
         });
     }
 
-    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `word_wrap()` from `ollieos/lib/ansi` instead. */
     word_wrap(text: string, width: number): string {
         return word_wrap(text, width);
     }
