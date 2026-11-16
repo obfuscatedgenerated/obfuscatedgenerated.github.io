@@ -34,10 +34,18 @@ self.addEventListener("message", (event: MessageEvent<WorkerStartMessage>) => {
         return;
     }
 
-    // programs don't get to spawn their own workers, threads must go through the kernel
-    Reflect.deleteProperty(self, "Worker");
+    // shared workers aren't owned by one document, so they could outlive the program
     Reflect.deleteProperty(self, "SharedWorker");
-    // TODO: could attempt to polyfill with thread sections later
+
+    // this entry also runs inside a sandboxed frame, for programs that need a dom. there the window's content is the frame's own document
+    if (typeof document !== "undefined") {
+        // workers made by the frame share its opaque origin and die with it when the program is terminated
+        set_frame_dom(document.body.attachShadow({mode: "open"}));
+    } else {
+        // programs in workers don't get to spawn their own, threads must go through the kernel
+        Reflect.deleteProperty(self, "Worker");
+        // TODO: could attempt to polyfill with thread sections later
+    }
 
     // this entry also runs inside a sandboxed frame, for programs that need a dom. there the window's content is the frame's own document
     if (typeof document !== "undefined") {
