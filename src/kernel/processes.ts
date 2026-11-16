@@ -86,11 +86,11 @@ export class IPCManager {
             }
 
             // clean up channels
-            for (const [channel_id, channel] of this.#channels) {
-                const initiator_process = this.#process_manager.get_process(channel.initiator);
-                const peer_process = this.#process_manager.get_process(channel.peer);
+            // the kernel isn't a process, and a reserved channel has no peer yet, so neither end counts as dead (otherwise privilege requests lose their channel mid-prompt)
+            const is_alive = (pid: number) => pid === KERNEL_FAKE_PID || pid === UNASSIGNED_FAKE_PID || this.#process_manager.get_process(pid) !== undefined;
 
-                if (!initiator_process || !peer_process) {
+            for (const [channel_id, channel] of this.#channels) {
+                if (!is_alive(channel.initiator) || !is_alive(channel.peer)) {
                     this.#channels.delete(channel_id);
                 }
             }
