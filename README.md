@@ -16,7 +16,7 @@ The historical changelog is available in [CHANGELOG.md](CHANGELOG.md).
 
 ### [Node.js](https://github.com/obfuscatedgenerated/ollieos_node)
 
-### [iOS](https://github.com/obfuscatedgenerated/ollieos-ios)
+### [iOS](https://github.com/obfuscatedgenerated/ollieos_ios)
 
 ---
 

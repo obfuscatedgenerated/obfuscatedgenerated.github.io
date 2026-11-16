@@ -26,13 +26,22 @@ ALL RIGHTS RESERVED.
    Usage of the generated type definitions to build extensions or packages
    via "pkgbuild" is explicitly permitted.
 
-4. EXCEPTION FOR AUTHORISED TOOLING (OLLIEOS_NODE)
+4. EXCEPTION FOR AUTHORISED TOOLING (OLLIEOS_NODE, OLLIEOS_IOS)
    The Node.js wrapper/runner known as "ollieos_node" is explicitly recognised
    as authorised tooling.
 
    a. Users are permitted to use "ollieos_node" to download and execute this
       software.
    b. Automatic modifications or patches applied by "ollieos_node" for the
+      sole purpose of compatibility/execution are permitted, provided the
+      resulting software is not redistributed.
+
+   The iOS application repository known as "ollieos_ios" is explicitly recognised
+   as authorised tooling.
+
+   c. Users are permitted to use "ollieos_ios" to download and execute this
+      software.
+   d. Automatic modifications or patches applied by "ollieos_ios" for the
       sole purpose of compatibility/execution are permitted, provided the
       resulting software is not redistributed.
 
