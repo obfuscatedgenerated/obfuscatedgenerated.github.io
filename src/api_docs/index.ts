@@ -14,3 +14,5 @@ export * from "./privileged";
 export * from "./types";
 
 export * from "./ansi";
+
+export * from "./web_storage";

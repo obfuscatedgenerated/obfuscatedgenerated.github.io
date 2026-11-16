@@ -1,6 +1,6 @@
 {
   "name": "ollieos",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "",
   "main": "server.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "fix": "eslint . --fix",
     "clean": "rimraf public/script",
     "generate-licenses": "node ./bin/generate_licenses.js",
-    "build:types": "tsc src/raw.d.ts src/kernel/index.ts --emitDeclarationOnly --declaration --outDir types --target esnext --moduleResolution node --module esnext -allowSyntheticDefaultImports && tsc src/lib/ansi.ts --outDir types/lib --target es2020 --module esnext --moduleResolution node",
+    "build:types": "tsc src/raw.d.ts src/kernel/index.ts --emitDeclarationOnly --declaration --outDir types --target esnext --moduleResolution node --module esnext -allowSyntheticDefaultImports && tsc src/lib/ansi.ts src/lib/web_storage.ts --outDir types/lib --target es2020 --module esnext --moduleResolution node --declaration",
     "build:docs": "typedoc --options typedoc.json"
   },
   "repository": {
@@ -34,6 +34,7 @@
     "@xterm/addon-image": "^0.8.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
+    "fake-indexeddb": "^6.2.8",
     "html-to-text": "^9.0.5",
     "imgToAscii": "github:obfuscatedgenerated/imgToAscii",
     "semver": "^7.7.3",

@@ -39,7 +39,8 @@ jobs:
             const rootDeps = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
             const typeDeps = {};
           
-            const explicitTypePackages = ['@xterm/xterm', 'howler']; 
+            // runtime dependencies of the libs shipped as js (e.g. lib/web_storage), so packages bundling them can resolve them
+            const explicitTypePackages = ['@xterm/xterm', 'fake-indexeddb'];
 
             for (const [pkgName, version] of Object.entries(rootDeps)) {
               if (pkgName.startsWith('@types/') || explicitTypePackages.includes(pkgName)) {

@@ -19,3 +19,10 @@ The `Userspace*` interfaces document each object as the kernel provides it. A pr
 - **Fire and forget:** methods that return nothing (e.g. `term.write()`, `window.show()`) are sent without waiting, but always arrive in the order they were called.
 
 Anything a call returns that is itself a userspace object (a window, another process, a socket) is a stub too. Plain data is copied, and callbacks you pass in are called back across the boundary.
+
+## Libraries
+
+Some helpers ship with the types as code that is bundled into your program:
+
+- `ollieos/lib/ansi`: terminal colours, styles and text helpers (see {@link ANSI}).
+- `ollieos/lib/web_storage`: localStorage, IndexedDB and cookies for programs that need them, saved to the filesystem (see {@link install_web_storage}). Isolated programs don't have these otherwise.
