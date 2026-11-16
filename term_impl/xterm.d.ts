@@ -28,5 +28,9 @@ export declare class XTermTerminal extends AbstractTerminal {
     open(parent: HTMLElement): void;
     focus(): void;
     dispose(): void;
+    /**
+     * Listens for the title programs set through terminal escapes. Empty when they clear it.
+     */
+    on_title_change(listener: (title: string) => void): void;
     constructor(xterm_opts?: ITerminalOptions);
 }

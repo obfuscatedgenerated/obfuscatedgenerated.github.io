@@ -194,6 +194,7 @@ export interface FoundProgram {
     code_path: string | null;
     metadata: ProgramMetadata;
     display_name: string;
+    builtin: boolean;
 }
 export interface ProgramCode {
     main: ProgramMain;

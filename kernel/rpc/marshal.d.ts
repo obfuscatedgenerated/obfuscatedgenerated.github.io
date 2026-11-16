@@ -9,6 +9,10 @@ export interface UnmarshalHooks {
     on_callback(marker: CallbackMarker): unknown;
     on_handle(marker: HandleMarker): unknown;
 }
+/**
+ * An object with a method under this symbol is sent over RPC as what the method returns, so a class can choose how it crosses (e.g. a shell becomes callbacks into itself).
+ */
+export declare const to_rpc_value: unique symbol;
 export declare const marshal: (value: unknown, hooks: MarshalHooks) => WireValue;
 export declare const unmarshal: (value: WireValue, hooks: UnmarshalHooks) => unknown;
 export type ErrorConstructorMap = Record<string, abstract new (...args: never[]) => Error>;
