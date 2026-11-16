@@ -4,7 +4,7 @@
  *
  * @category Kernel
  */
-export {UserspaceKernel, UserspaceSpawnResult, ParsedCommandLine} from "../kernel";
+export {UserspaceKernel, UserspaceSpawnResult, ParsedCommandLine, PrivilegeRequestKind, PrivilegeAgentRequest} from "../kernel";
 
 /**
  * @group Userspace

@@ -223,8 +223,34 @@ export interface ParsedCommandLine {
     run_in_bg: boolean;
 }
 
+/**
+ * What a privilege request asks for, so the privilege agent can describe it accurately:
+ * - kernel: running a program in kernel space, with full access to the kernel
+ * - kernel_func: running one of a program's kernel functions in kernel space
+ * - loopback: letting a program connect to services on this device
+ * - confirm: confirming an action for a program, e.g. opening a URL in another application
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export type PrivilegeRequestKind = "kernel" | "kernel_func" | "loopback" | "confirm";
+
+/**
+ * What the kernel sends a privilege agent over its channel. For kernel and kernel_func requests, the reason comes from the program; for the others, the kernel wrote it.
+ * Older agents that don't know about kinds treat every request as a kernel request.
+ *
+ * @group Userspace
+ * @category Kernel
+ */
+export interface PrivilegeAgentRequest {
+    process: UserspaceOtherProcessContext;
+    reason: string;
+    kind: PrivilegeRequestKind;
+}
+
 interface EnqueuedPrivilegeRequest {
     reason: string;
+    kind: PrivilegeRequestKind;
     process: ProcessContext;
     resolve: (value: boolean) => void;
 }
@@ -714,7 +740,7 @@ export class Kernel {
 
         if (kernelspace && !start_privileged) {
             // not started by a trusted spawner, but the program wants to run in kernel space, so ask
-            const maybe_kernel = await this.request_privilege(`Program ${program_search.display_name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process);
+            const maybe_kernel = await this.request_privilege(`Program ${program_search.display_name} requires privileged access to run: ${program_metadata.reason || "No reason provided."}`, process, "kernel");
             if (!maybe_kernel) {
                 // abort spawn if the user denies the request
                 process.kill(1);
@@ -732,7 +758,7 @@ export class Kernel {
         // reaching services on this device is its own permission, as it gives the program nothing else. kernelspace programs run on the page, which already has it
         let loopback_granted = false;
         if (!kernelspace && "needs_loopback" in program_metadata && program_metadata.needs_loopback === true) {
-            loopback_granted = start_privileged === true || await this.request_privilege(`Program ${program_search.display_name} wants to connect to services on this device (e.g. a local development server).`, process);
+            loopback_granted = start_privileged === true || await this.request_privilege(`${program_search.display_name} wants to connect to services on this device (e.g. a local development server).`, process, "loopback");
             if (!loopback_granted) {
                 process.kill(1);
                 throw new Error(`Program ${program_metadata.name} needs to connect to services on this device, but the request was denied.`);
@@ -996,7 +1022,7 @@ export class Kernel {
         this.#term.writeln(`Packages need to be reinstalled after an update. Run 'pkg migrate' to reinstall them (old files are kept in ${backup_dir}).${NEWLINE}`);
     }
 
-    async #handle_privilege_request({reason, process, resolve}: EnqueuedPrivilegeRequest) {
+    async #handle_privilege_request({reason, kind, process, resolve}: EnqueuedPrivilegeRequest) {
         // read /sys/privilege_agent to determine privilege agent
         const fs = this.get_fs();
         let agent_program = "default_privilege_agent";
@@ -1016,6 +1042,9 @@ export class Kernel {
         // create an unassigned ipc channel
         const ipc = this.get_ipc();
         const channel_id = ipc.reserve_kernel_channel();
+
+        // the prompt goes to the requesting process's terminal, so make sure keys typed in answer reach it rather than a window that had focus
+        process.terminal.focus();
 
         // spawn the privilege agent program, passing the channel id, and assign the channel to it
         // make sure it is displayed on the requesting process' terminal
@@ -1056,10 +1085,13 @@ export class Kernel {
         // TODO: cleaner logic here
         while ((Date.now() - start_time) < 60000 && approved === null && (handling_request || (Date.now() - start_time) < 10000)) {
             if (!handling_request) {
-                ipc.channel_send(channel_id, KERNEL_FAKE_PID, {
+                const request: PrivilegeAgentRequest = {
                     process: process_proxy,
-                    reason
-                });
+                    reason,
+                    kind,
+                };
+
+                ipc.channel_send(channel_id, KERNEL_FAKE_PID, request);
             }
 
             await new Promise((resolve_timeout) => setTimeout(resolve_timeout, 500));
@@ -1104,9 +1136,10 @@ export class Kernel {
      * Request privileged access from the kernel.
      * @param reason The reason for requesting privileged access.
      * @param process The process requesting privileged access.
+     * @param kind What is being asked for, so the privilege agent can describe it.
      * @returns A boolean indicating whether privileged access should be granted.
      */
-    async request_privilege(reason: string, process: ProcessContext): Promise<boolean> {
+    async request_privilege(reason: string, process: ProcessContext, kind: PrivilegeRequestKind = "kernel"): Promise<boolean> {
         // TODO: a way to skip this when already privileged? or by pid?
         // TODO: remember my answer option when /sys security is implemented
         // TODO: implement killing in the proxies so that when the process dies, any privileged access is revoked
@@ -1119,7 +1152,7 @@ export class Kernel {
         // enqueue the request to ensure it is handled sequentially
         console.log(`Enqueuing privilege request for reason: ${reason}`);
         return new Promise((resolve) => {
-            this.#privilege_request_queue.push({reason, process, resolve});
+            this.#privilege_request_queue.push({reason, kind, process, resolve});
 
             // begin handling the queue if not already doing so
             this.#handle_privilege_request_queue();
@@ -1147,7 +1180,7 @@ export class Kernel {
             }
         }
 
-        const granted = spawned.kernel_funcs_granted || await this.request_privilege(`${spawned.found.display_name} wants to run its kernel function "${name}": ${reason}`, process);
+        const granted = spawned.kernel_funcs_granted || await this.request_privilege(`${spawned.found.display_name} wants to run its kernel function "${name}": ${reason}`, process, "kernel_func");
         if (!granted) {
             throw new NotAllowedError("rejected by user");
         }
@@ -1280,7 +1313,7 @@ export class Kernel {
         const net_mgr = self.get_network_manager();
         const net_mgr_proxy = net_mgr ? net_mgr.create_userspace_proxy() : null;
         const platform = self.get_platform();
-        const platform_proxy = platform ? platform.create_userspace_proxy((reason) => self.request_privilege(reason, process)) : null;
+        const platform_proxy = platform ? platform.create_userspace_proxy((reason) => self.request_privilege(reason, process, "confirm")) : null;
 
         Object.defineProperties(proxy, {
             privileged: { value: false, enumerable: true },

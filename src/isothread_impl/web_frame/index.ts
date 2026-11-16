@@ -45,6 +45,9 @@ export class WebFrameIsoThreadManager extends AbstractIsoThreadManager {
         // alert, confirm and prompt, which some libraries need (e.g. pyodide's default stdin). they can't reach the os, only block the page
         frame.sandbox.add("allow-modals");
 
+        // games need to capture the mouse. it only ever locks to the frame, and escape always releases it
+        frame.sandbox.add("allow-pointer-lock");
+
         // the browser fixes a frame's permissions when it loads, so a program allowed to reach this device's services gets it from the start
         if (loopback) {
             frame.allow = "loopback-network *";
