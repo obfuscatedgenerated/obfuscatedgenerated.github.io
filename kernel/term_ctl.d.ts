@@ -105,17 +105,17 @@ export interface UserspaceTerminal {
     get_custom_flag(flag: string): unknown;
     set_custom_flag(flag: string, value: unknown): void;
     supports_custom_flag(flag: string): boolean;
-    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ANSI` from `ollieos/lib/ansi` instead. */
     readonly ansi: typeof ANSI;
-    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
+    /** @deprecated Import `NEWLINE` from `ollieos/lib/ansi` instead. */
     readonly newline: string;
-    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `non_printable_regex()` from `ollieos/lib/ansi` instead. */
     readonly non_printable_regex: RegExp;
-    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/lib/ansi` instead. */
     readonly ansi_escape_regex: RegExp;
-    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/lib/ansi` instead. */
     readonly ansi_unescaped_regex: RegExp;
-    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `word_wrap()` from `ollieos/lib/ansi` instead. */
     word_wrap(text: string, width: number): string;
 }
 /**
@@ -128,7 +128,7 @@ export declare abstract class AbstractTerminal implements MirrorSource {
     #private;
     readonly [mirror_source]: true;
     protected _kernel_has_panicked: boolean;
-    /** @deprecated Import `ANSI` from `ollieos/ansi` instead. */
+    /** @deprecated Import `ANSI` from `ollieos/lib/ansi` instead. */
     get ansi(): Readonly<{
         FG: Readonly<{
             reset: string;
@@ -186,13 +186,13 @@ export declare abstract class AbstractTerminal implements MirrorSource {
             secret: string;
         }>;
     }>;
-    /** @deprecated Import `NEWLINE` from `ollieos/ansi` instead. */
+    /** @deprecated Import `NEWLINE` from `ollieos/lib/ansi` instead. */
     get newline(): string;
-    /** @deprecated Import `non_printable_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `non_printable_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get non_printable_regex(): RegExp;
-    /** @deprecated Import `ansi_escape_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `ansi_escape_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get ansi_escape_regex(): RegExp;
-    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/ansi` instead. Returns a fresh regex on each access. */
+    /** @deprecated Import `ansi_unescaped_regex()` from `ollieos/lib/ansi` instead. Returns a fresh regex on each access. */
     get ansi_unescaped_regex(): RegExp;
     abstract write(data: string | Uint8Array, callback?: () => void): void;
     abstract writeln(data: string | Uint8Array, callback?: () => void): void;
@@ -245,7 +245,7 @@ export declare abstract class AbstractTerminal implements MirrorSource {
     protected _simulate_typing(text: string): void;
     wait_for_keypress: () => Promise<KeyEvent>;
     get_text: (max_length?: number) => Promise<string>;
-    /** @deprecated Import `word_wrap()` from `ollieos/ansi` instead. */
+    /** @deprecated Import `word_wrap()` from `ollieos/lib/ansi` instead. */
     word_wrap(text: string, width: number): string;
     copy_or_paste(): void;
     handle_kernel_panic: (message: string, process_info: string, debug_info?: string) => void;

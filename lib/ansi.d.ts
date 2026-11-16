@@ -2,7 +2,7 @@
  * Pure terminal formatting helpers: ANSI constants, regex factories and text utilities.
  *
  * This module has no kernel dependencies and holds no authority, so it is safe to bundle into any program.
- * Builtins import it directly. Packages should import it from `ollieos/ansi` rather than going through the terminal.
+ * Builtins import it directly. Packages should import it from `ollieos/lib/ansi` rather than going through the terminal.
  *
  * @module
  */
