@@ -138,6 +138,7 @@ export interface UserspaceTerminal {
         custom_key_handlers?: { [key_string: string]: UserspaceReadLineKeyHandler },
         custom_printable_handler?: UserspaceReadLineKeyHandler
     ): Promise<string>;
+    get_text(max_length?: number): Promise<string>;
 
     /** @returns A function that unregisters the handler. */
     register_key_event_handler(handler: UserspaceKeyEventHandler, props: UserspaceKeyHandlerProps): () => void;
@@ -766,6 +767,7 @@ export abstract class AbstractTerminal implements MirrorSource {
                 },
                 enumerable: true,
             },
+            get_text: { value: (max_length?: number) => self.get_text(max_length), enumerable: true },
 
             register_key_event_handler: {
                 // rebuild props explicitly so high_priority can't be smuggled in by a plain JS caller
