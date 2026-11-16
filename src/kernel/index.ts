@@ -719,6 +719,11 @@ export class Kernel {
             }
         }
 
+        if (!this.#isothread_manager_is_real && "needs_dom" in program_metadata && program_metadata.needs_dom === true) {
+            process.kill(1);
+            throw new Error(`Program ${program_search.display_name} needs a DOM, which needs an isothread manager that provides frames.`);
+        }
+
         const kernel_funcs_granted = !kernelspace && start_privileged === true;
 
         // protect from pollution
