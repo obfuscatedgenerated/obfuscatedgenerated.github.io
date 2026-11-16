@@ -37,6 +37,7 @@ import {collect_completions} from "../lib/completions";
 import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from "../lib/pkg_migration";
 import {AbstractIsoThreadManager} from "./isothreads";
 import {import_module_source} from "../lib/module_source";
+import {LoopbackIsoThreadManager} from "../isothread_impl/loopback";
 
 const CURRENT_API_COMPAT = "3.0.0";
 
@@ -308,7 +309,10 @@ export class Kernel {
     readonly #wm: AbstractWindowManager | null = null;
     readonly #net_manager: AbstractNetworkManager | null = null;
     readonly #platform: AbstractPlatformAPI | null = null;
-    readonly #isothread_manager: AbstractIsoThreadManager | null = null;
+
+    // loopback itm is the fallback as types now rely on rpc existing
+    readonly #isothread_manager: AbstractIsoThreadManager = new LoopbackIsoThreadManager();
+    #isothread_manager_is_real = false;
 
     #panicked = false;
     #after_panic: ((message: string, debug_info?: string) => void) | null = null;
@@ -402,11 +406,14 @@ export class Kernel {
     }
 
     get_isothread_manager(): AbstractIsoThreadManager | null {
+        if (!this.#isothread_manager_is_real) {
+            return null;
+        }
         return this.#isothread_manager;
     }
 
     has_isothread_manager(): boolean {
-        return this.#isothread_manager !== null;
+        return this.#isothread_manager_is_real && this.#isothread_manager !== null;
     }
 
     /**
@@ -545,10 +552,9 @@ export class Kernel {
             arg_index: data.arg_index,
         };
 
-        const itm = this.get_isothread_manager();
-        if (itm && found.code_path && found.metadata.space !== "kernel") {
+        if (found.code_path && found.metadata.space !== "kernel") {
             const source = await this.#fs.read_file(found.code_path) as string;
-            return await itm.complete(found, source, completion_data);
+            return await this.#isothread_manager.complete(found, source, completion_data);
         }
 
         const program_code = await this.load_program(found, KERNEL_HOST);
@@ -738,8 +744,8 @@ export class Kernel {
 
         let result_promise: Promise<number>;
 
-        const itm = this.get_isothread_manager();
-        if (kernelspace || !itm || !program_search.code_path) {
+        const itm = this.#isothread_manager;
+        if (kernelspace || !program_search.code_path) {
             // running in kernel space, so don't use an isothread
             // TODO: the last condition allows virtual programs to run in kernel space. this is because there is no code to treat as a string yet (not yet written to fs)
 
@@ -789,9 +795,7 @@ export class Kernel {
         }
 
         // killing the process (ctrl+c, kill, power off) has to take its threads down with it
-        if (itm) {
-            process.add_teardown(() => itm.terminate(process.pid));
-        }
+        process.add_teardown(() => itm.terminate(process.pid));
 
         // killing the process ends it as far as callers are concerned, even if in-realm code is still running
         const killed = new Promise<number>((resolve) => process.add_exit_listener(resolve));
@@ -1176,9 +1180,8 @@ export class Kernel {
             term: as_remote(process.terminal.create_userspace_proxy()),
         };
 
-        const itm = this.get_isothread_manager();
-        if (itm && spawned.source !== null) {
-            return await itm.run_thread(spawned.found, spawned.source, process.pid, name, input, data);
+        if (spawned.source !== null) {
+            return await this.#isothread_manager.run_thread(spawned.found, spawned.source, process.pid, name, input, data);
         }
 
         // no source to send to an isothread (e.g. a builtin), so the function runs where the program itself does
@@ -1231,7 +1234,11 @@ export class Kernel {
         this.#process_manager.set_thread_runner((process, name, input) => this.run_thread(process, name, input));
         this.#platform = opts.platform || null;
         this.#virtual_programs = opts.virtual_programs || new Map();
-        this.#isothread_manager = opts.isothread_manager || null;
+
+        if (opts.isothread_manager) {
+            this.#isothread_manager = opts.isothread_manager;
+            this.#isothread_manager_is_real = true;
+        }
     }
 
     /**
