@@ -278,6 +278,9 @@ interface KernelspaceProgram<S extends ProgramSections = NoSections> extends Bas
 /**
  * When a program exports kernel_funcs or threads, name them in the generic to get type safety on kernel.request_kernel_func() and process.run_thread() in main,
  * e.g. `Program<{threads: typeof threads}>`. Kernel funcs are only available to userspace programs, threads to both.
+ *
+ * @group Program Types
+ * @category Programs
  */
 export type Program<S extends ProgramSections = NoSections> = UserspaceProgram<S> | KernelspaceProgram<S>;
 

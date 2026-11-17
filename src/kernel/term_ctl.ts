@@ -68,11 +68,17 @@ export interface UserspaceKeyEvent {
 
 /**
  * A key handler a program registers. It is called with the terminal as the program sees it.
+ *
+ * @group Userspace
+ * @category Terminal
  */
 export type UserspaceKeyEventHandler = (event: UserspaceKeyEvent, term: Remote<UserspaceTerminal>) => void | Promise<void>;
 
 /**
  * A read_line key handler a program passes. It is called with the terminal as the program sees it.
+ *
+ * @group Userspace
+ * @category Terminal
  */
 export type UserspaceReadLineKeyHandler = (
     event: UserspaceKeyEvent,
