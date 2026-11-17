@@ -37,7 +37,7 @@
   },
   "router": "group",
 
-  "plugin": ["typedoc-plugin-extras"],
+  "plugin": ["typedoc-plugin-extras", "./typedoc_remote_tags.mjs"],
   "customTitle": "OllieOS",
   "customDescription": "Documentation for the APIs available to OllieOS programs."
 }
