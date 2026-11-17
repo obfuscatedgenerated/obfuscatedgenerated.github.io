@@ -3,7 +3,7 @@ import type {PrivilegeAgentRequest, PrivilegeRequestKind} from "../../kernel";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 
-interface RequestStyle {
+export interface RequestStyle {
     title: string;
     background: string;
     // finishes "Process PID n (command) ..."
@@ -15,7 +15,7 @@ interface RequestStyle {
 }
 
 // each kind looks different, so a request for less (e.g. reaching local services) is never mistaken for kernel access, and the reverse
-const REQUEST_STYLES: Record<PrivilegeRequestKind, RequestStyle> = {
+export const REQUEST_STYLES: Record<PrivilegeRequestKind, RequestStyle> = {
     kernel: {
         title: "KERNEL PRIVILEGE REQUEST",
         background: ANSI.BG.blue,
