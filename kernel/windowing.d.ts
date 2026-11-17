@@ -133,6 +133,9 @@ export declare abstract class AbstractWindow implements MirrorSource {
 }
 /**
  * Size of the area windows can occupy, in CSS pixels.
+ *
+ * @group Userspace
+ * @category Windowing
  */
 export interface ScreenSize {
     width: number;

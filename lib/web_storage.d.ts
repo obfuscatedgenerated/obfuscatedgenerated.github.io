@@ -13,6 +13,8 @@
  */
 /**
  * The parts of the filesystem used to persist storage. A program's own `kernel.get_fs()` provides them.
+ *
+ * @group Web Storage
  */
 export interface WebStorageFileSystem {
     absolute(path: string): string;
@@ -38,10 +40,12 @@ export interface WebStorageOptions {
  * Gives the calling program localStorage and IndexedDB, saved under the given directory. Call it before running code that uses them.
  * Installs into the program's own thread or frame only.
  *
- * @param fs The program's filesystem, i.e. `kernel.get_fs()`.
+ * @param program_fs The program's filesystem, i.e. `kernel.get_fs()`.
  * @param dir Where to keep the data, e.g. "~/.local/share/my_program". Created if it doesn't exist.
  *
  * @example
  * await install_web_storage(kernel.get_fs(), "~/.local/share/classicube");
+ *
+ * @group Web Storage
  */
 export declare const install_web_storage: (program_fs: WebStorageFileSystem, dir: string, options?: WebStorageOptions) => Promise<void>;

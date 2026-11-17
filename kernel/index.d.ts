@@ -3,7 +3,7 @@ import { AbstractWindowManager, UserspaceWindowManager } from "./windowing";
 import { AbstractNetworkManager, UserspaceNetworkManager } from "./network";
 import { AbstractPlatformAPI, UserspacePlatformAPI } from "./platform";
 import { IPCManager, ProcessContext, ProcessManager, UserspaceIPCManager, UserspaceOtherProcessContext, UserspaceProcessContext, UserspaceProcessManager, UserspaceSpawnedProcessContext } from "./processes";
-import { AbstractShell, UserspaceShell } from "../abstract_shell";
+import { AbstractShell, ParentShell } from "../abstract_shell";
 import { CompletionRequest, CompletionGenerator, KernelFuncs, Program, ProgramMain, ProgramMetadata, RequestKernelFunc, ThreadFuncs } from "../types";
 import { type AbstractTerminal } from "./term_ctl";
 import { type remote_as_declared, type sync_members } from "./rpc";
@@ -12,6 +12,9 @@ import { AbstractIsoThreadManager } from "./isothreads";
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
  * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
+ *
+ * @group Kernel (Privileged)
+ * @category Kernel
  */
 export interface SpawnResult {
     process: ProcessContext;
@@ -126,7 +129,7 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * @param shell The shell that is spawning this process, if any.
      * @returns A {@link UserspaceSpawnResult} containing the process and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | UserspaceShell): Promise<UserspaceSpawnResult>;
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | ParentShell): Promise<UserspaceSpawnResult>;
     /**
      * Finds a program by name in the program directories, or by path (relative to the process's working directory) if the name contains a "/".
      */
@@ -308,7 +311,7 @@ export declare class Kernel {
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | UserspaceShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult>;
+    spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | ParentShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult>;
     /**
      * Throw all the toys out of the pram.
      * @param message The panic message to show at the top of the panic screen.

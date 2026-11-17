@@ -78,6 +78,9 @@ export declare const USERSPACE_TERMINAL_ANNOTATIONS: {
 };
 /**
  * The userspace proxy of a terminal. Programs running in an isothread receive it as {@link Remote}<UserspaceTerminal>.
+ *
+ * @group Userspace
+ * @category Terminal
  */
 export interface UserspaceTerminal {
     /** @hidden */

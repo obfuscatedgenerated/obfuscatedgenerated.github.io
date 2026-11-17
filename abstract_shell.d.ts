@@ -56,8 +56,11 @@ export declare abstract class AbstractShell {
 }
 /**
  * The userspace proxy of a shell's memory. Programs running in an isothread receive it as {@link Remote}<UserspaceShellMemory>.
+ *
+ * @group Userspace
+ * @category Shells
  */
-export interface UserspaceShellMemory {
+export interface ParentShellMemory {
     /** @hidden */
     readonly [sync_members]?: (member: never) => void;
     clear_history(): void;
@@ -83,17 +86,20 @@ export declare const USERSPACE_SHELL_ANNOTATIONS: {
 };
 /**
  * The userspace proxy of the shell that invoked a program. Programs running in an isothread receive it as {@link Remote}<UserspaceShell>.
+ *
+ * @group Userspace
+ * @category Shells
  */
-export interface UserspaceShell {
+export interface ParentShell {
     /** @hidden */
     readonly [sync_members]?: (member: keyof typeof USERSPACE_SHELL_ANNOTATIONS) => void;
     readonly name: string;
-    readonly memory: UserspaceShellMemory;
+    readonly memory: ParentShellMemory;
     execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
 /**
  * Kernel only. Resolves a shell given by a program back to the real shell: a stub the program passes arrives as its proxy, and a {@link ShellHandle} from a shell running in an isothread is wrapped as a shell. Returns undefined for anything else.
  */
-export declare const unwrap_shell: (shell: AbstractShell | UserspaceShell | Remote<UserspaceShell>) => AbstractShell | undefined;
-export declare const create_shell_memory_rpc_proxy: (memory: AbstractShellMemory) => UserspaceShellMemory;
-export declare const create_shell_rpc_proxy: (shell: AbstractShell) => UserspaceShell;
+export declare const unwrap_shell: (shell: AbstractShell | ParentShell | Remote<ParentShell>) => AbstractShell | undefined;
+export declare const create_shell_memory_rpc_proxy: (memory: AbstractShellMemory) => ParentShellMemory;
+export declare const create_shell_rpc_proxy: (shell: AbstractShell) => ParentShell;
