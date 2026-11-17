@@ -1,7 +1,7 @@
 import type {Kernel, UserspaceKernel} from "./kernel";
 import type {AbstractTerminal, UserspaceTerminal} from "./kernel/term_ctl";
 import type {ProcessContext, UserspaceProcessContext} from "./kernel/processes";
-import type {AbstractShell, UserspaceShell} from "./abstract_shell";
+import type {AbstractShell, ParentShell} from "./abstract_shell";
 import type {sdk} from "./kernel/program_sdk";
 import type {Remote} from "./kernel/rpc";
 
@@ -24,7 +24,7 @@ export interface ProgramMainData<K extends EitherKernel = UserspaceKernel, T ext
     /**
      * The shell that invoked the program, if any.
      */
-    shell?: K extends Kernel ? AbstractShell : Remote<UserspaceShell>;
+    shell?: K extends Kernel ? AbstractShell : Remote<ParentShell>;
 
     /**
      * Process context of the instanced program. Contains information and resource requesting.
@@ -284,7 +284,7 @@ export type Program<S extends ProgramSections = NoSections> = UserspaceProgram<S
 export interface CompletionData {
     term: Remote<UserspaceTerminal>,
     kernel: Remote<UserspaceKernel>,
-    shell?: Remote<UserspaceShell>,
+    shell?: Remote<ParentShell>,
 
     args: string[],
     unsubbed_args: string[],
@@ -303,8 +303,11 @@ export interface CompletionData {
 
 /**
  * What a caller passes to {@link UserspaceKernel.complete kernel.complete()}: the completion data, with the caller's shell or its proxy. The completion itself always gets the proxy.
+ *
+ * @group Program Types
+ * @category Completions
  */
-export type CompletionRequest = Omit<CompletionData, "shell"> & { shell?: AbstractShell | Remote<UserspaceShell> };
+export type CompletionRequest = Omit<CompletionData, "shell"> & { shell?: AbstractShell | Remote<ParentShell> };
 
 /**
  * Returns a list of possible completions (or as a generator). Return null to fall back to default completion behaviour (file paths).
@@ -315,4 +318,8 @@ export type CompletionGenerator = (data: CompletionData) => Promise<string[] | A
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
+/**
+ * @group Program Types
+ * @category Programs
+ */
 export type ProgramMetadata = DistributiveOmit<Program, "main" | "completion">;

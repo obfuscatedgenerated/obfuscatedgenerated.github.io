@@ -12,7 +12,7 @@ import {
     UserspaceProcessManager,
     UserspaceSpawnedProcessContext
 } from "./processes";
-import {AbstractShell, create_shell_rpc_proxy, unwrap_shell, UserspaceShell} from "../abstract_shell";
+import {AbstractShell, create_shell_rpc_proxy, unwrap_shell, ParentShell} from "../abstract_shell";
 import {
     CompletionData,
     CompletionRequest,
@@ -45,6 +45,9 @@ const CURRENT_API_COMPAT = "3.0.0";
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
  * @property completion A promise that resolves to the exit code of the process. Note that the program has already started executing by the time this promise is returned. Awaiting it is not necessary to start execution.
+ *
+ * @group Kernel (Privileged)
+ * @category Kernel
  */
 export interface SpawnResult {
     process: ProcessContext;
@@ -184,7 +187,7 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * @param shell The shell that is spawning this process, if any.
      * @returns A {@link UserspaceSpawnResult} containing the process and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | UserspaceShell): Promise<UserspaceSpawnResult>;
+    spawn(cmd_or_line_parse: string | ParsedCommandLine, explicit_args?: string[], shell?: AbstractShell | ParentShell): Promise<UserspaceSpawnResult>;
 
     /**
      * Finds a program by name in the program directories, or by path (relative to the process's working directory) if the name contains a "/".
@@ -678,7 +681,7 @@ export class Kernel {
      * @param term_override An optional {@link AbstractTerminal} to use for this process instead of the default kernel terminal. This is useful for daemons running virtual terminals.
      * @returns A {@link SpawnResult} containing the process context and a promise for its completion. You are responsible for terminating the process on an error or after execution.
      */
-    async spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | UserspaceShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult> {
+    async spawn(spawning_process: ProcessContext | UserspaceProcessContext | null, cmd_or_parse: string | ParsedCommandLine, explicit_args?: string[], given_shell?: AbstractShell | ParentShell, start_privileged?: boolean, term_override?: AbstractTerminal): Promise<SpawnResult> {
         // a userspace program passes on the proxy of its shell, so resolve it back to the real one
         const shell = given_shell ? unwrap_shell(given_shell) : undefined;
 
@@ -1346,7 +1349,7 @@ export class Kernel {
             get_env_info: { value: () => self.get_env_info(), enumerable: true },
             spawn: {
                 // force the process to pass its own terminal as the one to use
-                value: async (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell | UserspaceShell) =>
+                value: async (command: string | ParsedCommandLine, args?: string[], shell?: AbstractShell | ParentShell) =>
                     create_spawn_result_proxy(await self.spawn(process, command, args, shell, false, process.terminal)),
                 enumerable: true
             },

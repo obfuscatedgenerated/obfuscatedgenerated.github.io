@@ -16,7 +16,7 @@ import {kernel_funcs} from "./batch";
 export {kernel_funcs};
 
 import type {UserspaceKernel, UserspaceSpawnResult} from "../../kernel";
-import type {UserspaceShell} from "../../abstract_shell";
+import type {ParentShell} from "../../abstract_shell";
 import type {Remote} from "../../kernel/rpc";
 
 
@@ -493,7 +493,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<UserspaceShell>) => {
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<ParentShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -532,7 +532,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<UserspaceShell>) => {
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<ParentShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);

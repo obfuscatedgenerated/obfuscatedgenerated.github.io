@@ -3,7 +3,7 @@ import type {UserspaceTerminal} from "../../kernel/term_ctl";
 import { ProgramMainData } from "../../types"
 import {graph_query, repo_query} from "./index";
 import type {UserspaceKernel} from "../../kernel";
-import type {UserspaceShell} from "../../abstract_shell";
+import type {ParentShell} from "../../abstract_shell";
 import type {Remote} from "../../kernel/rpc";
 
 // extract from ANSI to make code less verbose
@@ -11,7 +11,7 @@ const { STYLE, FG, CURSOR } = ANSI;
 
 const ROWS = 10;
 
-const view_pkg_info = async (pkg_name: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<UserspaceShell>) => {
+const view_pkg_info = async (pkg_name: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<ParentShell>) => {
     const pkg_data = await repo_query.get_pkg_json(pkg_name);
     const pkg_versions = await repo_query.get_pkg_versions(pkg_name);
 

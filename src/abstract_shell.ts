@@ -120,8 +120,11 @@ export abstract class AbstractShell {
 
 /**
  * The userspace proxy of a shell's memory. Programs running in an isothread receive it as {@link Remote}<UserspaceShellMemory>.
+ *
+ * @group Userspace
+ * @category Shells
  */
-export interface UserspaceShellMemory {
+export interface ParentShellMemory {
     /** @hidden */
     readonly [sync_members]?: (member: never) => void;
     clear_history(): void;
@@ -149,12 +152,15 @@ export const USERSPACE_SHELL_ANNOTATIONS = {
 
 /**
  * The userspace proxy of the shell that invoked a program. Programs running in an isothread receive it as {@link Remote}<UserspaceShell>.
+ *
+ * @group Userspace
+ * @category Shells
  */
-export interface UserspaceShell {
+export interface ParentShell {
     /** @hidden */
     readonly [sync_members]?: (member: keyof typeof USERSPACE_SHELL_ANNOTATIONS) => void;
     readonly name: string;
-    readonly memory: UserspaceShellMemory;
+    readonly memory: ParentShellMemory;
     execute(line: string, edit_doc_title?: boolean, program_final_completion_callback?: (exit_code?: number) => void): Promise<boolean>;
 }
 
@@ -211,14 +217,14 @@ const is_shell_handle = (value: unknown): value is ShellHandle => {
 };
 
 // a shell is always given out as the same proxy, and a proxy handed back (e.g. to spawn) resolves to its shell
-const proxies_by_shell = new WeakMap<AbstractShell, UserspaceShell>();
-const shells_by_proxy = new WeakMap<UserspaceShell, AbstractShell>();
+const proxies_by_shell = new WeakMap<AbstractShell, ParentShell>();
+const shells_by_proxy = new WeakMap<ParentShell, AbstractShell>();
 
 /**
  * Kernel only. Resolves a shell given by a program back to the real shell: a stub the program passes arrives as its proxy, and a {@link ShellHandle} from a shell running in an isothread is wrapped as a shell. Returns undefined for anything else.
  */
-export const unwrap_shell = (shell: AbstractShell | UserspaceShell | Remote<UserspaceShell>): AbstractShell | undefined => {
-    const unwrapped = shells_by_proxy.get(shell as UserspaceShell);
+export const unwrap_shell = (shell: AbstractShell | ParentShell | Remote<ParentShell>): AbstractShell | undefined => {
+    const unwrapped = shells_by_proxy.get(shell as ParentShell);
     if (unwrapped) {
         return unwrapped;
     }
@@ -249,7 +255,7 @@ export const unwrap_shell = (shell: AbstractShell | UserspaceShell | Remote<User
 };
 
 // only used by the rpc layer to send a shell to a program running behind rpc
-export const create_shell_memory_rpc_proxy = (memory: AbstractShellMemory): UserspaceShellMemory => {
+export const create_shell_memory_rpc_proxy = (memory: AbstractShellMemory): ParentShellMemory => {
     const proxy = Object.create(null);
 
     Object.defineProperties(proxy, {
@@ -268,11 +274,11 @@ export const create_shell_memory_rpc_proxy = (memory: AbstractShellMemory): User
         unset_alias: { value: (name: string) => memory.unset_alias(name), enumerable: true },
     });
 
-    return finalise_userspace_proxy(proxy) as UserspaceShellMemory;
+    return finalise_userspace_proxy(proxy) as ParentShellMemory;
 };
 
 // only used by the rpc layer to send a shell to a program running behind rpc (shells are already userspace)
-export const create_shell_rpc_proxy = (shell: AbstractShell): UserspaceShell => {
+export const create_shell_rpc_proxy = (shell: AbstractShell): ParentShell => {
     const existing = proxies_by_shell.get(shell);
     if (existing) {
         return existing;
@@ -293,7 +299,7 @@ export const create_shell_rpc_proxy = (shell: AbstractShell): UserspaceShell => 
         },
     });
 
-    const finalised = finalise_userspace_proxy(proxy, USERSPACE_SHELL_ANNOTATIONS) as UserspaceShell;
+    const finalised = finalise_userspace_proxy(proxy, USERSPACE_SHELL_ANNOTATIONS) as ParentShell;
 
     proxies_by_shell.set(shell, finalised);
     shells_by_proxy.set(finalised, shell);

@@ -47,6 +47,9 @@ const UNASSIGNED_FAKE_PID = -1;
 
 /**
  * The userspace proxy of the IPC manager. Programs running in an isothread receive it as {@link Remote}<UserspaceIPCManager>.
+ *
+ * @group Userspace
+ * @category Processes
  */
 export interface UserspaceIPCManager {
     /** @hidden */
@@ -369,6 +372,9 @@ export const USERSPACE_SPAWNED_PROCESS_ANNOTATIONS = {
 
 /**
  * The userspace proxy of a process the program spawned. The spawner is responsible for it, so unlike {@link UserspaceOtherProcessContext}, it can kill it and listen for its exit.
+ *
+ * @group Userspace
+ * @category Processes
  */
 export interface UserspaceSpawnedProcessContext extends UserspaceOtherProcessContext {
     /** @hidden */

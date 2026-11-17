@@ -59,7 +59,7 @@ export {UserspaceWindowManager, UserspaceWindow, UserspaceOtherWindow, WindowEve
  * @group Userspace
  * @category Shells
  */
-export {AbstractShell, AbstractShellMemory, UserspaceShell, UserspaceShellMemory} from "../abstract_shell";
+export {AbstractShell, AbstractShellMemory, ParentShell, ParentShellMemory} from "../abstract_shell";
 
 /**
  * @group Userspace
