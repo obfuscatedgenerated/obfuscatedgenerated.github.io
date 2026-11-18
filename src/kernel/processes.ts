@@ -9,8 +9,11 @@ import {
     UserspaceServerSocket
 } from "./network";
 import {AbstractTerminal, UserspaceTerminal} from "./term_ctl";
-import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change, type remote_as_declared, type sync_members} from "./rpc";
 import * as timers from "../lib/timers";
+import type {RunThread, ThreadFuncs} from "../types";
+
+type ThreadRunner = (process: ProcessContext, name: string, input: unknown) => Promise<unknown>;
 
 export interface IPCMessage {
     from: number;
@@ -42,7 +45,15 @@ interface IPCService {
 export const KERNEL_FAKE_PID = 0;
 const UNASSIGNED_FAKE_PID = -1;
 
+/**
+ * The userspace proxy of the IPC manager. Programs running in an isothread receive it as {@link Remote}<UserspaceIPCManager>.
+ *
+ * @group Userspace
+ * @category Processes
+ */
 export interface UserspaceIPCManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: never) => void;
     service_register(name: string, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
@@ -78,11 +89,11 @@ export class IPCManager {
             }
 
             // clean up channels
-            for (const [channel_id, channel] of this.#channels) {
-                const initiator_process = this.#process_manager.get_process(channel.initiator);
-                const peer_process = this.#process_manager.get_process(channel.peer);
+            // the kernel isn't a process, and a reserved channel has no peer yet, so neither end counts as dead (otherwise privilege requests lose their channel mid-prompt)
+            const is_alive = (pid: number) => pid === KERNEL_FAKE_PID || pid === UNASSIGNED_FAKE_PID || this.#process_manager.get_process(pid) !== undefined;
 
-                if (!initiator_process || !peer_process) {
+            for (const [channel_id, channel] of this.#channels) {
+                if (!is_alive(channel.initiator) || !is_alive(channel.peer)) {
                     this.#channels.delete(channel_id);
                 }
             }
@@ -324,7 +335,23 @@ export enum ProcessAttachment {
     DETACHED,
 }
 
+/**
+ * How the RPC layer accesses the userspace proxy of another process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_OTHER_PROCESS_ANNOTATIONS = {
+    pid: "constant",
+    created_at: "constant",
+    source_command: "constant",
+    is_detached: "mirrored",
+    is_background: "mirrored",
+    is_foreground: "mirrored",
+    attachment: "mirrored",
+} as const;
+
 export interface UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_OTHER_PROCESS_ANNOTATIONS) => void;
     readonly pid: number;
     readonly created_at: Date;
     readonly is_detached: boolean;
@@ -334,7 +361,62 @@ export interface UserspaceOtherProcessContext {
     readonly source_command: ParsedCommandLine;
 }
 
-export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
+/**
+ * How the RPC layer accesses the userspace proxy of a spawned process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_SPAWNED_PROCESS_ANNOTATIONS = {
+    ...USERSPACE_OTHER_PROCESS_ANNOTATIONS,
+    detaches_silently: "mirrored",
+} as const;
+
+/**
+ * The userspace proxy of a process the program spawned. The spawner is responsible for it, so unlike {@link UserspaceOtherProcessContext}, it can kill it and listen for its exit.
+ *
+ * @group Userspace
+ * @category Processes
+ */
+export interface UserspaceSpawnedProcessContext extends UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_SPAWNED_PROCESS_ANNOTATIONS) => void;
+    readonly detaches_silently: boolean;
+    kill(exit_code?: number): void;
+    add_exit_listener(listener: (exit_code: number) => Promise<void> | void): void;
+}
+
+/**
+ * How the RPC layer accesses the userspace proxy of a program's own process: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_PROCESS_ANNOTATIONS = {
+    pid: "constant",
+    created_at: "constant",
+    source_command: "constant",
+    terminal: "eager_handle",
+    cwd: "mirrored",
+    is_detached: "mirrored",
+    is_background: "mirrored",
+    is_foreground: "mirrored",
+    attachment: "mirrored",
+    bound_ports: "mirrored",
+    create_timeout: timers.create_timeout,
+    cancel_timeout: timers.cancel_timeout,
+    wait_for_timeout: timers.wait_for_timeout,
+    has_timeout: timers.has_timeout,
+    create_interval: timers.create_interval,
+    clear_interval: timers.clear_interval,
+} as const;
+
+export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> extends UserspaceOtherProcessContext {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PROCESS_ANNOTATIONS) => void;
+    /** @hidden */
+    readonly [remote_as_declared]?: (member: "run_thread") => void;
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T>;
+
     cwd: string;
     readonly terminal: UserspaceTerminal;
     detach(silently?: boolean): void;
@@ -354,7 +436,7 @@ export interface UserspaceProcessContext extends UserspaceOtherProcessContext {
     get bound_ports(): number[];
 }
 
-export class ProcessContext implements MirrorSource {
+export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements MirrorSource {
     readonly [mirror_source] = true as const;
 
     readonly #pid: number;
@@ -564,6 +646,35 @@ export class ProcessContext implements MirrorSource {
         return timers.wait_for_timeout.call(this, id);
     }
 
+    /**
+     * Runs one of the program's own thread functions (its threads export) in a new isothread, resolving to its result. Rejects with a "ThreadNotFoundError" if there is no such function.
+     */
+    run_thread: RunThread<T> = ((name: string, input?: unknown) => this.#manager._run_thread(this, name, input)) as RunThread<T>;
+
+    #primary_window: AbstractWindow | null = null;
+    #primary_window_claimed = false;
+
+    /**
+     * Kernel only. Sets a window made ahead of time for the process, which its first create_window call from userspace returns instead of making a new one.
+     * Used when the program runs inside its window (a frame isothread).
+     */
+    set_primary_window(wind: AbstractWindow): void {
+        this.#primary_window = wind;
+    }
+
+    #create_window_for_userspace(): AbstractWindow {
+        if (!this.#primary_window) {
+            return this.create_window();
+        }
+
+        if (this.#primary_window_claimed) {
+            throw new Error("Programs with needs_dom can only have one window for now, as the window is the frame the program runs in");
+        }
+
+        this.#primary_window_claimed = true;
+        return this.#primary_window;
+    }
+
     create_window(): AbstractWindow {
         const wm = this.#manager.window_manager;
         if (!wm) {
@@ -649,32 +760,36 @@ export class ProcessContext implements MirrorSource {
         return Array.from(this.#port_map.keys());
     }
 
-    create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext {
-        // eslint-disable-next-line @typescript-eslint/no-this-alias
-        const self = this;
-        const proxy = Object.create(null);
+    // what any program may read about this process
+    #other_process_properties(): PropertyDescriptorMap {
+        return {
+            pid: { get: () => this.pid, enumerable: true },
+            created_at: { get: () => this.created_at, enumerable: true },
+            is_detached: { get: () => this.is_detached, enumerable: true },
+            is_background: { get: () => this.is_background, enumerable: true },
+            is_foreground: { get: () => this.is_foreground, enumerable: true },
+            attachment: { get: () => this.attachment, enumerable: true },
+            source_command: { get: () => this.source_command, enumerable: true },
+        };
+    }
 
+    create_userspace_proxy_as_other_process(): UserspaceOtherProcessContext {
+        const proxy = Object.create(null);
+        Object.defineProperties(proxy, this.#other_process_properties());
+
+        return finalise_userspace_proxy(proxy, USERSPACE_OTHER_PROCESS_ANNOTATIONS, [this]);
+    }
+
+    create_userspace_proxy_as_spawned_process(): UserspaceSpawnedProcessContext {
+        const proxy = Object.create(null);
         Object.defineProperties(proxy, {
-            pid: { get: () => self.pid, enumerable: true },
-            created_at: { get: () => self.created_at, enumerable: true },
-            is_detached: { get: () => self.is_detached, enumerable: true },
-            is_background: { get: () => self.is_background, enumerable: true },
-            is_foreground: { get: () => self.is_foreground, enumerable: true },
-            attachment: { get: () => self.attachment, enumerable: true },
-            source_command: { get: () => self.source_command, enumerable: true },
+            ...this.#other_process_properties(),
+            detaches_silently: { get: () => this.detaches_silently, enumerable: true },
+            kill: { value: (exit_code?: number) => { this.kill(exit_code); }, enumerable: true },
+            add_exit_listener: { value: (listener: (exit_code: number) => Promise<void> | void) => { this.add_exit_listener(listener); }, enumerable: true },
         });
 
-        return finalise_userspace_proxy(proxy, {
-            pid: "constant",
-            created_at: "constant",
-            source_command: "constant",
-            is_detached: "mirrored",
-            is_background: "mirrored",
-            is_foreground: "mirrored",
-            attachment: "mirrored",
-        }, [
-            self
-        ]);
+        return finalise_userspace_proxy(proxy, USERSPACE_SPAWNED_PROCESS_ANNOTATIONS, [this]);
     }
 
     create_userspace_proxy(): UserspaceProcessContext {
@@ -704,7 +819,8 @@ export class ProcessContext implements MirrorSource {
             has_timeout: { value: (id: number) => self.has_timeout(id), enumerable: true },
             create_interval: { value: (callback: () => void, interval: number) => self.create_interval(callback, interval), enumerable: true },
             clear_interval: { value: (id: number) => { self.clear_interval(id); }, enumerable: true },
-            create_window: { value: () => self.create_window()?.create_userspace_proxy_as_full_window() ?? null, enumerable: true },
+            create_window: { value: () => self.#create_window_for_userspace().create_userspace_proxy_as_full_window(), enumerable: true },
+            run_thread: { value: (name: string, input?: unknown) => self.#manager._run_thread(self, name, input), enumerable: true },
             network_listen: { value: async (port: number) => {
                 const socket = await self.network_listen(port);
                 return socket.create_userspace_proxy();
@@ -722,37 +838,33 @@ export class ProcessContext implements MirrorSource {
             bound_ports: { get: () => self.bound_ports, enumerable: true },
         });
 
-        return finalise_userspace_proxy(proxy, {
-            pid: "constant",
-            created_at: "constant",
-            source_command: "constant",
-            terminal: "eager_handle",
-            cwd: "mirrored",
-            is_detached: "mirrored",
-            is_background: "mirrored",
-            is_foreground: "mirrored",
-            attachment: "mirrored",
-            bound_ports: "mirrored",
-            create_timeout: timers.create_timeout,
-            cancel_timeout: timers.cancel_timeout,
-            wait_for_timeout: timers.wait_for_timeout,
-            has_timeout: timers.has_timeout,
-            create_interval: timers.create_interval,
-            clear_interval: timers.clear_interval,
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_PROCESS_ANNOTATIONS, [
             self
         ]);
     }
 }
 
+/**
+ * How the RPC layer accesses the process manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_PROCESS_MANAGER_ANNOTATIONS = {
+    ipc_manager: "eager_handle",
+    list_pids: "mirrored",
+} as const;
+
 export interface UserspaceProcessManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_PROCESS_MANAGER_ANNOTATIONS) => void;
     readonly ipc_manager: UserspaceIPCManager;
     list_pids(): number[];
     get_process(pid: number): UserspaceOtherProcessContext | undefined;
     kill(pid: number, exit_code?: number): boolean;
 }
 
-export class ProcessManager {
+export class ProcessManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     readonly #processes: Map<number, ProcessContext> = new Map();
     #next_pid = 1;
 
@@ -763,6 +875,23 @@ export class ProcessManager {
     constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
         this.#net_manager = net_manager;
+    }
+
+    #thread_runner: ThreadRunner | null = null;
+
+    /**
+     * Kernel only. Sets how processes run their thread functions, as that needs the kernel (program code and the isothread manager).
+     */
+    set_thread_runner(runner: ThreadRunner): void {
+        this.#thread_runner = runner;
+    }
+
+    _run_thread(process: ProcessContext, name: string, input: unknown): Promise<unknown> {
+        if (!this.#thread_runner) {
+            return Promise.reject(new Error("Threads are not available"));
+        }
+
+        return this.#thread_runner(process, name, input);
     }
 
     get window_manager(): AbstractWindowManager | null {
@@ -791,6 +920,7 @@ export class ProcessManager {
         const pid = this.#next_pid++;
         const context = new ProcessContext(pid, terminal, source_command, this, shell, initial_cwd);
         this.#processes.set(pid, context);
+        notify_mirror_change(this);
         return context;
     }
 
@@ -804,6 +934,7 @@ export class ProcessManager {
 
     mark_terminated(pid: number): void {
         this.#processes.delete(pid);
+        notify_mirror_change(this);
     }
 
     kill(pid: number, exit_code = 0): boolean {
@@ -833,9 +964,9 @@ export class ProcessManager {
             kill: { value: (pid: number, exit_code?: number) => self.kill(pid, exit_code), enumerable: true },
         });
 
-        return finalise_userspace_proxy(proxy, {
-            ipc_manager: "eager_handle",
-        });
+        return finalise_userspace_proxy(proxy, USERSPACE_PROCESS_MANAGER_ANNOTATIONS, [
+            self
+        ]);
     }
 }
 

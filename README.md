@@ -6,6 +6,12 @@ Historically, versions prior to v2.0.0 were available under the MIT License, whi
 
 ---
 
+## Changelog
+
+The historical changelog is available in [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## Platform ports
 
 ### [Node.js](https://github.com/obfuscatedgenerated/ollieos_node)

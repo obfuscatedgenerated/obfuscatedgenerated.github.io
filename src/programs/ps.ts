@@ -11,7 +11,7 @@ export default {
             "-p PID": "Display information about the process with the given PID. If omitted, displays all running processes."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         console.log(data);
         if (data.arg_index === 0) {
@@ -41,7 +41,7 @@ export default {
                 return 1;
             }
 
-            const process = pm.get_process(pid);
+            const process = await pm.get_process(pid);
             if (!process) {
                 term.writeln(`${PREFABS.error}No process found with PID ${pid}.${STYLE.reset_all}`);
                 return 1;
@@ -60,7 +60,7 @@ export default {
         // get longest source command length for formatting
         let longest_command_length = 7 // length of "COMMAND"
         for (const pid of pids) {
-            const process = pm.get_process(pid)!;
+            const process = (await pm.get_process(pid))!;
             if (process.source_command.command.length > longest_command_length) {
                 longest_command_length = process.source_command.command.length;
             }
@@ -71,10 +71,10 @@ export default {
         term.write(NEWLINE);
         term.writeln(`${STYLE.bold}PID\tCOMMAND${get_command_space(7)}\t\tCREATED${STYLE.reset_all}`);
         for (const pid of pids) {
-            const process = pm.get_process(pid)!;
+            const process = (await pm.get_process(pid))!;
             term.writeln(`${pid}\t${process.source_command.command}${get_command_space(process.source_command.command.length)}\t\t${process.created_at.toLocaleString()}`);
         }
 
         return 0;
     }
-} as Program;
+} satisfies Program;

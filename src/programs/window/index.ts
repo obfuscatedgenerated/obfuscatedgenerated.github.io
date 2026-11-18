@@ -8,6 +8,9 @@ import {hide_subcommand} from "./hide";
 import {close_subcommand} from "./close";
 import {center_subcommand} from "./center";
 import {helper_completion_options} from "../core/ash/tab_completion";
+import {kernel_funcs} from "./kernel_funcs";
+
+export {kernel_funcs};
 
 // extract from ANSI to make code less verbose
 const {STYLE, PREFABS} = ANSI;
@@ -38,7 +41,7 @@ export default {
             }
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         switch (data.arg_index) {
             case 0:
@@ -54,7 +57,7 @@ export default {
                         return [];
                     }
 
-                    const window_ids = wm.get_all_windows().map((win) => win.id.toString());
+                    const window_ids = (await wm.get_all_windows()).map((win) => win.id.toString());
                     return helper_completion_options(window_ids)(data);
                 }
                 return [];
@@ -103,4 +106,4 @@ export default {
                 return 1;
         }
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;

@@ -4,12 +4,13 @@ import type {CompletionData} from "../../../types";
 
 import {parse_line} from "./parser";
 import {AbstractShell} from "../../../abstract_shell";
+import type {Remote} from "../../../kernel/rpc";
 
 // TODO this is really poor OOP
 let cached_matches: string[] = [];
 let current_cached_match_index = 0;
 
-const complete_command = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel) => {
+const complete_command = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: Remote<UserspaceKernel>) => {
     // get the program registry
     const programs = await kernel.list_programs();
 
@@ -34,11 +35,7 @@ const complete_command = async (buffer: ReadLineBuffer, discard_cached_matches: 
     return {match, discard_cached_matches};
 }
 
-const is_async_generator = (obj: unknown): obj is AsyncGenerator<string> => {
-    return !!(obj && typeof obj[Symbol.asyncIterator] === "function");
-}
-
-const get_completeable_arguments = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: AbstractShell) => {
     // parse the line
 
     const parsed_line = parse_line(buffer.current_line);
@@ -55,16 +52,6 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
     // destructure parsed line
     const {command, args, unsubbed_args, raw_parts} = parsed_line;
 
-    // find the command
-    const program = await kernel.load_program(command);
-
-    // if the program has no completion generator, complete based on file paths
-    if (!program.completion) {
-        // TODO need to change data structure first
-        console.warn(`Tab completion for command "${command}" with no completion generator is not yet implemented`);
-        return null;
-    }
-
     const completion_data = {
         term,
         kernel,
@@ -77,28 +64,19 @@ const get_completeable_arguments = async (buffer: ReadLineBuffer, term: Userspac
         arg_index: raw_parts.length - 2, // -1 for current arg, -1 for program name
     };
 
-    const completion_result = await program.completion(completion_data);
+    // the kernel runs the completion, in the program's own isothread if it has one
+    const completion_result = await kernel.complete(command, completion_data);
 
-    // if the result is an async generator, get all values for now
-    // in future this will be done incrementally, but the current data structure doesn't support that yet
-    if (is_async_generator(completion_result)) {
-        const results: string[] = [];
-        for await (const value of completion_result) {
-            results.push(value);
-        }
-        return results;
-    } else {
-        if (completion_result === null) {
-            // TODO fall back to file path completion
-            console.warn(`Tab completion for command "${command}" with null completion result is not yet implemented`);
-            return null;
-        }
-
-        return completion_result;
+    if (completion_result === null) {
+        // TODO fall back to file path completion
+        console.warn(`Tab completion for command "${command}" with no completions is not yet implemented`);
+        return null;
     }
+
+    return completion_result;
 }
 
-const complete_argument = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: UserspaceKernel, term: UserspaceTerminal, shell?: AbstractShell) => {
+const complete_argument = async (buffer: ReadLineBuffer, discard_cached_matches: boolean, kernel: Remote<UserspaceKernel>, term: Remote<UserspaceTerminal>, shell?: AbstractShell) => {
     // get the completeable arguments
     const completeable_arguments = await get_completeable_arguments(buffer, term, kernel, shell);
     if (!completeable_arguments) {
@@ -126,7 +104,7 @@ const complete_argument = async (buffer: ReadLineBuffer, discard_cached_matches:
     return {match, discard_cached_matches};
 }
 
-const fill_completed_command = (term: UserspaceTerminal, buffer: ReadLineBuffer, match: string) => {
+const fill_completed_command = (term: Remote<UserspaceTerminal>, buffer: ReadLineBuffer, match: string) => {
     // erase the current line
     term.write("\b \b".repeat(buffer.current_index));
 
@@ -140,7 +118,7 @@ const fill_completed_command = (term: UserspaceTerminal, buffer: ReadLineBuffer,
     buffer.set_current_index(match.length);
 }
 
-const fill_completed_argument = (term: UserspaceTerminal, buffer: ReadLineBuffer, match: string) => {
+const fill_completed_argument = (term: Remote<UserspaceTerminal>, buffer: ReadLineBuffer, match: string) => {
     // get the current line parts
     const parts = buffer.current_line.split(" ");
     const current_arg_partial = parts.pop() || "";
@@ -160,7 +138,7 @@ const fill_completed_argument = (term: UserspaceTerminal, buffer: ReadLineBuffer
 }
 
 // TODO: how does this work? would be good to make it linked to the terminal instance. what is discard_cached_matches even for?
-export const tab_complete = async (buffer: ReadLineBuffer, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell, discard_cached_matches = false): Promise<boolean | null> => {
+export const tab_complete = async (buffer: ReadLineBuffer, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: AbstractShell, discard_cached_matches = false): Promise<boolean | null> => {
     // if the current line is empty, do nothing
     if (buffer.current_line.length === 0) {
         return null;

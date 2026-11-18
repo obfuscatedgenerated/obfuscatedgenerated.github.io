@@ -5,3 +5,4 @@ export * from "./protocol";
 export * from "./marshal";
 export * from "./transport";
 export * from "./session";
+export * from "./remote";

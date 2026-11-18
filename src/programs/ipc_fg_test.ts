@@ -6,14 +6,14 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, term } = data;
 
         const ipc = kernel.get_ipc();
-        const channel = ipc.create_channel("ipc_bg_test");
+        const channel = await ipc.create_channel("ipc_bg_test");
         
         if (!channel) {
             term.writeln("Failed to create IPC channel to service 'ipc_bg_test'.");
@@ -24,4 +24,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

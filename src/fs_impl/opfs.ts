@@ -155,7 +155,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
         }
     }
 
-    async list_dir(path: string) {
+    async list_dir(path: string, dirs_first = false) {
         const root = this.get_root_handle();
         const parts = path.split("/").filter(part => part.length > 0);
 
@@ -172,12 +172,18 @@ export class OPFSFileSystem extends AbstractFileSystem {
             }
         }
 
-        const entries: string[] = [];
+        const entries: {name: string, is_dir: boolean}[] = [];
         for await (const [name, handle] of current_handle.entries()) {
-            entries.push(name);
+            entries.push({name, is_dir: handle.kind === "directory"});
         }
 
-        return entries;
+        // opfs gives no order, so sort by name, then put directories first (sort is stable, so each group stays sorted)
+        entries.sort((entry_a, entry_b) => entry_a.name.localeCompare(entry_b.name));
+        if (dirs_first) {
+            entries.sort((entry_a, entry_b) => Number(entry_b.is_dir) - Number(entry_a.is_dir));
+        }
+
+        return entries.map((entry) => entry.name);
     }
 
     async is_readonly_direct(path: string) {

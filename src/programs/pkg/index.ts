@@ -11,9 +11,13 @@ import {browse_subcommand} from "./browse";
 import {helper_completion_options} from "../core/ash/tab_completion";
 import {migrate_subcommand} from "./migrate";
 import {MIGRATION_PATH} from "../../lib/pkg_migration";
+import {kernel_funcs} from "./batch";
 
-import type {UserspaceKernel, SpawnResult} from "../../kernel";
-import type {AbstractShell} from "../../abstract_shell";
+export {kernel_funcs};
+
+import type {UserspaceKernel, UserspaceSpawnResult} from "../../kernel";
+import type {ParentShell} from "../../abstract_shell";
+import type {Remote} from "../../kernel/rpc";
 
 
 const REPO_URL = "https://ollieg.codes/pkg_repo";
@@ -204,6 +208,22 @@ interface PkgGraphEntry {
     top_level: boolean; // as in, specified by the user at install time
 }
 
+// package names, versions and file paths go into repo urls and filesystem paths, and package names key the graph,
+// so anything that could traverse ("..", "/") or hit an inherited key ("__proto__", "constructor") is refused
+export const is_valid_pkg_name = (name: string): boolean => /^[a-z0-9][a-z0-9._-]*$/i.test(name) && !name.includes("..");
+
+export const is_valid_pkg_version = (version: string): boolean => /^[0-9a-z][0-9a-z.+-]*$/i.test(version) && !version.includes("..");
+
+export const is_valid_pkg_file_path = (file_path: string): boolean =>
+    file_path !== "" &&
+    !file_path.startsWith("/") &&
+    !file_path.includes("\\") &&
+    file_path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+
+// graph entries are looked up by package name, so the graph has no prototype to inherit keys from
+const as_graph = (parsed: { [pkg_name: string]: PkgGraphEntry }): { [pkg_name: string]: PkgGraphEntry } =>
+    Object.assign(Object.create(null), parsed);
+
 export const json_convert_dep_sets_to_arrs = (key: string, value: any) => {
     if (key !== "deps" && key !== "dependents") {
         return value;
@@ -228,7 +248,7 @@ export const json_convert_dep_arrs_to_sets = (key: string, value: any) => {
     throw new Error(`${key} not an array in graph to be parsed!`);
 }
 
-let graph: { [pkg_name: string]: PkgGraphEntry } = {};
+let graph: { [pkg_name: string]: PkgGraphEntry } = Object.create(null);
 export const graph_query = {
     // TODO: graph consistency checks / repair function
     // TODO: dangling dep check
@@ -433,8 +453,16 @@ export const graph_query = {
     },
 
     // empties the graph, e.g. when migrating to a new install layout
+    // the graph as it is now, to restore if a batch of changes can't be applied
+    snapshot: (): string => JSON.stringify(graph, json_convert_dep_sets_to_arrs),
+
+    restore: async (fs: UserspaceFileSystem, snapshot: string) => {
+        graph = as_graph(JSON.parse(snapshot, json_convert_dep_arrs_to_sets));
+        await fs.write_file(GRAPH_PATH, snapshot);
+    },
+
     reset: async (fs: UserspaceFileSystem) => {
-        graph = {};
+        graph = Object.create(null);
         await fs.write_file(GRAPH_PATH, "{}");
     }
 }
@@ -465,7 +493,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_install_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<ParentShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -482,7 +510,7 @@ export const triggers = {
 
         console.log(`Processing install trigger ${trigger_name} with exec ${trigger.install_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult | null = null;
+        let spawn_result: Remote<UserspaceSpawnResult> | null = null;
 
         try {
             spawn_result = await kernel.spawn(trigger.install_exec, [pkg_name, pkg_version, data_str], shell);
@@ -504,7 +532,7 @@ export const triggers = {
     },
 
     // returns boolean indicating if the trigger was found and processed
-    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: UserspaceTerminal, kernel: UserspaceKernel, shell?: AbstractShell) => {
+    process_uninstall_trigger: async (trigger_name: string, data: unknown, pkg_name: string, pkg_version: string, term: Remote<UserspaceTerminal>, kernel: Remote<UserspaceKernel>, shell?: Remote<ParentShell>) => {
         const fs = kernel.get_fs();
 
         const trigger = await triggers.load_trigger_file(fs, trigger_name);
@@ -521,7 +549,7 @@ export const triggers = {
 
         console.log(`Processing uninstall trigger ${trigger_name} with exec ${trigger.uninstall_exec} and args [${pkg_name}, ${pkg_version}, ${data_str}]`);
 
-        let spawn_result: SpawnResult | null = null;
+        let spawn_result: Remote<UserspaceSpawnResult> | null = null;
 
         try {
             spawn_result = await kernel.spawn(trigger.uninstall_exec, [pkg_name, pkg_version, data_str], shell);
@@ -587,7 +615,7 @@ export default {
             }
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         // TODO: smarter completion that understands flags for subcommands
         switch (data.arg_index) {
@@ -601,7 +629,7 @@ export default {
                     // load graph
                     let local_graph: { [pkg_name: string]: PkgGraphEntry } = {};
                     try {
-                        local_graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+                        local_graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
                     } catch (e) {
                         return [];
                     }
@@ -662,7 +690,7 @@ export default {
 
         // load graph
         try {
-            graph = JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets);
+            graph = as_graph(JSON.parse(await fs.read_file("/var/lib/pkg/graph.json") as string, json_convert_dep_arrs_to_sets));
         } catch (e) {
             term.writeln(`${PREFABS.error}Fatal error: could not load package graph.${STYLE.reset_all}`);
             return 2;
@@ -700,4 +728,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;

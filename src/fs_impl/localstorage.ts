@@ -211,17 +211,11 @@ export class LocalStorageFS extends AbstractFileSystem {
             current_dir = state[""];
         }
 
-        // return list of files in directory
-        const keys = Object.keys(current_dir);
+        // return list of files in directory, sorted by name, with directories first if asked (sort is stable, so each group stays sorted)
+        const keys = Object.keys(current_dir).sort((key_a, key_b) => key_a.localeCompare(key_b));
 
         if (dirs_first) {
-            for (const key of keys) {
-                // promote directories to the front of the list
-                if (typeof current_dir[key] === "object") {
-                    keys.splice(keys.indexOf(key), 1);
-                    keys.unshift(key);
-                }
-            }
+            keys.sort((key_a, key_b) => Number(typeof current_dir[key_b] === "object") - Number(typeof current_dir[key_a] === "object"));
         }
 
         return keys;

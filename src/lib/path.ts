@@ -36,15 +36,9 @@ export const join_path = define_local("path.join", (base_dir: string, ...paths: 
 
 export const absolute_path = (path: string, context: PathContext): string => {
     const {root, home} = context;
-    let cwd = context.cwd;
 
-    if (!cwd) {
+    if (!context.cwd) {
         console.warn("Warning: no cwd passed to absolute");
-    }
-
-    // absoluteify cwd if it doesnt begin with root, to prevent weird edge cases
-    if (cwd && !cwd.startsWith(root)) {
-        cwd = absolute_path(cwd, {root, home});
     }
 
     // if path is blank, path is root
@@ -52,89 +46,34 @@ export const absolute_path = (path: string, context: PathContext): string => {
         return root;
     }
 
-    // if path is ., return cwd
-    // TODO: is it safer to run this assumption then do the rest of the code rather than do the following root/cwd checks?
-    if (path === ".") {
-        if (!cwd) {
-            throw new Error("Cannot resolve relative path without cwd");
-        }
-
-        return cwd;
-    }
-
-    // if path is ~, return home
-    // TODO: again, same for this and the later ~/ check
-    if (path === "~") {
-        return home;
-    }
-
-    // if path starts with cwd and doesn't contain .., it is absolute
-    if (cwd && path.startsWith(cwd) && !path.includes("..")) {
-        return path;
-    }
-
-    // if path starts with root and doesn't contain .., it is absolute
-    if (path.startsWith(root) && !path.includes("..")) {
-        return path;
-    }
-
-    // drop leading ./
-    if (path.startsWith("./")) {
-        path = path.slice(2);
-    }
-
-    if (!cwd) {
-        cwd = root;
-    }
-
-    let effective_cwd = cwd;
-
-    // if path starts with .., step up the cwd
-    while (path.startsWith("..") && effective_cwd !== root) {
-        path = path.slice(2);
-
-        // drop leading /
-        if (path.startsWith("/")) {
-            path = path.slice(1);
-        }
-
-        effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-    }
-
-    // TODO: doesn't support middle of path ..
-    // if path ends with .., remove the last part of the full path
-    while (path.endsWith("..")) {
-        path = path.slice(0, path.lastIndexOf(".."));
-
-        // drop trailing /
-        if (path.endsWith("/")) {
-            path = path.slice(0, path.length - 1);
-        }
-
-        // slice path, slicing effective_cwd if path is empty
-        if (path === "") {
-            effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-        } else {
-            path = path.slice(0, path.lastIndexOf("/"));
-
-            if (path === "") {
-                effective_cwd = effective_cwd.slice(0, effective_cwd.lastIndexOf("/"));
-            }
-        }
-    }
-
-    // if path starts with ~/, replace it with home
-    if (path.startsWith("~/")) {
-        path = path.slice(2);
-        effective_cwd = home;
-    }
-
-    // if path still starts with /, drop it
-    if (path.startsWith("/")) {
+    // pick what the path is relative to, then resolve both together, so . and .. work anywhere in either
+    let base: string;
+    if (path === "~" || path.startsWith("~/")) {
+        base = home;
         path = path.slice(1);
+    } else if (path.startsWith(root)) {
+        base = root;
+    } else {
+        // a relative cwd (e.g. ~) is resolved first
+        base = context.cwd ? absolute_path(context.cwd, {root, home, cwd: root}) : root;
     }
 
-    return join_path(effective_cwd, path);
+    const segments: string[] = [];
+    for (const segment of `${base}/${path}`.split("/")) {
+        if (segment === "" || segment === ".") {
+            continue;
+        }
+
+        // .. at the root stays at the root, as on linux
+        if (segment === "..") {
+            segments.pop();
+            continue;
+        }
+
+        segments.push(segment);
+    }
+
+    return root + segments.join("/");
 };
 
 /**

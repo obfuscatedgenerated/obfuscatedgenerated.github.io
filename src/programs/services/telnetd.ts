@@ -179,7 +179,7 @@ export default {
     space: "kernel",
     reason: "Telnet service: to create a virtual terminal for each session.",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
@@ -254,4 +254,4 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} satisfies Program;

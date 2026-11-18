@@ -5,7 +5,7 @@ export default {
     description: "Finger user information service",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     hide_from_help: true,
     completion: async () => [],
     main: async (data) => {
@@ -74,4 +74,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

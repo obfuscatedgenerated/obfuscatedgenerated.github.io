@@ -12,7 +12,7 @@ export default {
         }
     },
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -49,6 +49,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: should triggers support using the same program as the uninstall trigger, an just passing different arguments?

@@ -92,7 +92,7 @@ export default {
             "-x": "Only display titles, links and publishing dates, not descriptions."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "RSS Blog",
         starts_in_terminal_window: true,
@@ -369,4 +369,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

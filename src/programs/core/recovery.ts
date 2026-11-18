@@ -10,7 +10,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const { kernel, term, process } = data;
 
@@ -29,7 +29,7 @@ export default {
             term.writeln("===================");
             term.write(NEWLINE);
             term.writeln("1. Reboot");
-            term.writeln("2. Privileged ash shell");
+            term.writeln("2. ash shell without startup scripts");
             term.writeln("3. Reset bootloader and reboot");
             term.writeln("4. Wipe filesystem and reboot");
             term.write(NEWLINE);
@@ -51,18 +51,17 @@ export default {
                     window.location.reload();
                     break;
                 case "2": {
-                    term.writeln(NEWLINE + "Starting privileged ash shell...");
+                    term.writeln(NEWLINE + "Starting ash shell without startup scripts...");
                     term.write(CURSOR.visible);
 
-                    // TODO: this doesnt make much difference being privileged as the programs are separate processes
                     // TODO: bypass the privilege agent instead
                     let exit_code: number;
-                    const shell = await kernel.spawn(process, "ash", ["--no-scripts"], undefined, true);
+                    const shell = await kernel.spawn(process, "ash", ["--no-scripts"], undefined);
                     try {
                         exit_code = await shell.completion;
                     } catch (e) {
                         exit_code = -1;
-                        term.writeln("Error in privileged shell:");
+                        term.writeln("Error in shell:");
                         term.writeln(e);
                     }
 

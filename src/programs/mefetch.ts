@@ -107,7 +107,7 @@ export default {
     arg_descriptions: {
         "username": "The GitHub username to show basic info about. Defaults to my username, with the special info shown."
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "mefetch",
         starts_in_terminal_window: true,
@@ -212,4 +212,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

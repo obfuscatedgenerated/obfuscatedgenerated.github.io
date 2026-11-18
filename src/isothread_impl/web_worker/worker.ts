@@ -3,16 +3,20 @@ import {run_program} from "../util/run_program";
 import type {ProgramEndpoint} from "../../kernel/rpc/shim";
 import type {RPCKernelToProgramMessage, RPCProgramToKernelMessage} from "../../kernel/rpc/protocol";
 import {serialise_error} from "../../kernel/rpc/marshal";
+import type {ThreadEntry} from "../../kernel/isothreads";
 
 // local functions only exist where the module defining them was imported, so every module that calls define_local must be imported here
 import "../../lib/ansi";
 import "../../lib/capabilities";
 import "../../lib/path";
+import "../../lib/read_line_buffer";
 import "../../lib/timers";
+import {set_frame_dom} from "../../lib/window_dom";
 
 interface WorkerStartMessage {
     source: string;
     source_url: string;
+    entry: ThreadEntry;
 }
 
 self.addEventListener("message", (event: MessageEvent<WorkerStartMessage>) => {
@@ -30,8 +34,21 @@ self.addEventListener("message", (event: MessageEvent<WorkerStartMessage>) => {
         return;
     }
 
-    const {source, source_url} = event.data;
-    run_program(endpoint, source, source_url);
+    // shared workers aren't owned by one document, so they could outlive the program
+    Reflect.deleteProperty(self, "SharedWorker");
+
+    // this entry also runs inside a sandboxed frame, for programs that need a dom. there the window's content is the frame's own document
+    if (typeof document !== "undefined") {
+        // workers made by the frame share its opaque origin and die with it when the program is terminated
+        set_frame_dom(document.body.attachShadow({mode: "open"}));
+    } else {
+        // programs in workers don't get to spawn their own, threads must go through the kernel
+        Reflect.deleteProperty(self, "Worker");
+        // TODO: could attempt to polyfill with thread sections later
+    }
+
+    const {source, source_url, entry} = event.data;
+    run_program(endpoint, source, source_url, entry);
 }, {once: true});
 
 // TODO: could block net access and force use of net manager for fetching?

@@ -24,6 +24,7 @@
     "public/script",
     "webpack.config.js",
     "server.js",
-    "types/"
+    "types/",
+    "typedoc_remote_tags.mjs"
   ]
 }

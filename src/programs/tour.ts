@@ -1,9 +1,10 @@
 import type {Program, ProgramMainData} from "../types";
 import {type UserspaceTerminal} from "../kernel/term_ctl";
 import {ANSI, NEWLINE} from "../lib/ansi";
+import type {Remote} from "../kernel/rpc";
 
 
-const wait_block = (term: UserspaceTerminal) => {
+const wait_block = (term: Remote<UserspaceTerminal>) => {
     term.write(NEWLINE);
     term.writeln(`${ANSI.STYLE.italic}Press any key to continue...${ANSI.STYLE.reset_all}`)
     return term.wait_for_keypress();
@@ -197,7 +198,7 @@ export default {
     description: "Runs the onboarding tour.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         await welcome(data);
@@ -211,4 +212,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

@@ -9,13 +9,13 @@ export default {
             "names": "The names of each variable to unset."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         if (!data.shell) {
             return [];
         }
 
-        const var_names = [...data.shell.memory.list_variables().keys()];
+        const var_names = [...(await data.shell.memory.list_variables()).keys()];
         // TODO: check type to see why helper_completion_options wont work here
         return var_names.filter(name => name.startsWith(data.current_partial));
     },
@@ -37,4 +37,4 @@ export default {
         
         return 0;
     }
-} as Program;
+} satisfies Program;

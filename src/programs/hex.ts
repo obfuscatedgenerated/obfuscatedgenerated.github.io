@@ -17,7 +17,7 @@ export default {
             "-i": "Print indexes."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         // use default logic for first argument
         if (data.arg_index === 0) {
@@ -101,4 +101,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

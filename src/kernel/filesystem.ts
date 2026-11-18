@@ -1,5 +1,5 @@
 import {ProcessContext} from "./processes";
-import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, notify_mirror_change, type sync_members} from "./rpc";
 import {absolute_from_source, absolute_path as resolve_absolute_path, join_path} from "../lib/path";
 
 /**
@@ -105,6 +105,19 @@ export enum FSEventType {
 export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
 
 /**
+ * How the RPC layer accesses the filesystem's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_FILESYSTEM_ANNOTATIONS = {
+    get_unique_fs_type_name: "constant",
+    get_cwd: "mirrored",
+    get_home: "mirrored",
+    get_root: "mirrored",
+    join: join_path,
+    absolute: absolute_from_source,
+} as const;
+
+/**
  * Interface for interacting with the chosen filesystem implementation from userspace.
  *
  * For the privileged API, see {@link AbstractFileSystem}.
@@ -113,6 +126,8 @@ export type FSEventHandler = (data: string, fs: AbstractFileSystem) => void;
  * @category Filesystem
  */
 export interface UserspaceFileSystem {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_FILESYSTEM_ANNOTATIONS) => void;
     get_unique_fs_type_name(): string;
     erase_all(): Promise<void>;
     purge_cache(smart?: boolean): void;
@@ -505,14 +520,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
             get_cwd: { value: () => self.absolute(process.cwd), enumerable: true },
         });
 
-        return finalise_userspace_proxy(proxy, {
-            get_unique_fs_type_name: "constant",
-            get_cwd: "mirrored",
-            get_home: "mirrored",
-            get_root: "mirrored",
-            join: join_path,
-            absolute: absolute_from_source,
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_FILESYSTEM_ANNOTATIONS, [
             fs,
             process
         ]);

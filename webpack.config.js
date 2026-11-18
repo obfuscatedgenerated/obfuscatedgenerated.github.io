@@ -6,6 +6,9 @@ const hb = require("handlebars");
 const fs = require("fs");
 const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
 
+const crypto = require("crypto");
+const {LimitChunkCountPlugin} = require("webpack").optimize;
+
 // make fsedit dir
 if (!fs.existsSync("./fsedit")) {
     fs.mkdirSync("./fsedit");
@@ -18,30 +21,7 @@ function hb_build() {
     const package = require("./package.json");
     let version = package.version;
 
-    // TODO: phase out importmap loading for the new global system
-    // the new system will use less network and memory and is more compatible, but we can't just delete it as it will break old packages
-    let deps = package.dependencies;
-    let unpkg_deps = {};
-
-    // can't do imgtoascii
-    delete deps["imgtoascii"];
-
-    // replace version field of dependencies with unpkg link at specific version
-    for (let dep in deps) {
-        unpkg_deps[dep] = `https://unpkg.com/${dep}@${deps[dep]}`;
-    }
-
-    // inject a fake dep, xterm, that points to @xterm/xterm to help support older compiled ollieos programs
-    // alias other renamed modules to their new names
-    unpkg_deps["xterm"] = `https://unpkg.com/@xterm/xterm@${deps["@xterm/xterm"]}`;
-    unpkg_deps["xterm-addon-fit"] = `https://unpkg.com/@xterm/addon-fit@${deps["@xterm/addon-fit"]}`;
-    unpkg_deps["xterm-addon-image"] = `https://unpkg.com/@xterm/addon-image@${deps["@xterm/addon-image"]}`;
-    unpkg_deps["xterm-addon-web-links"] = `https://unpkg.com/@xterm/addon-web-links@${deps["@xterm/addon-web-links"]}`;
-
-    let unpkg_imp_map = {"imports": unpkg_deps};
-    unpkg_imp_map = JSON.stringify(unpkg_imp_map);
-
-    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, unpkg_imp_map, build_year: new Date().getFullYear() });
+    let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, build_year: new Date().getFullYear() });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
 
@@ -53,11 +33,61 @@ function hb_build() {
     console.log("Compiled fsedit");
 }
 
-module.exports = (env, argv) => {
-    let dt = argv.mode === "development" ? "inline-source-map" : "hidden-source-map";
-    console.log(`Building in ${argv.mode} mode`);
-    console.log(`Using ${dt}`);
-    return {
+// every builtin listed in @ALL becomes its own self-contained bundle
+const builtin_entries = () => {
+    const all = fs.readFileSync("./src/programs/@ALL.ts", "utf8");
+    const entries = {};
+    for (const match of all.matchAll(/^export \* as (\w+) from "(.+)";$/gm)) {
+        entries[match[1]] = path.resolve(__dirname, "src/programs", match[2]);
+    }
+    return entries;
+};
+
+// a hash per builtin, so the os only fetches the ones that changed
+const builtin_manifest_plugin = {
+    apply: (compiler) => {
+        const {Compilation, sources} = compiler.webpack;
+
+        compiler.hooks.thisCompilation.tap("builtin_manifest", (compilation) => {
+            // report stage runs after the bundles are final, while their contents are still in memory
+            compilation.hooks.processAssets.tap({name: "builtin_manifest", stage: Compilation.PROCESS_ASSETS_STAGE_REPORT}, () => {
+                const hashes = {};
+                for (const [name, entrypoint] of compilation.entrypoints) {
+                    const file = entrypoint.getFiles().find((entry_file) => entry_file.endsWith(".js"));
+                    const source = compilation.getAsset(file).source.source();
+                    hashes[name] = crypto.createHash("sha256").update(source).digest("hex").slice(0, 16);
+                }
+
+                compilation.emitAsset("manifest.json", new sources.RawSource(JSON.stringify(hashes, null, 2)));
+            });
+        });
+    },
+};
+
+const rules = [
+    {
+        test: /\.tsx?$/,
+        use: "ts-loader",
+        exclude: /node_modules/,
+    },
+    {
+        test: /\.css$/,
+        oneOf: [
+            {
+                resourceQuery: /raw/, // ?raw import to import file as string
+                type: "asset/source",
+            },
+
+            // otherwise, treat as normal css and inject into page
+            {use: ["style-loader", "css-loader"]}
+        ]
+    }
+];
+
+const devtool = (argv) => argv.mode === "development" ? "inline-source-map" : "hidden-source-map";
+
+module.exports = (env, argv) => [
+    {
         plugins: [
             {
                 apply: (compiler) => {
@@ -75,27 +105,9 @@ module.exports = (env, argv) => {
             fsedit: "./src/fsedit/index.ts",
             isothread_worker: "./src/isothread_impl/web_worker/worker.ts",
         },
-        devtool: dt,
+        devtool: devtool(argv),
         module: {
-            rules: [
-                {
-                    test: /\.tsx?$/,
-                    use: "ts-loader",
-                    exclude: /node_modules/,
-                },
-                {
-                    test: /\.css$/,
-                    oneOf: [
-                        {
-                            resourceQuery: /raw/, // ?raw import to import file as string
-                            type: "asset/source",
-                        },
-
-                        // otherwise, treat as normal css and inject into page
-                        {use: ["style-loader", "css-loader"]}
-                    ]
-                }
-            ],
+            rules,
         },
         resolve: {
             extensions: [".ts", ".js"],
@@ -105,7 +117,22 @@ module.exports = (env, argv) => {
             chunkFilename: "[name].[contenthash].chunk.js",
             path: path.resolve(__dirname, "public/script"),
         },
-    }
-};
+    },
+    {
+        name: "builtins",
+        entry: builtin_entries(),
+        devtool: devtool(argv),
+        module: {rules},
+        resolve: {extensions: [".ts", ".js"]},
+        plugins: [new LimitChunkCountPlugin({maxChunks: 1}), builtin_manifest_plugin],
+        optimization: {splitChunks: false, runtimeChunk: false},
+        output: {
+            filename: "[name].js",
+            path: path.resolve(__dirname, "public/bin"),
+            library: {type: "module"},
+        },
+        experiments: {outputModule: true},
+    },
+];
 
 // TODO: would be great to modernise this with my now much better web deployment knowledge

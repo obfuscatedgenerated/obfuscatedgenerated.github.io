@@ -6,7 +6,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -16,7 +16,7 @@ export default {
 
         const ipc = kernel.get_ipc();
         ipc.service_register("ipc_bg_test", async (channel_id, from_pid) => {
-            ipc.channel_listen(channel_id, async (msg) => {
+            await ipc.channel_listen(channel_id, async (msg) => {
                 term.writeln(`Received message on channel ${channel_id} from PID ${msg.from}: ${JSON.stringify(msg.data)}`);
             });
         });
@@ -25,4 +25,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

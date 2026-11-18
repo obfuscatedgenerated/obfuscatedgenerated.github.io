@@ -15,7 +15,7 @@ export default {
             "-f": "Forcibly delete files (ignoring readonly state, NOT treated as -rf if a directory is passed)."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term } = data;
@@ -87,4 +87,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

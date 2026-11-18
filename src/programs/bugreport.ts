@@ -17,14 +17,14 @@ export default {
         feature: "Opens the bug reporter with the feature request template.",
         other: "Opens the bug reporter with the template chooser (default).",
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "Bug Reporter",
     },
     completion: helper_completion_options(["bug", "feature", "other"]),
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, args } = data;
+        const { term, args, kernel } = data;
 
         // extract from ANSI to make code less verbose
         const { STYLE, PREFABS } = ANSI;
@@ -41,10 +41,18 @@ export default {
             }
         }
 
-        window.open(`https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues/new${type_suffixes[type]}`, "_blank", "");
+        const url = `https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io/issues/new${type_suffixes[type]}`;
+
+        const platform = kernel.get_platform();
+        if (!platform) {
+            term.writeln(`Opening URLs isn't supported on this platform. Report at ${url}`);
+            return 1;
+        }
+
+        await platform.open_url(url);
 
         term.writeln("Opened bug reporter in a new tab.");
 
         return 0;
     }
-} as Program;
+} satisfies Program;

@@ -1,15 +1,20 @@
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import { ProgramMainData } from "../../types"
-import {BIN_DIR, graph_query, LIB_DIR, PROGRAMS_MANIFEST, triggers} from "./index";
+import {graph_query, is_valid_pkg_name, LIB_DIR, PROGRAMS_MANIFEST, triggers} from "./index";
+import {apply_pkg_batch, create_pkg_batch, type PkgBatch} from "./batch";
 
 // extract from ANSI to make code less verbose
 const { STYLE, PREFABS, FG } = ANSI;
 
 // TODO: resolve unused deps?
 
-export const remove_subcommand = async (data: ProgramMainData) => {
+/**
+ * @param parent_batch The batch of the command this is part of (e.g. replacing an old version during add). Without one, the changes are applied when this finishes.
+ */
+export const remove_subcommand = async (data: ProgramMainData, parent_batch?: PkgBatch) => {
     // extract from data to make code less verbose
     const { args, term, kernel, shell } = data;
+    const batch = parent_batch ?? create_pkg_batch();
 
     // remove subcommand name
     args.shift();
@@ -52,8 +57,7 @@ export const remove_subcommand = async (data: ProgramMainData) => {
 
         term.writeln(`${FG.yellow}Checking for ${pkg}...${STYLE.reset_all}`);
 
-        // if .., /, or \ in pkg, skip
-        if (pkg.includes("..") || pkg.includes("/") || pkg.includes("\\")) {
+        if (!is_valid_pkg_name(pkg)) {
             term.writeln(`${PREFABS.error}Illegal package name '${pkg}'.${STYLE.reset_all}`);
             error_count++;
             term.writeln(`${FG.yellow}Skipping package...${STYLE.reset_all}`);
@@ -109,47 +113,54 @@ export const remove_subcommand = async (data: ProgramMainData) => {
             continue;
         }
 
-        term.writeln(`${FG.yellow}Removing package data...${STYLE.reset_all}`);
-
+        // programs are removed from BIN_DIR when the batch is applied
         const manifest_path = fs.join(pkg_dir, PROGRAMS_MANIFEST);
         if (await fs.exists(manifest_path)) {
             try {
                 const program_names: string[] = JSON.parse(await fs.read_file(manifest_path) as string);
 
                 for (const program_name of program_names) {
-                    for (const program_file of [`${program_name}.js`, `${program_name}.json`]) {
-                        const program_path = fs.join(BIN_DIR, program_file);
-                        if (await fs.exists(program_path)) {
-                            await fs.delete_file(program_path);
-                        }
-                    }
+                    batch.remove.add(program_name);
                 }
             } catch (e) {
-                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not remove programs for package ${pkg}: ${e.message}${STYLE.reset_all}`);
+                term.writeln(`${FG.yellow + STYLE.bold}Warning: Could not read programs for package ${pkg}: ${e.message}${STYLE.reset_all}`);
             }
         }
 
-        await fs.delete_dir(pkg_dir, true);
-        fs.purge_cache();
+        term.writeln(`${FG.yellow}Queued ${pkg} for removal.${STYLE.reset_all}`);
 
-        term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
+        // the package dir goes afterwards, followed by triggers
+        batch.steps.push(async () => {
+            await fs.delete_dir(pkg_dir, true);
+            fs.purge_cache();
 
-        // check for any removal triggers
-        // check for any triggers
-        if (meta_triggers && Object.keys(meta_triggers).length > 0) {
-            term.writeln(`${FG.cyan}Processing uninstall triggers...${STYLE.reset_all}`);
+            term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);
 
-            for (const [trigger_name, trigger_data] of Object.entries(meta_triggers)) {
-                if (!await triggers.trigger_exists(fs, trigger_name)) {
-                    term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
-                    continue;
+            // check for any removal triggers
+            if (meta_triggers && Object.keys(meta_triggers).length > 0) {
+                term.writeln(`${FG.cyan}Processing uninstall triggers for ${pkg}...${STYLE.reset_all}`);
+
+                for (const [trigger_name, trigger_data] of Object.entries(meta_triggers)) {
+                    if (!await triggers.trigger_exists(fs, trigger_name)) {
+                        term.writeln(`${FG.yellow}Warning: trigger '${trigger_name}' is not recognised and will be skipped.${STYLE.reset_all}`);
+                        continue;
+                    }
+
+                    term.writeln(`${FG.cyan}Processing uninstall trigger: ${trigger_name}...${STYLE.reset_all}`);
+                    await triggers.process_uninstall_trigger(trigger_name, trigger_data, pkg, meta_version, term, kernel, shell)
                 }
 
-                term.writeln(`${FG.cyan}Processing uninstall trigger: ${trigger_name}...${STYLE.reset_all}`);
-                await triggers.process_uninstall_trigger(trigger_name, trigger_data, pkg, meta_version, term, kernel, shell)
+                term.writeln(`${FG.cyan}Uninstall trigger processing complete.${STYLE.reset_all}`);
             }
+        });
+    }
 
-            term.writeln(`${FG.cyan}Uninstall trigger processing complete.${STYLE.reset_all}`);
+    // the command that started the batch applies it, so the user is only asked once
+    if (!parent_batch) {
+        term.writeln(`${NEWLINE}${FG.gray}------------------------${STYLE.reset_all}${NEWLINE}`);
+
+        if (!(await apply_pkg_batch(batch, kernel, term))) {
+            return 1;
         }
     }
 

@@ -8,13 +8,13 @@ export default {
     arg_descriptions: {
         name: "The name of the alias to remove. Multiple alias names can be provided."
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async (data) => {
         if (!data.shell) {
             return [];
         }
 
-        const alias_names = [...data.shell.memory.list_aliases().keys()];
+        const alias_names = [...(await data.shell.memory.list_aliases()).keys()];
         // TODO: check type to see why helper_completion_options wont work here
         return alias_names.filter(name => name.startsWith(data.current_partial));
     },
@@ -46,4 +46,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

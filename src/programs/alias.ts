@@ -8,7 +8,7 @@ export default {
         name: "The name of the alias to define or display. If no arguments are given, all aliases are displayed. Multiple alias arguments can be provided.",
         "name=value": "Defines an alias with the given name and value. End the value with a space to allow chaining."
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
@@ -26,7 +26,7 @@ export default {
 
         if (data.args.length === 0) {
             // display all aliases
-            const aliases = shell.memory.list_aliases();
+            const aliases = await shell.memory.list_aliases();
             for (const [name, value] of aliases.entries()) {
                 term.writeln(`alias ${name}='${value}'`);
             }
@@ -61,4 +61,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

@@ -4,13 +4,15 @@ import {ANSI} from "../lib/ansi";
 export default {
     name: "fsedit",
     description: "Opens the fsedit program to edit the filesystem.",
+    space: "kernel",
+    reason: "Opens the fsedit program to edit the filesystem contents.",
     usage_suffix: "[directory]",
     arg_descriptions: {
         "Arguments:": {
             directory: "The directory to open fsedit in. Defaults to the current working directory."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     gui: {
         display_name: "FSEdit",
     },
@@ -28,14 +30,16 @@ export default {
         const fs_name = fs.get_unique_fs_type_name();
 
         // check args
-        let dir = fs.get_cwd();
+        let dir = fs.absolute(process.cwd);
         if (args.length > 1) {
             term.writeln(`${PREFABS.error}Too many arguments.${STYLE.reset_all}`);
             return 1;
         } else if (args.length === 1) {
             // set dir
-            dir = fs.absolute(args[0]);
+            dir = fs.absolute(args[0], process.cwd);
         }
+
+        console.log(dir)
 
         // check if directory exists
         if (!(await fs.dir_exists(dir))) {
@@ -59,7 +63,7 @@ export default {
         iframe.style.width = "100%";
         iframe.style.height = "100%";
 
-        const wind = process.create_window();
+        const wind = await process.create_window();
         wind.title = "fsedit";
 
         wind.width = "75vw";
@@ -85,7 +89,7 @@ export default {
                         continue;
                     }
 
-                    const proc = kernel.get_process_manager().get_process(pid);
+                    const proc = await kernel.get_process_manager().get_process(pid);
                     if (proc && proc.source_command.command === "fsedit") {
                         other_fsedit_running = true;
                         break;
@@ -112,4 +116,4 @@ export default {
         process.detach();
         return 0;
     }
-} as Program;
+} satisfies Program;

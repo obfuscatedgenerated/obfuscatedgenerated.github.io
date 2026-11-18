@@ -8,7 +8,7 @@ export default {
     arg_descriptions: {
         path: "Path to directory to change to. If no path is given, change to home directory."
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
@@ -16,4 +16,4 @@ export default {
         term.writeln(`${ANSI.PREFABS.error}cd should be handled by the shell instead! This is a stand-in to list on help.${ANSI.STYLE.reset_all}`);
         return 1;
     }
-} as Program;
+} satisfies Program;

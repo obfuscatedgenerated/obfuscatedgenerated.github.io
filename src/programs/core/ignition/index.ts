@@ -60,7 +60,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const { kernel, term, process } = data;
 
@@ -341,6 +341,6 @@ export default {
 
         return final_code;
     }
-} as Program;
+} satisfies Program;
 
 // TODO: implement graceful shutdown, stops programs, stops services in reverse order etc as well as move the actual final shutdown/reboot logic to kern`

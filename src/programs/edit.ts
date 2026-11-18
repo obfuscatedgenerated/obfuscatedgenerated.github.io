@@ -1,6 +1,7 @@
 import type { Program } from "../types";
 import {type UserspaceTerminal} from "../kernel/term_ctl";
 import {ANSI, NEWLINE, is_printable} from "../lib/ansi";
+import type {Remote} from "../kernel/rpc";
 
 const TAB_WIDTH = 4;
 
@@ -143,11 +144,11 @@ class Editor {
     // set after the first escape press with unsaved changes, so a second press confirms discarding
     confirming_discard = false;
 
-    readonly #term: UserspaceTerminal;
+    readonly #term: Remote<UserspaceTerminal>;
     readonly #filename: string;
     readonly #readonly: boolean;
 
-    constructor(term: UserspaceTerminal, content: string, filename: string, readonly: boolean) {
+    constructor(term: Remote<UserspaceTerminal>, content: string, filename: string, readonly: boolean) {
         this.#term = term;
         this.#filename = filename;
         this.#readonly = readonly;
@@ -402,7 +403,7 @@ export default {
     description: "Edits the specified file.",
     usage_suffix: "path",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, args, term } = data;
@@ -538,4 +539,4 @@ export default {
 
         return 0;
     }
-} as Program;
+} satisfies Program;

@@ -1,4 +1,5 @@
-import {finalise_userspace_proxy, mirror_source, MirrorSource} from "./rpc";
+import {finalise_userspace_proxy, mirror_source, MirrorSource, type sync_members} from "./rpc";
+import {window_dom} from "../lib/window_dom";
 
 export type WindowEvent = "close" | "hide" | "show" | "focus" | "move" | "rename" | "resize" | "maximise" | "restore";
 
@@ -8,7 +9,28 @@ export type PrivilegedCompositionLayer = typeof PRIVILEGED_LAYERS[number];
 
 export type WindowCompositionLayer = UserspaceAccessibleCompositionLayer | PrivilegedCompositionLayer;
 
+/**
+ * How the RPC layer accesses the userspace proxy of another program's window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_OTHER_WINDOW_ANNOTATIONS = {
+    id: "constant",
+    owner_pid: "constant",
+    manager: "eager_handle",
+    title: "mirrored",
+    width: "mirrored",
+    height: "mirrored",
+    x: "mirrored",
+    y: "mirrored",
+    visible: "mirrored",
+    maximised: "mirrored",
+    maximisable: "mirrored",
+    layer: "mirrored",
+} as const;
+
 export interface UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_OTHER_WINDOW_ANNOTATIONS) => void;
     readonly id: number;
     readonly manager: UserspaceWindowManager;
     readonly owner_pid: number;
@@ -25,7 +47,29 @@ export interface UserspaceOtherWindow {
     readonly layer: WindowCompositionLayer;
 }
 
+/**
+ * How the RPC layer accesses the userspace proxy of a program's own window: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_WINDOW_ANNOTATIONS = {
+    id: "constant",
+    owner_pid: "constant",
+    manager: "eager_handle",
+    dom: window_dom,
+    title: "mirrored",
+    width: "mirrored",
+    height: "mirrored",
+    x: "mirrored",
+    y: "mirrored",
+    visible: "mirrored",
+    maximised: "mirrored",
+    maximisable: "mirrored",
+    layer: "mirrored",
+} as const;
+
 export interface UserspaceWindow extends UserspaceOtherWindow {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_ANNOTATIONS) => void;
     readonly manager: UserspaceWindowManager;
     readonly dom: ShadowRoot;
 
@@ -159,20 +203,7 @@ export abstract class AbstractWindow implements MirrorSource {
             layer: { get: () => self.layer, enumerable: true }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            id: "constant",
-            owner_pid: "constant",
-            manager: "eager_handle",
-            title: "mirrored",
-            width: "mirrored",
-            height: "mirrored",
-            x: "mirrored",
-            y: "mirrored",
-            visible: "mirrored",
-            maximised: "mirrored",
-            maximisable: "mirrored",
-            layer: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_OTHER_WINDOW_ANNOTATIONS, [
             self
         ]);
     }
@@ -249,27 +280,42 @@ export abstract class AbstractWindow implements MirrorSource {
             }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            id: "constant",
-            owner_pid: "constant",
-            manager: "eager_handle",
-            title: "mirrored",
-            width: "mirrored",
-            height: "mirrored",
-            x: "mirrored",
-            y: "mirrored",
-            visible: "mirrored",
-            maximised: "mirrored",
-            maximisable: "mirrored",
-            layer: "mirrored",
-        }, [
+        return finalise_userspace_proxy(proxy, USERSPACE_WINDOW_ANNOTATIONS, [
             self
         ]);
     }
 }
 
+/**
+ * Size of the area windows can occupy, in CSS pixels.
+ *
+ * @group Userspace
+ * @category Windowing
+ */
+export interface ScreenSize {
+    width: number;
+    height: number;
+}
+
+/**
+ * How the RPC layer accesses the window manager's userspace proxy: these members read synchronously, everything else goes to the kernel.
+ * @hidden
+ */
+export const USERSPACE_WINDOW_MANAGER_ANNOTATIONS = {
+    get_unique_manager_type_name: "constant",
+    get_screen_size: "mirrored",
+} as const;
+
 export interface UserspaceWindowManager {
+    /** @hidden */
+    readonly [sync_members]?: (member: keyof typeof USERSPACE_WINDOW_MANAGER_ANNOTATIONS) => void;
     get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Read synchronously, and kept up to date as it changes.
+     */
+    get_screen_size(): ScreenSize;
+
     get_all_windows(): UserspaceOtherWindow[];
     get_window_by_id(id: number): UserspaceOtherWindow | null;
 }
@@ -280,8 +326,15 @@ export interface UserspaceWindowManager {
  * @group Kernel (Privileged)
  * @category Windowing
  */
-export abstract class AbstractWindowManager {
+export abstract class AbstractWindowManager implements MirrorSource {
+    readonly [mirror_source] = true as const;
+
     abstract get_unique_manager_type_name(): string;
+
+    /**
+     * Size of the area windows can occupy, in CSS pixels. Implementations call notify_mirror_change(this) when it changes.
+     */
+    abstract get_screen_size(): ScreenSize;
 
     abstract get Window(): new (owner_pid: number) => AbstractWindow;
 
@@ -298,6 +351,7 @@ export abstract class AbstractWindowManager {
 
         Object.defineProperties(proxy, {
             get_unique_manager_type_name: { value: () => self.get_unique_manager_type_name(), enumerable: true },
+            get_screen_size: { value: () => self.get_screen_size(), enumerable: true },
             get_all_windows: {
                 value: () => self.get_all_windows().map((win) => win.create_userspace_proxy_as_other_window()),
                 enumerable: true
@@ -311,9 +365,9 @@ export abstract class AbstractWindowManager {
             }
         });
 
-        return finalise_userspace_proxy(proxy, {
-            get_unique_manager_type_name: "constant",
-        });
+        return finalise_userspace_proxy(proxy, USERSPACE_WINDOW_MANAGER_ANNOTATIONS, [
+            self
+        ]);
     }
 }
 

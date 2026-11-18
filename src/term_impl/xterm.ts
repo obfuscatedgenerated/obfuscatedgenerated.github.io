@@ -65,6 +65,11 @@ export class XTermTerminal extends AbstractTerminal {
     set_custom_flag(flag: string, value: any) {
         if (flag === "reader_support") {
             this.#xterm.options.screenReaderMode = value;
+
+            // the page's hint for screen reader users is no longer needed
+            if (value) {
+                document.getElementById("screenreader_hint")?.remove();
+            }
         }
     }
 
@@ -148,10 +153,17 @@ export class XTermTerminal extends AbstractTerminal {
         this.#xterm.dispose();
     }
 
+    /**
+     * Listens for the title programs set through terminal escapes. Empty when they clear it.
+     */
+    on_title_change(listener: (title: string) => void) {
+        this.#xterm.onTitleChange(listener);
+    }
+
     constructor(xterm_opts?: ITerminalOptions) {
         super();
 
-        this.#xterm = new Terminal(xterm_opts);
+        this.#xterm = new Terminal({...xterm_opts, windowOptions: {...xterm_opts?.windowOptions, pushTitle: true, popTitle: true}});
         this.#xterm.onResize((_size) => {
             notify_mirror_change(this);
         });

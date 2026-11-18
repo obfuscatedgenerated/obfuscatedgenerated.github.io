@@ -15,7 +15,7 @@ export default {
             "workdir": "The working directory to start in. Set after scripts are run. Defaults to the working directory ash was invoked from.",
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const {kernel, term, process, args} = data;
 
@@ -51,8 +51,8 @@ export default {
                 args.splice(login_index, 1);
             }
 
-            // enable screen reader mode if stored in local storage
-            if (localStorage.getItem("reader") === "true") {
+            // enable screen reader mode if saved by the reader command
+            if (await fs.exists("/etc/reader") && await fs.read_file("/etc/reader") === "true") {
                 await shell.execute("reader -s on");
             }
 
@@ -113,4 +113,4 @@ export default {
 
         return final_code;
     }
-} as Program;
+} satisfies Program;

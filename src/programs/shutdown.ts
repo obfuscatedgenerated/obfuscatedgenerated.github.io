@@ -12,7 +12,7 @@ export default {
             "-t": "Set the time before shutdown in milliseconds. Default is 1000."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     // TODO: completion
     main: async (data) => {
         // extract from data to make code less verbose
@@ -68,10 +68,10 @@ export default {
             term.writeln(`${FG.red}Shutting down...${STYLE.reset_all}`);
         }
 
-        process.create_timeout(() => {
+        process.create_timeout(async () => {
             // talk to ignition over ipc
             const ipc = kernel.get_ipc();
-            const channel_id = ipc.create_channel("init");
+            const channel_id = await ipc.create_channel("init");
 
             if (!channel_id) {
                 term.writeln(`${FG.red}Failed to communicate with ignition.${STYLE.reset_all}`);
@@ -86,7 +86,7 @@ export default {
 
         // hang the terminal until it is shut down or restarted (dont allow any more commands)
         // await an event that will never happen
-        await new Promise(() => {});
+        return await new Promise<never>(() => {});
     }
-} as Program;
+} satisfies Program;
 
