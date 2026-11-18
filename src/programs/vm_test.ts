@@ -164,11 +164,16 @@ export default {
         const { version } = kernel.get_env_info();
         vm_kernel.set_env_info(version, "virtual");
 
-        await vm_kernel.boot(async () => {
+        const ended_gracefully = await vm_kernel.boot(async () => {
             term.writeln("vm_test: virtual kernel booted.");
             //term.writeln("Inducing virtual panic...");
             //vm_kernel.panic("This is a test panic from within the virtual machine.");
         });
+
+        console.log(`vm_test: virtual kernel ended ${ended_gracefully ? "gracefully" : "with a panic"}.`);
+        virtual_term.dispose();
+
+        term.reset();
 
         return 0;
     }

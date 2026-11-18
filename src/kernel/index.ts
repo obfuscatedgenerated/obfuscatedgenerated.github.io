@@ -349,6 +349,8 @@ export class Kernel {
     #panicked = false;
     #after_panic: ((message: string, debug_info?: string) => void) | null = null;
 
+    #powered_off = false;
+
     #env_info = {
         version: "unknown",
         env: "unknown"
@@ -976,6 +978,11 @@ export class Kernel {
             try {
                 const exit_code = await init.completion;
 
+                if (this.#powered_off) {
+                    // not a panic, the system was powered off
+                    return true;
+                }
+
                 this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
                 return false;
             } catch (e) {
@@ -1252,13 +1259,16 @@ export class Kernel {
     }
 
     power_off() {
-        // dispose of all terminals of any remaining processes, including the kernel terminal
-        const proc_mgr = this.get_process_manager();
-        const pids = proc_mgr.list_pids();
+        this.#powered_off = true;
 
-        for (const pid of pids) {
-            const proc = proc_mgr.get_process(pid)!;
-            proc.terminal.dispose();
+        // kill all processes and dispose their terminals, so they don't keep running in the background after power off
+        const proc_mgr = this.get_process_manager();
+        for (const pid of proc_mgr.list_pids().reverse()) {
+            const proc = proc_mgr.get_process(pid);
+            if (proc) {
+                proc.kill();
+                proc.terminal.dispose();
+            }
         }
 
         this.#term.dispose();
