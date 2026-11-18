@@ -568,6 +568,10 @@ export class Kernel {
 
     #virtual_programs: Map<string, VirtualProgram> = new Map();
 
+    get_virtual_programs(): Map<string, VirtualProgram> {
+        return this.#virtual_programs;
+    }
+
     /**
      * Runs a program's tab completion. Programs that would be isothreaded when spawned also complete in an isothread, so their code never loads in the kernel realm.
      * @returns The completions, or null to fall back to default completion.
