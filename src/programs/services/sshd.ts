@@ -1,7 +1,7 @@
 import type {Program} from "../../types";
-import {AbstractTerminal, KeyEvent} from "../../kernel/term_ctl";
-import {UserspaceClientSocket} from "../../kernel/network";
-import {SpawnResult} from "../../kernel";
+import type {KeyEvent} from "../../kernel/term_ctl";
+import type {UserspaceClientSocket} from "../../kernel/network";
+import type {SpawnResult} from "../../kernel";
 
 interface SSHMessageBase {
     type: string;
@@ -617,7 +617,7 @@ export default {
     completion: async () => [],
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, process, kernel } = data;
+        const { term, process, kernel, sdk } = data;
 
         if (!kernel.privileged) {
             term.writeln(`${term.ansi.PREFABS.error}This program must be run with elevated privileges.${term.ansi.STYLE.reset_all}`);
@@ -927,6 +927,8 @@ export default {
                     socket.close();
                     return;
                 }
+
+                const AbstractTerminal = sdk.AbstractTerminal;
 
                 class SSHTerminal extends AbstractTerminal {
                     #x = 0;

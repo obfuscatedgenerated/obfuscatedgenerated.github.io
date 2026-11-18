@@ -1,5 +1,5 @@
 import type {Kernel, SpawnResult} from "../../../kernel";
-import {ProcessContext} from "../../../kernel/processes";
+import type {ProcessContext} from "../../../kernel/processes";
 
 const SERVICES_DIR = "/etc/services/";
 const PRIVILEGED_SERVICES_DIR = "/etc/services/privileged/";
