@@ -115,6 +115,11 @@ export interface UserspaceFileSystem {
     move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
     set_readonly(path: string, readonly: boolean): Promise<void>;
     is_readonly(path: string): Promise<boolean>;
+    /**
+     * Whether the kernel protects a path from userspace, so changing it (or reading it, with access "read") needs a kernel func the user allows.
+     * Unlike {@link is_readonly}, this is about the path itself rather than a file's read-only flag.
+     */
+    is_protected(path: string, access?: "write" | "read"): Promise<boolean>;
     exists(path: string): Promise<boolean>;
     dir_exists(path: string): Promise<boolean>;
     join(base_dir: string, ...paths: string[]): string;
@@ -142,8 +147,6 @@ export declare abstract class AbstractFileSystem implements MirrorSource {
     abstract is_ready(): Promise<boolean>;
     purge_cache(smart?: boolean): void;
     force_remove_from_cache(path: string): void;
-    remote_purge_cache(smart: boolean): void;
-    remote_remove_from_cache(path: string): void;
     register_callback(event_type: FSEventType, callback: FSEventHandler): () => void;
     _call_callbacks(event_type: FSEventType, data: string): void;
     abstract read_file_direct(path: string, as_uint: boolean): Promise<string | Uint8Array>;
@@ -173,6 +176,5 @@ export declare abstract class AbstractFileSystem implements MirrorSource {
     exists(path: string): Promise<boolean>;
     absolute(path: string, cwd?: string): string;
     join(base_dir: string, ...paths: string[]): string;
-    protected constructor();
     static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem;
 }
