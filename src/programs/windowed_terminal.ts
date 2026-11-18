@@ -48,7 +48,7 @@ export default {
 
 export const kernel_funcs = {
     // the terminal needs the real kernel to spawn a process attached to a terminal of its own
-    open_terminal: async ({kernel, process}, input: {command: string, command_args: string[]}) => {
+    open_terminal: async ({kernel, process, sdk}, input: {command: string, command_args: string[]}) => {
         // input comes from userspace, so nothing about it is assumed
         if (typeof input?.command !== "string" || !Array.isArray(input.command_args) || !input.command_args.every((arg) => typeof arg === "string")) {
             throw new TypeError("open_terminal expects a command and its string arguments");
@@ -80,7 +80,7 @@ export const kernel_funcs = {
         `;
         wind.dom.appendChild(style);
 
-        const {XTermTerminal} = await import("../term_impl/xterm");
+        const XTermTerminal = await sdk.lazy.XTermTerminal();
         const subterm = new XTermTerminal();
 
         // add xterm stylesheet

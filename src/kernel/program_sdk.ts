@@ -10,7 +10,6 @@ import {
 import {AbstractTerminal} from "./term_ctl";
 import {AbstractWindow, AbstractWindowManager} from "./windowing";
 import {AbstractPlatformAPI} from "./platform";
-import {XTermTerminal} from "../term_impl/xterm";
 //import {DOMWindowManager} from "../window_impl/dom";
 
 export const sdk = Object.freeze({
@@ -25,6 +24,9 @@ export const sdk = Object.freeze({
     AbstractWindow,
     AbstractWindowManager,
     AbstractPlatformAPI,
-    XTermTerminal,
     //DOMWindowManager
+
+    lazy: {
+        XTermTerminal: () => import("../term_impl/xterm").then(m => m.XTermTerminal),
+    }
 });

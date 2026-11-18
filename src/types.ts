@@ -63,6 +63,7 @@ export interface KernelFuncData {
     kernel: Kernel;
     process: ProcessContext;
     term: AbstractTerminal;
+    sdk: typeof sdk;
     shell?: AbstractShell;
 }
 

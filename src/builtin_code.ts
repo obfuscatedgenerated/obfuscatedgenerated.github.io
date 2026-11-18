@@ -42,7 +42,6 @@ const get_verified_code = async (source: BuiltinCodeSource, name: string, hash: 
 
 /**
  * Writes the code of builtins to /bin/<name>.js, so they run isolated like any program found on disk. Only builtins whose code changed since the last boot are fetched.
- * Kernelspace builtins never get a file, so they keep running from the kernel's own copy.
  * Run it after initial_fs_setup. If the manifest can't be fetched (e.g. offline), /bin is left as it was.
  */
 export const sync_builtin_code = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>, source: BuiltinCodeSource): Promise<void> => {
@@ -67,8 +66,8 @@ export const sync_builtin_code = async (fs: AbstractFileSystem, builtin_programs
         const code_path = `${BIN_DIR}/${name}.js`;
         const hash = manifest[name];
 
-        // kernelspace builtins (and any that weren't built) must not have a file, or the kernel would run that instead
-        if (program.space === "kernel" || !hash) {
+        // builtins that weren't built must not have a file, or the kernel would run that instead
+        if (!hash) {
             if (await fs.exists(code_path)) {
                 await fs.delete_file(code_path);
             }
