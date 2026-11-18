@@ -9,11 +9,6 @@ const ExtraWatchWebpackPlugin = require("extra-watch-webpack-plugin");
 const crypto = require("crypto");
 const {LimitChunkCountPlugin} = require("webpack").optimize;
 
-// make fsedit dir
-if (!fs.existsSync("./fsedit")) {
-    fs.mkdirSync("./fsedit");
-}
-
 function hb_build() {
     console.log("Compiling index");
     let index_template = fs.readFileSync("./src/index.handlebars", "utf8");
@@ -24,13 +19,6 @@ function hb_build() {
     let html = compiled({ title: `OllieOS v${version}`, desc: "Ollie's Portfolio", version, build_year: new Date().getFullYear() });
     fs.writeFileSync("./index.html", html);
     console.log("Compiled index");
-
-    console.log("Compiling fsedit");
-    let fsedit_template = fs.readFileSync("./src/fsedit/index.handlebars", "utf8");
-    let fsedit_compiled = hb.compile(fsedit_template);
-    let fsedit_html = fsedit_compiled({ title: "OllieOS - Filesystem Editor", desc: "fsedit for OllieOS", version });
-    fs.writeFileSync("./fsedit/index.html", fsedit_html);
-    console.log("Compiled fsedit");
 }
 
 // every builtin listed in @ALL becomes its own self-contained bundle
@@ -97,12 +85,11 @@ module.exports = (env, argv) => [
                 },
             },
             new ExtraWatchWebpackPlugin({
-                files: ["./src/*.handlebars", "./src/fsedit/*.handlebars"],
+                files: ["./src/*.handlebars"],
             })
         ],
         entry: {
             main: "./src/index.ts",
-            fsedit: "./src/fsedit/index.ts",
             isothread_worker: "./src/isothread_impl/web_worker/worker.ts",
         },
         devtool: devtool(argv),

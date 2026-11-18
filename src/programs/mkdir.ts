@@ -1,5 +1,18 @@
-import type { Program } from "../types";
+import type { KernelFuncs, Program } from "../types";
 import {ANSI} from "../lib/ansi";
+
+// the userspace filesystem refuses kernel protected paths, so this uses the kernel's own, after the user has allowed it
+export const kernel_funcs = {
+    make_protected_dir: async ({kernel}, input: {path: string}) => {
+        // input comes from userspace, so nothing about it is assumed
+        if (typeof input?.path !== "string" || !input.path.startsWith("/")) {
+            throw new TypeError("make_protected_dir expects an absolute path");
+        }
+
+        const fs = kernel.get_fs();
+        await fs.make_dir(fs.absolute(input.path, "/"));
+    },
+} satisfies KernelFuncs;
 
 export default {
     name: "mkdir",
@@ -48,21 +61,32 @@ export default {
             return 0;
         }
 
-        // create directory
         // make_dir is recursive by default, so just check the directories exist already if NOT recursive
-        if (recursive) {
-            await fs.make_dir(abs_dir);
-        } else {
-            // check if the directory exists
+        if (!recursive) {
             const parent = abs_dir.split("/").slice(0, -1).join("/");
             if (!(await fs.dir_exists(parent))) {
                 term.writeln(`${PREFABS.error}No such directory: ${parent}${STYLE.reset_all}`);
                 return 1;
             }
-
-            await fs.make_dir(abs_dir);
         }
 
+        // protected paths are created through the kernel, asking the user first
+        if (await fs.is_protected(abs_dir)) {
+            try {
+                await kernel.request_kernel_func("make_protected_dir", `Create the protected directory ${abs_dir}`, {path: abs_dir});
+            } catch (e) {
+                if (e instanceof Error && e.name === "NotAllowedError") {
+                    term.writeln(`${PREFABS.error}Permission denied.${STYLE.reset_all}`);
+                    return 1;
+                }
+
+                throw e;
+            }
+
+            return 0;
+        }
+
+        await fs.make_dir(abs_dir);
         return 0;
     }
-} satisfies Program;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;

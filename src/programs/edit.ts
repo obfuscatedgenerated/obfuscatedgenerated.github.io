@@ -1,4 +1,4 @@
-import type { Program } from "../types";
+import type { KernelFuncs, Program } from "../types";
 import {type UserspaceTerminal} from "../kernel/term_ctl";
 import {ANSI, NEWLINE, is_printable} from "../lib/ansi";
 import type {Remote} from "../kernel/rpc";
@@ -398,6 +398,30 @@ class Editor {
 
 const key_matches = (key: string, sequences: string[]) => sequences.includes(key);
 
+const is_denied = (error: unknown) => error instanceof Error && error.name === "NotAllowedError";
+
+// the userspace filesystem refuses kernel protected paths, so these use the kernel's own, after the user has allowed it
+export const kernel_funcs = {
+    read_protected_file: async ({kernel}, input: {path: string}) => {
+        // input comes from userspace, so nothing about it is assumed
+        if (typeof input?.path !== "string" || !input.path.startsWith("/")) {
+            throw new TypeError("read_protected_file expects an absolute path");
+        }
+
+        const fs = kernel.get_fs();
+        return await fs.read_file(fs.absolute(input.path, "/")) as string;
+    },
+    write_protected_file: async ({kernel}, input: {path: string, content: string}) => {
+        if (typeof input?.path !== "string" || !input.path.startsWith("/") || typeof input.content !== "string") {
+            throw new TypeError("write_protected_file expects an absolute path and the content to write");
+        }
+
+        // not forced, so the file's own read-only flag still applies
+        const fs = kernel.get_fs();
+        await fs.write_file(fs.absolute(input.path, "/"), input.content);
+    },
+} satisfies KernelFuncs;
+
 export default {
     name: "edit",
     description: "Edits the specified file.",
@@ -427,12 +451,31 @@ export default {
             return 1;
         }
 
+        // protected paths are read and saved through the kernel, asking the user each time
+        const write_protected = await fs.is_protected(path);
+        const read_protected = await fs.is_protected(path, "read");
+
         // if the file exists, load it in. otherwise, keep the content empty
         let content = "";
         let readonly = false;
         if (await fs.exists(path)) {
-            content = await fs.read_file(path) as string;
-            readonly = await fs.is_readonly(path);
+            if (read_protected) {
+                try {
+                    content = await kernel.request_kernel_func("read_protected_file", `Read the protected file ${path}`, {path});
+                } catch (error) {
+                    if (!is_denied(error)) {
+                        throw error;
+                    }
+
+                    term.writeln(`${PREFABS.error}Permission denied, cannot read the protected file: ${path}${STYLE.reset_all}`);
+                    return 1;
+                }
+            } else {
+                content = await fs.read_file(path) as string;
+            }
+
+            // userspace sees protected paths as read-only, so their own flag is only enforced by the kernel when saving
+            readonly = !write_protected && await fs.is_readonly(path);
         }
 
         const filename = path.split("/").pop() || path;
@@ -440,16 +483,25 @@ export default {
 
         if (readonly) {
             editor.status_message = "File is read-only, changes cannot be made.";
+        } else if (write_protected) {
+            editor.status_message = "Protected file, saving will ask for permission.";
         }
 
         const save = async () => {
             try {
-                await fs.write_file(path, editor.content);
+                if (write_protected) {
+                    await kernel.request_kernel_func("write_protected_file", `Save the protected file ${path}`, {path, content: editor.content});
+                } else {
+                    await fs.write_file(path, editor.content);
+                }
+
                 editor.modified = false;
                 editor.status_message = "Saved.";
                 return true;
             } catch (error) {
-                editor.status_message = `Failed to save: ${error instanceof Error ? error.message : String(error)}`;
+                editor.status_message = is_denied(error)
+                    ? "Permission denied, not saved."
+                    : `Failed to save: ${error instanceof Error ? error.message : String(error)}`;
                 return false;
             }
         }
@@ -539,4 +591,4 @@ export default {
 
         return 0;
     }
-} satisfies Program;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;

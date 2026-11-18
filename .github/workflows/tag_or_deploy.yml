@@ -84,7 +84,6 @@ jobs:
         run: |
           mkdir dist
           cp index.html dist/
-          cp -r fsedit dist/
           cp -r recover_fs dist/
           cp -r docs dist/
           cp -r public dist/

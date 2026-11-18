@@ -201,10 +201,6 @@ As well as the following libraries:
 
 Please consult https://ollieg.codes/public/script/3rdpartylicenses.txt for full license information.
 
-Additionally, fsedit uses:
-
-- Font Awesome
-
 The source code is available on GitHub at https://github.com/obfuscatedgenerated/obfuscatedgenerated.github.io.
 `.replace(/\n/g, NEWLINE);
 
