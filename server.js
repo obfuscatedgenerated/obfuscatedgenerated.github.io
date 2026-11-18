@@ -21,13 +21,6 @@ app.get("/", function (req, res) {
   res.sendFile(__dirname + "/index.html")
   console.log("Served index to " + ip)
 })
-
-app.get("/fsedit", function (req, res) {
-  var ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  res.sendFile(__dirname + "/fsedit/index.html")
-  console.log("Served fsedit to " + ip)
-})
-
 app.get("/recover_fs", function (req, res) {
   var ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   res.sendFile(__dirname + "/recover_fs/index.html")

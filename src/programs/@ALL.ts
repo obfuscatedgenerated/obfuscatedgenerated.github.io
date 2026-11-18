@@ -21,7 +21,6 @@ export * as reader from "./reader";
 export * as selfdestruct from "./selfdestruct";
 export * as imagine from "./imagine";
 export * as ascmagine from "./ascmagine";
-export * as fsedit from "./fsedit";
 export * as rm from "./rm";
 export * as bugreport from "./bugreport";
 export * as repo from "./repo";

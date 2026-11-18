@@ -141,6 +141,11 @@ export interface UserspaceFileSystem {
     move_dir(src: string, dest: string, force_move_inside?: boolean): Promise<void>;
     set_readonly(path: string, readonly: boolean): Promise<void>;
     is_readonly(path: string): Promise<boolean>;
+    /**
+     * Whether the kernel protects a path from userspace, so changing it (or reading it, with access "read") needs a kernel func the user allows.
+     * Unlike {@link is_readonly}, this is about the path itself rather than a file's read-only flag.
+     */
+    is_protected(path: string, access?: "write" | "read"): Promise<boolean>;
     exists(path: string): Promise<boolean>;
     dir_exists(path: string): Promise<boolean>;
     join(base_dir: string, ...paths: string[]): string;
@@ -195,28 +200,6 @@ export abstract class AbstractFileSystem implements MirrorSource {
 
     force_remove_from_cache(path: string): void {
         this.#cache.delete(path);
-    }
-
-    remote_purge_cache(smart: boolean): void {
-        localStorage.setItem("purge_cache", smart.toString());
-    }
-
-    remote_remove_from_cache(path: string): void {
-        localStorage.setItem("remove_from_cache", path);
-    }
-
-    #remote_listener(): void {
-        const purge_cache = localStorage.getItem("purge_cache");
-        if (purge_cache) {
-            this.purge_cache(purge_cache === "true");
-            localStorage.removeItem("purge_cache");
-        }
-
-        const remove_from_cache = localStorage.getItem("remove_from_cache");
-        if (remove_from_cache) {
-            this.force_remove_from_cache(remove_from_cache);
-            localStorage.removeItem("remove_from_cache");
-        }
     }
 
 
@@ -405,11 +388,6 @@ export abstract class AbstractFileSystem implements MirrorSource {
         return join_path(base_dir, ...paths);
     }
 
-    protected constructor() {
-        // check if the cache should be purged from remote changes
-        setInterval(() => this.#remote_listener(), 100);
-    }
-
     static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem {
         const self = fs;
         const proxy = Object.create(null);
@@ -475,6 +453,26 @@ export abstract class AbstractFileSystem implements MirrorSource {
                     }
 
                     return await self.is_readonly(self.absolute(path, process.cwd));
+                },
+                enumerable: true
+            },
+            is_protected: {
+                value: async (path: string, access: "write" | "read" = "write") => {
+                    try {
+                        if (access === "read") {
+                            check_path_for_reading(path);
+                        } else {
+                            check_path_for_writing(path);
+                        }
+                    } catch (e) {
+                        if (e instanceof ReadOnlyError || e instanceof ProtectedFileReadError) {
+                            return true;
+                        }
+
+                        throw e;
+                    }
+
+                    return false;
                 },
                 enumerable: true
             },

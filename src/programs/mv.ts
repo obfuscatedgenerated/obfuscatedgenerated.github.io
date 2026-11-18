@@ -1,5 +1,25 @@
-import type { Program } from "../types";
+import type { KernelFuncs, Program } from "../types";
 import {ANSI} from "../lib/ansi";
+
+// the userspace filesystem refuses kernel protected paths, so this uses the kernel's own, after the user has allowed it
+export const kernel_funcs = {
+    move_protected: async ({kernel}, input: {source: string, destination: string, move_inside: boolean}) => {
+        // input comes from userspace, so nothing about it is assumed
+        if (typeof input?.source !== "string" || !input.source.startsWith("/") || typeof input.destination !== "string" || !input.destination.startsWith("/") || typeof input.move_inside !== "boolean") {
+            throw new TypeError("move_protected expects absolute source and destination paths and the move_inside flag");
+        }
+
+        const fs = kernel.get_fs();
+        const source = fs.absolute(input.source, "/");
+        const destination = fs.absolute(input.destination, "/");
+
+        if (await fs.dir_exists(source)) {
+            await fs.move_dir(source, destination, input.move_inside);
+        } else {
+            await fs.move_file(source, destination);
+        }
+    },
+} satisfies KernelFuncs;
 
 export default {
     name: "mv",
@@ -63,6 +83,23 @@ export default {
             return 1;
         }
 
+        // protected paths (at either end) are moved through the kernel, asking the user first
+        if (await fs.is_protected(source) || await fs.is_protected(destination)) {
+            try {
+                await kernel.request_kernel_func("move_protected", `Move the protected path ${source} to ${destination}`, {source, destination, move_inside: ended_with_slash});
+            } catch (e) {
+                if (e instanceof Error && e.name === "NotAllowedError") {
+                    term.writeln(`${PREFABS.error}Permission denied.${STYLE.reset_all}`);
+                    return 1;
+                }
+
+                term.writeln(`${PREFABS.error}Error moving: ${(e as Error).message}${STYLE.reset_all}`);
+                return 1;
+            }
+
+            return 0;
+        }
+
         // move source to destination
         // TODO: abstractfilesystem should have a file_exists function so we don't have to check if it's a directory first
         if (await fs.dir_exists(source)) {
@@ -82,4 +119,4 @@ export default {
 
         return 0;
     }
-} satisfies Program;
+} satisfies Program<{kernel_funcs: typeof kernel_funcs}>;

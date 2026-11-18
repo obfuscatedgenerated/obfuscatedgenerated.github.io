@@ -3,7 +3,6 @@
 index.html
 !/recover_fs/index.html
 /public/script/
-/fsedit/index.html
 /.idea/
 *.iml
 /types/

@@ -123,7 +123,7 @@ const fs = async (data: ProgramMainData) => {
     term.writeln("If multiple files are specified, their contents will be concatenated together.");
     term.write(NEWLINE);
     
-    term.writeln(`There are many other commands that can be used to interact with the filesystem, such as ${PREFABS.program_name}cd${STYLE.reset_all}, ${PREFABS.program_name}fsedit${STYLE.reset_all}, ${PREFABS.program_name}rm${STYLE.reset_all}, and more.`);
+    term.writeln(`There are many other commands that can be used to interact with the filesystem, such as ${PREFABS.program_name}cd${STYLE.reset_all}, ${PREFABS.program_name}edit${STYLE.reset_all}, ${PREFABS.program_name}rm${STYLE.reset_all}, and more.`);
     term.writeln(NEWLINE);
 
     await wait_block(term);
@@ -180,7 +180,7 @@ const end = async (data: ProgramMainData,) => {
     term.writeln(` - Use ${PREFABS.program_name}mefetch${STYLE.reset_all}, passing your GitHub username as an argument.`);
     term.writeln(` - Use ${PREFABS.program_name}cd${STYLE.reset_all} to enter the ${PREFABS.dir_name}projects${STYLE.reset_all} directory, and then use ${PREFABS.program_name}ls${STYLE.reset_all} to view its contents.`);
     term.writeln(` - Use ${PREFABS.program_name}imagine${STYLE.reset_all} and ${PREFABS.program_name}ascmagine${STYLE.reset_all} to view an image.`);
-    term.writeln(` - Use ${PREFABS.program_name}fsedit${STYLE.reset_all} to explore the filesystem.`);
+    term.writeln(` - Use ${PREFABS.program_name}ls${STYLE.reset_all} to explore the filesystem.`);
     term.writeln(` - Use ${PREFABS.program_name}webget${STYLE.reset_all} to download a file from the Internet into the OS.`);
     term.write(NEWLINE);
 
