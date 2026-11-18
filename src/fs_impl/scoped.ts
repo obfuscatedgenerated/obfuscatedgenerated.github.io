@@ -6,7 +6,7 @@ import {AbstractFileSystem, FSEventType, PathNotFoundError, type UserspaceFileSy
  */
 export type ScopedFileSystemTarget =
     Pick<UserspaceFileSystem, "read_file" | "write_file" | "delete_file" | "move_file" | "list_dir" | "make_dir" | "delete_dir" | "move_dir" | "set_readonly" | "is_readonly" | "exists" | "dir_exists" | "purge_cache" | "get_home">
-    & Partial<Pick<AbstractFileSystem, "is_ready" | "register_callback" | "force_remove_from_cache" | "remote_purge_cache" | "remote_remove_from_cache">>;
+    & Partial<Pick<AbstractFileSystem, "is_ready" | "register_callback" | "force_remove_from_cache">>;
 
 /**
  * Options for a {@link ScopedFileSystem}.
@@ -237,14 +237,6 @@ export class ScopedFileSystem extends AbstractFileSystem {
 
     force_remove_from_cache(path: string): void {
         this.#inner.force_remove_from_cache?.(this.#to_inner(path));
-    }
-
-    remote_purge_cache(smart: boolean): void {
-        this.#inner.remote_purge_cache?.(smart);
-    }
-
-    remote_remove_from_cache(path: string): void {
-        this.#inner.remote_remove_from_cache?.(this.#to_inner(path));
     }
 
     // files
