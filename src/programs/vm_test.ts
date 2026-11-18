@@ -1,80 +1,10 @@
 import type { Program } from "../types";
 
 import {Kernel} from "../kernel";
-import {AbstractFileSystem} from "../kernel/filesystem";
 import {AbstractTerminal, KeyEvent, UserspaceTerminal} from "../kernel/term_ctl";
 import {RemoteProxy} from "../kernel/rpc";
-
-class VMFileSystem extends AbstractFileSystem {
-    constructor() {
-        super();
-        this._initialised = true;
-    }
-
-
-    delete_dir_direct(path: string, recursive: boolean): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    delete_file_direct(path: string): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    dir_exists(path: string): Promise<boolean> {
-        return Promise.resolve(false);
-    }
-
-    erase_all(): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    exists_direct(path: string): Promise<boolean> {
-        return Promise.resolve(false);
-    }
-
-    get_unique_fs_type_name(): string {
-        return "";
-    }
-
-    is_readonly_direct(path: string): Promise<boolean> {
-        return Promise.resolve(false);
-    }
-
-    is_ready(): Promise<boolean> {
-        return Promise.resolve(false);
-    }
-
-    list_dir(path: string, dirs_first?: boolean): Promise<string[]> {
-        return Promise.resolve([]);
-    }
-
-    make_dir(path: string): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    move_dir_direct(src: string, dest: string, force_move_inside: boolean): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    move_file_direct(src: string, new_path: string): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    read_file_direct(path: string, as_uint: boolean): Promise<string | Uint8Array> {
-        return Promise.resolve("noop");
-    }
-
-    set_readonly_direct(path: string, readonly: boolean): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-    write_file_direct(path: string, data: string | Uint8Array): Promise<void> {
-        return Promise.resolve(undefined);
-    }
-
-}
-
-// TODO: dir scoped fs is useful in other scenarios, move it to the kernel
+import {ScopedFileSystem} from "../fs_impl/scoped";
+import {initial_fs_setup} from "../initial_fs_setup";
 
 class VMTerminal extends AbstractTerminal {
     readonly #parent: RemoteProxy<UserspaceTerminal>;
@@ -175,7 +105,8 @@ export default {
     main: async (data) => {
         const { kernel, term } = data;
 
-        const virtual_fs = new VMFileSystem();
+        const host_fs = kernel.get_fs();
+        const virtual_fs = await ScopedFileSystem.create(host_fs, {root: "/vms/test"});
 
         // wait for virtual fs._initialised to be true
         // TODO: this is a bad hack, we also need to do this for the main boot as its a race condition too
@@ -183,8 +114,17 @@ export default {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }
 
-        // inherit virtual programs
-        //const virtual_programs = kernel.get_virtual_programs();
+        // setup vfs
+        await initial_fs_setup(virtual_fs, {});
+
+        // copy host /bin to virtual /bin
+        const host_bin_dir = await host_fs.list_dir("/bin");
+        for (const file of host_bin_dir) {
+            const path = `/bin/${file}`;
+
+            const contents = await host_fs.read_file(path) as string;
+            await virtual_fs.write_file(path, contents);
+        }
 
         const virtual_term = new VMTerminal(term);
 
