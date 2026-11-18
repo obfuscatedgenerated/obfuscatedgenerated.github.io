@@ -451,6 +451,19 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
     readonly #teardowns: Set<() => void> = new Set();
     #killed = false;
 
+    #resolve_terminated: () => void = () => {};
+    readonly #terminated = new Promise<void>((resolve) => {
+        this.#resolve_terminated = resolve;
+    });
+
+    /**
+     * Resolves once the process has been killed and its teardowns have run (e.g. its isothread terminated).
+     * The killed flag is set immediately, the terminated flag is set once the process is fully cleaned up.
+     */
+    get terminated(): Promise<void> {
+        return this.#terminated;
+    }
+
     #attachment: ProcessAttachment = ProcessAttachment.FOREGROUND;
     #detach_silently = false;
 
@@ -583,7 +596,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
 
         this.dispose_resources();
 
-        this.#manager.mark_terminated(this.#pid);
+        this.#manager.mark_terminated(this.#pid, this.#terminated);
 
         const pending_listeners: Promise<unknown>[] = [];
         for (const listener of this.#exit_listeners) {
@@ -604,6 +617,8 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
                     console.error("Process teardown error:", err);
                 }
             }
+
+            this.#resolve_terminated();
         });
     }
 
@@ -872,6 +887,9 @@ export class ProcessManager implements MirrorSource {
     readonly #ipc_manager: IPCManager = new IPCManager(this);
     readonly #net_manager: AbstractNetworkManager | null = null;
 
+    // processes that have been killed but are still tearing down (e.g. their isothread not yet terminated)
+    readonly #terminating: Set<Promise<void>> = new Set();
+
     constructor(wm: AbstractWindowManager | null = null, net_manager: AbstractNetworkManager | null = null) {
         this.#wm = wm;
         this.#net_manager = net_manager;
@@ -932,9 +950,22 @@ export class ProcessManager implements MirrorSource {
         return Array.from(this.#processes.keys());
     }
 
-    mark_terminated(pid: number): void {
+    mark_terminated(pid: number, terminated?: Promise<void>): void {
         this.#processes.delete(pid);
+
+        if (terminated) {
+            this.#terminating.add(terminated);
+            terminated.then(() => this.#terminating.delete(terminated));
+        }
+
         notify_mirror_change(this);
+    }
+
+    async wait_for_terminations(): Promise<void> {
+        // a teardown can kill more processes, so keep going until none are left
+        while (this.#terminating.size > 0) {
+            await Promise.all([...this.#terminating]);
+        }
     }
 
     kill(pid: number, exit_code = 0): boolean {

@@ -21,11 +21,13 @@ export class XTermTerminal extends AbstractTerminal {
     }
 
     reset() {
-        this.#xterm.reset();
+        // writes are parsed asynchronously but reset acts immediately, so queue it behind anything already written
+        // xterm's reset leaves the cursor hidden if something hid it, so show it again
+        this.#xterm.write("\x1b[?25h", () => this.#xterm.reset());
     }
 
     clear() {
-        this.#xterm.clear();
+        this.#xterm.write("", () => this.#xterm.clear());
     }
 
     get_selection(): string {

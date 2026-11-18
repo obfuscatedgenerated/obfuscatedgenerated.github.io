@@ -51,11 +51,34 @@ class VMTerminal extends AbstractTerminal {
         this.#pop_interrupt_handler?.();
     }
 
+    // the guest keeps its own title stack, so its pushes (e.g. from a shell killed mid-command) can't unbalance the host's
+    #title_stack: string[] = [];
+    #title = "";
+
+    #translate_titles(data: string): string {
+        // eslint-disable-next-line no-control-regex
+        return data.replace(/\x1b\[(22|23);[02]?t|\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)/g, (_sequence, stack_op: string | undefined, title: string | undefined) => {
+            if (stack_op === "22") {
+                this.#title_stack.push(this.#title);
+                return "";
+            }
+
+            if (stack_op === "23") {
+                this.#title = this.#title_stack.pop() ?? "";
+            } else {
+                this.#title = title ?? "";
+            }
+
+            // only ever set the host's title, never its stack
+            return `\x1b]2;${this.#title}\x07`;
+        });
+    }
+
     write(data: string | Uint8Array, callback?: () => void): void {
-        this.#parent.write(data, callback);
+        this.#parent.write(typeof data === "string" ? this.#translate_titles(data) : data, callback);
     }
     writeln(data: string | Uint8Array, callback?: () => void): void {
-        this.#parent.writeln(data, callback);
+        this.#parent.writeln(typeof data === "string" ? this.#translate_titles(data) : data, callback);
     }
     clear(): void {
         this.#parent.clear();

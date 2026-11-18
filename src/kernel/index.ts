@@ -349,7 +349,8 @@ export class Kernel {
     #panicked = false;
     #after_panic: ((message: string, debug_info?: string) => void) | null = null;
 
-    #powered_off = false;
+    #powering_off = false;
+    #power_off_done: Promise<void> | null = null;
 
     #env_info = {
         version: "unknown",
@@ -978,8 +979,13 @@ export class Kernel {
             try {
                 const exit_code = await init.completion;
 
-                if (this.#powered_off) {
-                    // not a panic, the system was powered off
+                if (this.#powering_off) {
+                    console.log("Waiting for power off...");
+
+                    // not a panic, the system was powered off, return once everything has stopped
+                    await this.#power_off_done;
+
+                    console.log("Power off complete.");
                     return true;
                 }
 
@@ -1258,17 +1264,35 @@ export class Kernel {
         return await program_code.threads[name](data, input);
     }
 
-    power_off() {
-        this.#powered_off = true;
+    power_off(): Promise<void> {
+        // calling it again (e.g. reboot after shutdown) waits for the same power off
+        if (this.#power_off_done) {
+            return this.#power_off_done;
+        }
 
-        // kill all processes and dispose their terminals, so they don't keep running in the background after power off
+        this.#powering_off = true;
+        this.#power_off_done = this.#power_off_all();
+        return this.#power_off_done;
+    }
+
+    async #power_off_all(): Promise<void> {
         const proc_mgr = this.get_process_manager();
-        for (const pid of proc_mgr.list_pids().reverse()) {
-            const proc = proc_mgr.get_process(pid);
-            if (proc) {
-                proc.kill();
-                proc.terminal.dispose();
-            }
+
+        // newest first, so init goes last
+        const processes = proc_mgr.list_pids().reverse()
+            .map((pid) => proc_mgr.get_process(pid))
+            .filter((proc) => proc !== undefined);
+
+        for (const proc of processes) {
+            proc.kill();
+        }
+
+        // wait for all processes to terminate
+        await proc_mgr.wait_for_terminations();
+
+        // only now do the terminals go, so nothing still running can write to a closed one
+        for (const proc of processes) {
+            proc.terminal.dispose();
         }
 
         this.#term.dispose();
@@ -1276,8 +1300,8 @@ export class Kernel {
         proc_mgr.dispose_all();
     }
 
-    reboot() {
-        this.power_off();
+    async reboot() {
+        await this.power_off();
 
         if (typeof window !== "undefined") {
             // TODO: more formal reboot here, calling boot again with clean state somehow
