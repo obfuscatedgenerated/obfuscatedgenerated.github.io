@@ -1,7 +1,7 @@
 import type { Program } from "../types";
 
 import {Kernel} from "../kernel";
-import {AbstractTerminal, KeyEvent, UserspaceTerminal} from "../kernel/term_ctl";
+import {AbstractTerminal, KeyEvent, UserspaceKeyEvent, UserspaceTerminal} from "../kernel/term_ctl";
 import {RemoteProxy} from "../kernel/rpc";
 import {ScopedFileSystem} from "../fs_impl/scoped";
 import {initial_fs_setup} from "../initial_fs_setup";
@@ -9,9 +9,46 @@ import {initial_fs_setup} from "../initial_fs_setup";
 class VMTerminal extends AbstractTerminal {
     readonly #parent: RemoteProxy<UserspaceTerminal>;
 
+    #raw_key_waiter: ((event: KeyEvent) => void) | null = null;
+
+    #unregister_key_handler: (() => void) | null = null;
+    #pop_interrupt_handler: (() => void) | null = null;
+
     constructor(parent: RemoteProxy<UserspaceTerminal>) {
         super();
         this.#parent = parent;
+    }
+
+    async attach() {
+        this.#unregister_key_handler = await this.#parent.register_key_event_handler((event) => this.#receive_key(event), {block: true});
+
+        // the newest interrupt handler wins, so ctrl+c goes to the guest rather than killing vm_test
+        this.#pop_interrupt_handler = await this.#parent.push_interrupt_handler(() => this.#receive_key({key: "\u0003"}));
+    }
+
+    #receive_key(event: Pick<UserspaceKeyEvent, "key" | "code">) {
+        // a plain object stands in for the dom event, as there's no KeyboardEvent in a worker
+        const key_event: KeyEvent = {key: event.key, domEvent: {code: event.code} as KeyboardEvent};
+
+        const waiter = this.#raw_key_waiter;
+        if (waiter) {
+            this.#raw_key_waiter = null;
+            waiter(key_event);
+            return;
+        }
+
+        this._enqueue_key_event(key_event);
+    }
+
+    protected _read_raw_key(): Promise<KeyEvent> {
+        return new Promise((resolve) => {
+            this.#raw_key_waiter = resolve;
+        });
+    }
+
+    dispose(): void {
+        this.#unregister_key_handler?.();
+        this.#pop_interrupt_handler?.();
     }
 
     write(data: string | Uint8Array, callback?: () => void): void {
@@ -46,9 +83,6 @@ class VMTerminal extends AbstractTerminal {
     focus(): void {
         console.error("VMTerminal.focus() is not implemented");
     }
-    dispose(): void {
-        console.error("VMTerminal.dispose() is not implemented");
-    }
     get input_enabled(): boolean {
         console.error("VMTerminal.input_enabled getter is not implemented");
         return true;
@@ -61,10 +95,6 @@ class VMTerminal extends AbstractTerminal {
     }
     resume_input_processing(): void {
         console.error("VMTerminal.resume_input_processing() is not implemented");
-    }
-    protected _read_raw_key(): Promise<KeyEvent> {
-        console.error("VMTerminal._read_raw_key() is not implemented");
-        return Promise.resolve({key: "", domEvent: new KeyboardEvent("keydown")});
     }
     get cols(): number {
         return this.#parent.cols;
@@ -127,6 +157,7 @@ export default {
         }
 
         const virtual_term = new VMTerminal(term);
+        await virtual_term.attach();
 
         const vm_kernel = new Kernel({term: virtual_term, fs: virtual_fs});
 
