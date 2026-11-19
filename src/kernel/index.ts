@@ -326,6 +326,19 @@ export type ProgramCodeHost = { readonly kind: "kernel" };
 
 export const KERNEL_HOST: ProgramCodeHost = Object.freeze({ kind: "kernel" });
 
+export interface EndReasonPower {
+    kind: "power_off";
+    reboot: boolean;
+}
+
+export interface EndReasonPanic {
+    kind: "panic";
+    message: string;
+    debug_info?: string;
+}
+
+export type EndReason = EndReasonPower | EndReasonPanic;
+
 /**
  * Interface for interacting with the kernel.
  *
@@ -347,10 +360,14 @@ export class Kernel {
     #isothread_manager_is_real = false;
 
     #panicked = false;
-    #after_panic: ((message: string, debug_info?: string) => void) | null = null;
+
+    #mark_ended: (reason: EndReason) => void;
+    #ended = new Promise<EndReason>((resolve) => {
+        this.#mark_ended = resolve;
+    });
 
     #powering_off = false;
-    #power_off_done: Promise<void> | null = null;
+    #is_reboot = false;
 
     #env_info = {
         version: "unknown",
@@ -909,22 +926,22 @@ export class Kernel {
             term.handle_kernel_panic(message, process_info, debug_info);
         }
 
+        this.#isothread_manager.terminate_all();
         proc_mgr.dispose_all();
 
-        if (this.#after_panic) {
-            this.#after_panic(message, debug_info);
-        }
+        this.#mark_ended({
+            kind: "panic",
+            message,
+            debug_info
+        });
     }
 
     /**
      * Boot the kernel by starting the init system.
      * @param on_init_spawned Optional callback that is called once the init program has been spawned.
-     * @param after_panic Optional callback that is called after a panic occurs.
-     * @returns A promise that resolves at the end of all OllieOS execution (i.e. when init exits). Returns true for a successful finish, false for an unexpected exit (but neither case is good if expecting the system to keep running!).
+     * @returns A promise that resolves at the end of all OllieOS execution (i.e. when init exits), the end reason.
      */
-    async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>, after_panic?: (message: string, debug_info?: string) => void): Promise<boolean> {
-        this.#after_panic = after_panic || null;
-
+    async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<EndReason> {
         if (!this.has_isothread_manager()) {
             console.warn("Security warning: No isothread manager present, so userspace programs will run in kernel space.");
         }
@@ -942,12 +959,18 @@ export class Kernel {
             init_program = init_data.trim();
         } catch {
             this.panic("Failed to read /boot/init to determine init system!");
-            return false;
+            return {
+                kind: "panic",
+                message: "Failed to read /boot/init to determine init system!"
+            };
         }
 
         if (!init_program) {
             this.panic("No init program specified in /boot/init!");
-            return false;
+            return {
+                kind: "panic",
+                message: "No init program specified in /boot/init!"
+            };
         }
 
         // separate args if any
@@ -973,36 +996,29 @@ export class Kernel {
 
             if (init.process.pid !== 1) {
                 this.panic(`init program ${init_program} did not start as PID 1!`);
-                return false;
+                return await this.#ended;
             }
 
             try {
-                const exit_code = await init.completion;
+                const init_exit = init.completion.then((exit_code): EndReason | Promise<EndReason> => {
+                    if (!this.#powering_off) {
+                        this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
+                    }
 
-                if (this.#powering_off) {
-                    console.log("Waiting for power off...");
+                    return this.#ended;
+                });
 
-                    // not a panic, the system was powered off, return once everything has stopped
-                    await this.#power_off_done;
-
-                    console.log("Power off complete.");
-                    return true;
-                }
-
-                this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
-                return false;
+                return await Promise.race([init_exit, this.#ended]);
             } catch (e) {
                 console.error(e);
                 this.panic(`init program ${init_program} error!`, e.toString() + NEWLINE + e.stack);
-                return false;
+                return await this.#ended;
             }
         } catch (e) {
             console.error(e);
             this.panic(`Failed to start init program ${init_program}!`, e.toString() + NEWLINE + e.stack);
-            return false;
+            return await this.#ended;
         }
-
-        return true;
     }
 
     #privilege_request_queue: EnqueuedPrivilegeRequest[] = [];
@@ -1265,14 +1281,14 @@ export class Kernel {
     }
 
     power_off(): Promise<void> {
-        // calling it again (e.g. reboot after shutdown) waits for the same power off
-        if (this.#power_off_done) {
-            return this.#power_off_done;
+        if (!this.#powering_off && !this.#panicked) {
+            this.#powering_off = true;
+            this.#power_off_all();
         }
 
-        this.#powering_off = true;
-        this.#power_off_done = this.#power_off_all();
-        return this.#power_off_done;
+        // resolves once the run has ended, whether this power off finished or something else (e.g. a panic) ended it first
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        return this.#ended.then(() => {});
     }
 
     async #power_off_all(): Promise<void> {
@@ -1298,15 +1314,16 @@ export class Kernel {
         this.#term.dispose();
 
         proc_mgr.dispose_all();
+
+        this.#mark_ended({
+            kind: "power_off",
+            reboot: this.#is_reboot
+        });
     }
 
     async reboot() {
+        this.#is_reboot = true;
         await this.power_off();
-
-        if (typeof window !== "undefined") {
-            // TODO: more formal reboot here, calling boot again with clean state somehow
-            window.location.reload();
-        }
     }
 
     constructor(opts: {

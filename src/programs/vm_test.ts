@@ -187,16 +187,16 @@ export default {
         const { version } = kernel.get_env_info();
         vm_kernel.set_env_info(version, "virtual");
 
-        const ended_gracefully = await vm_kernel.boot(async () => {
+        const end_reason = await vm_kernel.boot(async () => {
             term.writeln("vm_test: virtual kernel booted.");
-            //term.writeln("Inducing virtual panic...");
-            //vm_kernel.panic("This is a test panic from within the virtual machine.");
         });
 
-        console.log(`vm_test: virtual kernel ended ${ended_gracefully ? "gracefully" : "with a panic"}.`);
+        console.log(`vm_test: virtual kernel ended with reason: ${JSON.stringify(end_reason, null, 2)}`);
         virtual_term.dispose();
 
         term.reset();
+
+        // TODO: once kernel disposal exists, rerun on reboot
 
         return 0;
     }

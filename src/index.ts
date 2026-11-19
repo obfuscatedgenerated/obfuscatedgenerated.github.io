@@ -110,9 +110,14 @@ const main = async () => {
 
     console.log("Booting OS...");
 
-    const success = await boot_os(init_spawned);
-    if (!success) {
+    const end_reason = await boot_os(init_spawned);
+    console.log(`OS ended with reason: ${JSON.stringify(end_reason, null, 2)}`);
+
+    if (end_reason.kind === "panic") {
         boot_screen.style.display = "none";
+    } else if (end_reason.kind === "power_off" && end_reason.reboot) {
+        window.location.reload();
+        // TODO: proper kernel disposal to just spawn a new kernel instance instead of reloading the page
     }
 }
 
