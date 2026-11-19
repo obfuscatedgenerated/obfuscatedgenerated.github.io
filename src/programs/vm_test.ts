@@ -165,12 +165,7 @@ export default {
 
         do {
             const virtual_fs = await ScopedFileSystem.create(host_fs, {root: "/vms/test"});
-
-            // wait for virtual fs._initialised to be true
-            // TODO: this is a bad hack, we also need to do this for the main boot as its a race condition too
-            while (!virtual_fs._initialised) {
-                await new Promise((resolve) => setTimeout(resolve, 10));
-            }
+            await virtual_fs.wait_until_initialised();
 
             // setup vfs
             await initial_fs_setup(virtual_fs, {});

@@ -29,7 +29,7 @@ export class OPFSFileSystem extends AbstractFileSystem {
                 console.log("Finished initial filesystem check.");
 
                 this._opfs_handle = handle;
-                this._initialised = true;
+                this._initialised();
             });
         }).catch((err) => {
             console.error("Failed to get OPFS directory handle:", err);

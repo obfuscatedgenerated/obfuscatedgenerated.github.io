@@ -9,10 +9,6 @@ export class LocalStorageFS extends AbstractFileSystem {
         return "localstorage";
     }
 
-    async is_ready() {
-        return true;
-    }
-
     async erase_all() {
         localStorage.removeItem("fs");
         localStorage.removeItem("fs_readonly_paths");
@@ -488,7 +484,7 @@ export class LocalStorageFS extends AbstractFileSystem {
 
         // initialise root and home directory
         this.make_dir(this._home).then(() => {
-            this._initialised = true;
+            this._initialised();
         }).catch((err) => {
             console.error("Failed to create home directory:", err);
         });

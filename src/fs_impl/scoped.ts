@@ -6,7 +6,7 @@ import {AbstractFileSystem, FSEventType, PathNotFoundError, type UserspaceFileSy
  */
 export type ScopedFileSystemTarget =
     Pick<UserspaceFileSystem, "read_file" | "write_file" | "delete_file" | "move_file" | "list_dir" | "make_dir" | "delete_dir" | "move_dir" | "set_readonly" | "is_readonly" | "exists" | "dir_exists" | "purge_cache" | "get_home">
-    & Partial<Pick<AbstractFileSystem, "is_ready" | "register_callback" | "force_remove_from_cache">>;
+    & Partial<Pick<AbstractFileSystem, "wait_until_initialised" | "register_callback" | "force_remove_from_cache">>;
 
 /**
  * Options for a {@link ScopedFileSystem}.
@@ -121,9 +121,7 @@ export class ScopedFileSystem extends AbstractFileSystem {
      */
     static async create(inner: ScopedFileSystemTarget, options: ScopedFileSystemOptions): Promise<ScopedFileSystem> {
         // a stub's filesystem is always ready, as the kernel booted with it
-        while (typeof inner.is_ready === "function" && !(await inner.is_ready())) {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-        }
+        await inner.wait_until_initialised?.();
 
         const scoped = new ScopedFileSystem(inner, options);
 
@@ -131,7 +129,7 @@ export class ScopedFileSystem extends AbstractFileSystem {
             await inner.make_dir(scoped.#scope_root);
         }
 
-        scoped._initialised = true;
+        scoped._initialised();
         return scoped;
     }
 
@@ -202,14 +200,6 @@ export class ScopedFileSystem extends AbstractFileSystem {
 
             throw e;
         }
-    }
-
-    async is_ready(): Promise<boolean> {
-        if (!this._initialised) {
-            return false;
-        }
-
-        return typeof this.#inner.is_ready === "function" ? await this.#inner.is_ready() : true;
     }
 
     // empties the directory, leaving it in place

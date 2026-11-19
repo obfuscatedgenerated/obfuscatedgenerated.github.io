@@ -173,7 +173,14 @@ export abstract class AbstractFileSystem implements MirrorSource {
     // note some members are conventionally private with _ prefix to allow implementations to access them
     // they wont be exposed to userspace though
 
-    _initialised = false;
+    _initialised: (() => void);
+    #initialise_promise = new Promise<void>((resolve) => {
+        this._initialised = resolve;
+    });
+
+    wait_until_initialised(): Promise<void> {
+        return this.#initialise_promise;
+    }
 
     readonly #cache: Map<string, { readonly: boolean, content: string | Uint8Array, as_uint: boolean }> = new Map();
     readonly #callbacks: Map<FSEventType, FSEventHandler[]> = new Map();
@@ -183,8 +190,6 @@ export abstract class AbstractFileSystem implements MirrorSource {
 
     abstract get_unique_fs_type_name(): string;
     abstract erase_all(): Promise<void>;
-
-    abstract is_ready(): Promise<boolean>;
 
     purge_cache(smart = false): void {
         if (smart) {

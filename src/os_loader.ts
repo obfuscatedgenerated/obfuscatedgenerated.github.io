@@ -56,17 +56,7 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         fs = new LocalStorageFS();
     }
 
-    if (!(await fs.is_ready())) {
-        // poll every 10ms until ready
-        await new Promise<void>((resolve) => {
-            const interval = setInterval(async () => {
-                if (await fs.is_ready()) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 10);
-        });
-    }
+    await fs.wait_until_initialised();
 
     // construct virtual programs (inline kernel funcs)
     const builtin_programs: Record<string, Program> = {};
