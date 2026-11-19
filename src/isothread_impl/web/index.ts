@@ -25,6 +25,13 @@ export class WebIsoThreadManager extends AbstractIsoThreadManager {
         this.#frames = new WebFrameIsoThreadManager(entry_url);
     }
 
+    dispose(): void {
+        // threads started through this manager are tracked here, so terminate them before the inner managers take their hosts down
+        super.dispose();
+        this.#workers.dispose();
+        this.#frames.dispose();
+    }
+
     _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null, loopback = false): {endpoint: KernelEndpoint, terminate(): void} {
         const {metadata} = found;
 

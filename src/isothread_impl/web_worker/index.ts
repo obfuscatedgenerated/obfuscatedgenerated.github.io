@@ -71,6 +71,17 @@ export class WebWorkerIsoThreadManager extends AbstractIsoThreadManager {
         });
     }
 
+    dispose(): void {
+        super.dispose();
+
+        // removing a host frame ends every worker it started
+        for (const host of [this.#ready, this.#loopback_ready]) {
+            host?.then(({frame}) => frame.remove()).catch(() => undefined);
+        }
+
+        this.#loopback_ready = null;
+    }
+
     // every post goes through one .then on the same promise, so a terminate can never overtake its spawn
     #post_to_host(loopback: boolean, build_message: (worker_source: string) => object, transfer: Transferable[] = []): Promise<void> {
         return this.#host(loopback).then(({frame, worker_source}) => {

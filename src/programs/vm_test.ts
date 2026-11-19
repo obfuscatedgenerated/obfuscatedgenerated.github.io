@@ -5,6 +5,7 @@ import {AbstractTerminal, KeyEvent, UserspaceKeyEvent, UserspaceTerminal} from "
 import {RemoteProxy} from "../kernel/rpc";
 import {ScopedFileSystem} from "../fs_impl/scoped";
 import {initial_fs_setup} from "../initial_fs_setup";
+import {ANSI, NEWLINE} from "../lib/ansi";
 
 class VMTerminal extends AbstractTerminal {
     readonly #parent: RemoteProxy<UserspaceTerminal>;
@@ -159,45 +160,58 @@ export default {
         const { kernel, term } = data;
 
         const host_fs = kernel.get_fs();
-        const virtual_fs = await ScopedFileSystem.create(host_fs, {root: "/vms/test"});
 
-        // wait for virtual fs._initialised to be true
-        // TODO: this is a bad hack, we also need to do this for the main boot as its a race condition too
-        while (!virtual_fs._initialised) {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-        }
+        term.writeln("Starting virtual kernel...");
 
-        // setup vfs
-        await initial_fs_setup(virtual_fs, {});
+        do {
+            const virtual_fs = await ScopedFileSystem.create(host_fs, {root: "/vms/test"});
 
-        // copy host /bin to virtual /bin
-        const host_bin_dir = await host_fs.list_dir("/bin");
-        for (const file of host_bin_dir) {
-            const path = `/bin/${file}`;
+            // wait for virtual fs._initialised to be true
+            // TODO: this is a bad hack, we also need to do this for the main boot as its a race condition too
+            while (!virtual_fs._initialised) {
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }
 
-            const contents = await host_fs.read_file(path) as string;
-            await virtual_fs.write_file(path, contents);
-        }
+            // setup vfs
+            await initial_fs_setup(virtual_fs, {});
 
-        const virtual_term = new VMTerminal(term);
-        await virtual_term.attach();
+            // copy host /bin to virtual /bin
+            const host_bin_dir = await host_fs.list_dir("/bin");
+            for (const file of host_bin_dir) {
+                const path = `/bin/${file}`;
 
-        const vm_kernel = new Kernel({term: virtual_term, fs: virtual_fs});
+                const contents = await host_fs.read_file(path) as string;
+                await virtual_fs.write_file(path, contents);
+            }
 
-        const { version } = kernel.get_env_info();
-        vm_kernel.set_env_info(version, "virtual");
+            const virtual_term = new VMTerminal(term);
+            await virtual_term.attach();
 
-        const end_reason = await vm_kernel.boot(async () => {
-            term.writeln("vm_test: virtual kernel booted.");
-        });
+            const vm_kernel = new Kernel({term: virtual_term, fs: virtual_fs});
 
-        console.log(`vm_test: virtual kernel ended with reason: ${JSON.stringify(end_reason, null, 2)}`);
-        virtual_term.dispose();
+            const { version } = kernel.get_env_info();
+            vm_kernel.set_env_info(version, "virtual");
 
-        term.reset();
+            const end_reason = await vm_kernel.boot(async () => {
+                term.writeln("Virtual kernel booted.");
+            });
 
-        // TODO: once kernel disposal exists, rerun on reboot
+            virtual_term.dispose();
+            term.reset();
 
-        return 0;
+            term.writeln("Virtual kernel ended.");
+
+            if (end_reason.kind === "power_off" && end_reason.reboot) {
+                term.writeln("Virtual kernel rebooting...");
+                continue
+            }
+
+            if (end_reason.kind === "panic") {
+                term.writeln(`${ANSI.PREFABS.error}Virtual kernel panic: ${end_reason.message}${NEWLINE}${end_reason.debug_info ?? ""}`);
+                return 1;
+            }
+
+            return 0;
+        } while (true);
     }
 } satisfies Program;

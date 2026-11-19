@@ -359,6 +359,8 @@ export class Kernel {
     readonly #isothread_manager: AbstractIsoThreadManager = new LoopbackIsoThreadManager();
     #isothread_manager_is_real = false;
 
+    #disposed = false;
+
     #panicked = false;
 
     #mark_ended: (reason: EndReason) => void;
@@ -937,87 +939,91 @@ export class Kernel {
     }
 
     /**
-     * Boot the kernel by starting the init system.
+     * Boot the kernel by starting the init system. Also calls {@link Kernel.dispose} on ending to clear any side effects of the kernel running.
      * @param on_init_spawned Optional callback that is called once the init program has been spawned.
      * @returns A promise that resolves at the end of all OllieOS execution (i.e. when init exits), the end reason.
      */
     async boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<EndReason> {
-        if (!this.has_isothread_manager()) {
-            console.warn("Security warning: No isothread manager present, so userspace programs will run in kernel space.");
-        }
-
-        const fs = this.get_fs();
-
-        await this.#move_legacy_package_folders();
-
-        // read /boot/init to determine init system
-        let init_program: string;
-        let init_args: string[] = [];
-
         try {
-            const init_data = await fs.read_file("/boot/init") as string;
-            init_program = init_data.trim();
-        } catch {
-            this.panic("Failed to read /boot/init to determine init system!");
-            return {
-                kind: "panic",
-                message: "Failed to read /boot/init to determine init system!"
-            };
-        }
-
-        if (!init_program) {
-            this.panic("No init program specified in /boot/init!");
-            return {
-                kind: "panic",
-                message: "No init program specified in /boot/init!"
-            };
-        }
-
-        // separate args if any
-        const init_parts = init_program.split(" ");
-        init_program = init_parts[0];
-
-        if (init_parts.length > 1) {
-            init_args = init_parts.slice(1);
-        }
-
-        // run init program
-        try {
-            const init = await this.spawn(null, init_program, init_args, undefined, true);
-
-            this.#init_program_name = init_program;
-            this.#term.focus();
-
-            if (on_init_spawned) {
-                on_init_spawned(this).catch((e) => {
-                    console.error(e);
-                });
+            if (!this.has_isothread_manager()) {
+                console.warn("Security warning: No isothread manager present, so userspace programs will run in kernel space.");
             }
 
-            if (init.process.pid !== 1) {
-                this.panic(`init program ${init_program} did not start as PID 1!`);
-                return await this.#ended;
-            }
+            const fs = this.get_fs();
+
+            await this.#move_legacy_package_folders();
+
+            // read /boot/init to determine init system
+            let init_program: string;
+            let init_args: string[] = [];
 
             try {
-                const init_exit = init.completion.then((exit_code): EndReason | Promise<EndReason> => {
-                    if (!this.#powering_off) {
-                        this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
-                    }
+                const init_data = await fs.read_file("/boot/init") as string;
+                init_program = init_data.trim();
+            } catch {
+                this.panic("Failed to read /boot/init to determine init system!");
+                return {
+                    kind: "panic",
+                    message: "Failed to read /boot/init to determine init system!"
+                };
+            }
 
-                    return this.#ended;
-                });
+            if (!init_program) {
+                this.panic("No init program specified in /boot/init!");
+                return {
+                    kind: "panic",
+                    message: "No init program specified in /boot/init!"
+                };
+            }
 
-                return await Promise.race([init_exit, this.#ended]);
+            // separate args if any
+            const init_parts = init_program.split(" ");
+            init_program = init_parts[0];
+
+            if (init_parts.length > 1) {
+                init_args = init_parts.slice(1);
+            }
+
+            // run init program
+            try {
+                const init = await this.spawn(null, init_program, init_args, undefined, true);
+
+                this.#init_program_name = init_program;
+                this.#term.focus();
+
+                if (on_init_spawned) {
+                    on_init_spawned(this).catch((e) => {
+                        console.error(e);
+                    });
+                }
+
+                if (init.process.pid !== 1) {
+                    this.panic(`init program ${init_program} did not start as PID 1!`);
+                    return await this.#ended;
+                }
+
+                try {
+                    const init_exit = init.completion.then((exit_code): EndReason | Promise<EndReason> => {
+                        if (!this.#powering_off) {
+                            this.panic(`init program ${init_program} exited ${exit_code === 0 ? "unexpectedly" : "with an error"}!`, `Exit code: ${exit_code}`);
+                        }
+
+                        return this.#ended;
+                    });
+
+                    return await Promise.race([init_exit, this.#ended]);
+                } catch (e) {
+                    console.error(e);
+                    this.panic(`init program ${init_program} error!`, e.toString() + NEWLINE + e.stack);
+                    return await this.#ended;
+                }
             } catch (e) {
                 console.error(e);
-                this.panic(`init program ${init_program} error!`, e.toString() + NEWLINE + e.stack);
+                this.panic(`Failed to start init program ${init_program}!`, e.toString() + NEWLINE + e.stack);
                 return await this.#ended;
             }
-        } catch (e) {
-            console.error(e);
-            this.panic(`Failed to start init program ${init_program}!`, e.toString() + NEWLINE + e.stack);
-            return await this.#ended;
+        } finally {
+            this.dispose();
         }
     }
 
@@ -1319,6 +1325,25 @@ export class Kernel {
             kind: "power_off",
             reboot: this.#is_reboot
         });
+    }
+
+    /**
+     * Releases everything the kernel created itself (e.g. its process manager's background cleanup, and its fallback isothread manager), so another kernel can run in its place (e.g. on reboot) without anything piling up.
+     * Call it once boot() has returned. What was passed to the constructor (terminal, filesystem, managers) belongs to the caller, to dispose or reuse for the next kernel.
+     */
+    dispose(): void {
+        if (this.#disposed) {
+            return;
+        }
+
+        this.#disposed = true;
+
+        this.#process_manager.dispose();
+
+        // only the fallback was made here, a real one was passed in
+        if (!this.#isothread_manager_is_real) {
+            this.#isothread_manager.dispose();
+        }
     }
 
     async reboot() {

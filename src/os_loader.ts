@@ -134,19 +134,22 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
         term.writeln(wrapped);
     }
 
-
-    // disable F1 help
-    window.addEventListener("keydown", function (e) {
+    const f1_disable = (e: KeyboardEvent) => {
         if (e.code === "F1") {
             e.preventDefault();
         }
-    });
+    }
 
+
+    // disable F1 help
+    window.addEventListener("keydown", f1_disable);
+
+    const resize_terminal = () => {
+        fit.fit();
+    }
 
     // on resize, resize the terminal
-    window.addEventListener("resize", () => {
-        fit.fit();
-    });
+    window.addEventListener("resize", resize_terminal);
 
     // create the kernel
     const kernel = new Kernel({
@@ -161,5 +164,12 @@ export const boot_os = async (on_init_spawned?: (kernel: Kernel) => Promise<void
     kernel.set_env_info(version, "web");
 
     // boot the kernel and check for a false return (indicating boot failure). should probably never return true as the os should hopefully always run!
-    return await kernel.boot(on_init_spawned);
+    const end_reason = await kernel.boot(on_init_spawned);
+
+    // clear side effects
+    window.removeEventListener("keydown", f1_disable);
+    window.removeEventListener("resize", resize_terminal);
+    term.dispose();
+
+    return end_reason;
 }

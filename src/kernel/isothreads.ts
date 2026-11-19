@@ -208,6 +208,14 @@ export abstract class AbstractIsoThreadManager {
         });
     }
 
+    /**
+     * Terminates every thread and releases anything the manager holds (e.g. a host frame). The manager must not be used after this.
+     * A manager can instead be reused for another kernel once that kernel's run has ended, as all of its threads have been terminated by then.
+     */
+    dispose(): void {
+        this.terminate_all();
+    }
+
     terminate_all() {
         for (const thread of this.#threads.values()) {
             thread.terminate();

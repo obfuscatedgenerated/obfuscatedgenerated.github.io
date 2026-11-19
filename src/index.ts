@@ -19,7 +19,9 @@ for (let i = 0; i < bar_count; i++) {
 
 // animate the loader bars (3 block width, scrolling across the loader with wraparound)
 let tail_bar_idx = 0;
-const loader_interval = setInterval(() => {
+
+let loader_interval: NodeJS.Timeout;
+const loader_anim = () => {
     const bars = document.querySelectorAll(".boot_loader_bar") as NodeListOf<HTMLDivElement>;
 
     // hide the tail bar
@@ -35,7 +37,8 @@ const loader_interval = setInterval(() => {
     if (boot_screen.style.opacity === "0") {
         clearInterval(loader_interval);
     }
-}, 100);
+}
+loader_interval = setInterval(loader_anim, 100);
 
 // TODO: move to shell or jetty
 //async function check_first_time(term: WrappedTerminal) {
@@ -108,17 +111,31 @@ const main = async () => {
         "./os_loader"
     );
 
-    console.log("Booting OS...");
+    do {
+        console.log("Booting OS...");
 
-    const end_reason = await boot_os(init_spawned);
-    console.log(`OS ended with reason: ${JSON.stringify(end_reason, null, 2)}`);
+        const end_reason = await boot_os(init_spawned);
+        console.log(`OS ended with reason: ${JSON.stringify(end_reason, null, 2)}`);
 
-    if (end_reason.kind === "panic") {
-        boot_screen.style.display = "none";
-    } else if (end_reason.kind === "power_off" && end_reason.reboot) {
-        window.location.reload();
-        // TODO: proper kernel disposal to just spawn a new kernel instance instead of reloading the page
-    }
+        if (end_reason.kind === "power_off" && end_reason.reboot) {
+            console.log("Rebooting...");
+
+
+            boot_screen.style.display = "flex";
+            boot_screen.style.opacity = "1";
+            boot_screen.style.height = "100%";
+            loader_interval = setInterval(loader_anim, 100);
+
+            continue;
+        }
+
+        if (end_reason.kind === "panic") {
+            // remove boot screen in case panic happened before it was removed
+            boot_screen.style.display = "none";
+        }
+
+        break;
+    } while (true);
 }
 
 

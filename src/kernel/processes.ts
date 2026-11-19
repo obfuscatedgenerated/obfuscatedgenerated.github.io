@@ -74,12 +74,14 @@ export class IPCManager {
     readonly #channels: Map<number, IPCChannel> = new Map();
     #next_channel_id = 1;
 
+    readonly #cleanup_interval: ReturnType<typeof setInterval>;
+
     constructor(process_manager: ProcessManager) {
         this.#process_manager = process_manager;
 
         // clean up dead services and channels periodically
         // TODO: add a global exit listener to process manager to be immediately notified of process exits
-        setInterval(() => {
+        this.#cleanup_interval = setInterval(() => {
             // clean up services
             for (const [name, service] of this.#services) {
                 const process = this.#process_manager.get_process(service.pid);
@@ -103,6 +105,14 @@ export class IPCManager {
     dispose_all(): void {
         this.#services.clear();
         this.#channels.clear();
+    }
+
+    /**
+     * Stops the periodic cleanup and drops everything. The manager must not be used after this.
+     */
+    dispose(): void {
+        clearInterval(this.#cleanup_interval);
+        this.dispose_all();
     }
 
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void {
@@ -932,6 +942,14 @@ export class ProcessManager implements MirrorSource {
         }
 
         this.#processes.clear();
+    }
+
+    /**
+     * Drops every process and stops anything still running in the background (e.g. the IPC cleanup). The manager must not be used after this.
+     */
+    dispose(): void {
+        this.dispose_all();
+        this.#ipc_manager.dispose();
     }
 
     create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd = "/"): ProcessContext {
