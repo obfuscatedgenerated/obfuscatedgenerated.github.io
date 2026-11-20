@@ -462,7 +462,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
 
     readonly #terminal: AbstractTerminal;
     readonly #source_command: ParsedCommandLine;
-    readonly #program_path: string | null;
+    readonly #program_path: string;
     readonly #created_at: Date = new Date();
     readonly #shell: AbstractShell | undefined;
 
@@ -543,7 +543,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
         return this.#source_command;
     }
 
-    get program_path(): string | null {
+    get program_path(): string {
         return this.#program_path;
     }
 
