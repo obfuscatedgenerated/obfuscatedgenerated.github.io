@@ -6,6 +6,7 @@ import { type KernelEndpoint } from "../kernel/rpc";
  */
 export declare class LoopbackIsoThreadManager extends AbstractIsoThreadManager {
     get_unique_type_name(): string;
+    create_sibling(): AbstractIsoThreadManager;
     _start(source: string, found: FoundProgram, entry: ThreadEntry): {
         endpoint: KernelEndpoint;
         terminate(): void;

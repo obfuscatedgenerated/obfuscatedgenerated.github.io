@@ -8,6 +8,7 @@ import { CompletionRequest, CompletionGenerator, KernelFuncs, Program, ProgramMa
 import { type AbstractTerminal } from "./term_ctl";
 import { type remote_as_declared, type sync_members } from "./rpc";
 import { AbstractIsoThreadManager } from "./isothreads";
+import { type DiskInfo, type GuestSpec, Hypervisor, type UserspaceGuest } from "./hypervisor";
 /**
  * Result of a spawned process.
  * @property process The {@link ProcessContext} of the spawned process.
@@ -148,6 +149,22 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      */
     complete(name: string, data: CompletionRequest): Promise<string[] | null>;
     /**
+     * Creates a guest kernel (a virtual machine) owned by the calling program, with a named disk kept in the program's private storage. It is powered off when the program exits.
+     * Rejects with a "NotAllowedError" for a program without private storage (one run from outside /bin and /usr/bin).
+     */
+    create_guest(spec: GuestSpec): Promise<UserspaceGuest>;
+    /**
+     * Lists the calling program's disks, made by {@link create_guest}.
+     * Rejects with a "NotAllowedError" for a program without private storage.
+     */
+    list_disks(): Promise<DiskInfo[]>;
+    /**
+     * Deletes one of the calling program's disks and everything on it.
+     * Rejects with a "NotAllowedError" for a program without private storage, or an "InUseError" if a guest is running on the disk.
+     * @returns Whether there was a disk of that name to delete.
+     */
+    delete_disk(name: string): Promise<boolean>;
+    /**
      * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
      */
     request_kernel_func: RequestKernelFunc<F>;
@@ -212,6 +229,16 @@ export type ProgramCodeHost = {
     readonly kind: "kernel";
 };
 export declare const KERNEL_HOST: ProgramCodeHost;
+export interface EndReasonPower {
+    kind: "power_off";
+    reboot: boolean;
+}
+export interface EndReasonPanic {
+    kind: "panic";
+    message: string;
+    debug_info?: string;
+}
+export type EndReason = EndReasonPower | EndReasonPanic;
 /**
  * Interface for interacting with the kernel.
  *
@@ -266,6 +293,19 @@ export declare class Kernel {
      * Access the {@link IPCManager} for this kernel.
      */
     get_ipc(): IPCManager;
+    /**
+     * Who a process's program is, as far as the kernel can vouch: the path it was loaded from, relative to the root and without .js (e.g. "usr/bin/vm"), for programs in a directory userspace can't write (/bin and /usr/bin).
+     * Null for anything else (e.g. a program run from the user's files), as anything able to rewrite it could pose as it. The program never says who it is itself, so this can't be claimed.
+     */
+    get_program_identity(process: ProcessContext): string | null;
+    /**
+     * The directory of a process's private storage, named after its program's identity (e.g. /var/lib/private/usr/bin/vm). Null for a program the kernel can't vouch for (see {@link Kernel.get_program_identity}).
+     */
+    get_private_storage_path(process: ProcessContext): string | null;
+    /**
+     * Access the {@link Hypervisor}, which runs guest kernels for processes.
+     */
+    get_hypervisor(): Hypervisor;
     get_isothread_manager(): AbstractIsoThreadManager | null;
     has_isothread_manager(): boolean;
     /**
@@ -318,12 +358,11 @@ export declare class Kernel {
      */
     panic(message: string, debug_info?: string): void;
     /**
-     * Boot the kernel by starting the init system.
+     * Boot the kernel by starting the init system. Also calls {@link Kernel.dispose} on ending to clear any side effects of the kernel running.
      * @param on_init_spawned Optional callback that is called once the init program has been spawned.
-     * @param after_panic Optional callback that is called after a panic occurs.
-     * @returns A promise that resolves at the end of all OllieOS execution (i.e. when init exits). Returns true for a successful finish, false for an unexpected exit (but neither case is good if expecting the system to keep running!).
+     * @returns A promise that resolves at the end of all OllieOS execution (i.e. when init exits), the end reason.
      */
-    boot(on_init_spawned?: (kernel: Kernel) => Promise<void>, after_panic?: (message: string, debug_info?: string) => void): Promise<boolean>;
+    boot(on_init_spawned?: (kernel: Kernel) => Promise<void>): Promise<EndReason>;
     /**
      * Request privileged access from the kernel.
      * @param reason The reason for requesting privileged access.
@@ -340,8 +379,13 @@ export declare class Kernel {
      * Runs one of the calling process's own thread functions, in an isothread when possible. Typed per program via {@link UserspaceProcessContext.run_thread}.
      */
     run_thread(process: ProcessContext, name: string, input?: unknown): Promise<unknown>;
-    power_off(): void;
-    reboot(): void;
+    power_off(): Promise<void>;
+    /**
+     * Releases everything the kernel created itself (e.g. its process manager's background cleanup, and its fallback isothread manager), so another kernel can run in its place (e.g. on reboot) without anything piling up.
+     * Call it once boot() has returned. What was passed to the constructor (terminal, filesystem, managers) belongs to the caller, to dispose or reuse for the next kernel.
+     */
+    dispose(): void;
+    reboot(): Promise<void>;
     constructor(opts: {
         term: AbstractTerminal;
         fs: AbstractFileSystem;

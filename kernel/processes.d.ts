@@ -36,6 +36,10 @@ export declare class IPCManager {
     #private;
     constructor(process_manager: ProcessManager);
     dispose_all(): void;
+    /**
+     * Stops the periodic cleanup and drops everything. The manager must not be used after this.
+     */
+    dispose(): void;
     service_register(name: string, pid: number, on_connection: IPCServiceOnConnectionCallback): void;
     service_unregister(name: string): void;
     service_lookup(name: string): number | undefined;
@@ -157,6 +161,11 @@ export interface UserspaceProcessContext<T extends ThreadFuncs = ThreadFuncs> ex
 export declare class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements MirrorSource {
     #private;
     readonly [mirror_source]: true;
+    /**
+     * Resolves once the process has been killed and its teardowns have run (e.g. its isothread terminated).
+     * The killed flag is set immediately, the terminated flag is set once the process is fully cleaned up.
+     */
+    get terminated(): Promise<void>;
     constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd?: string);
     get pid(): number;
     get cwd(): string;
@@ -233,10 +242,15 @@ export declare class ProcessManager implements MirrorSource {
     get ipc_manager(): IPCManager;
     get network_manager(): AbstractNetworkManager | null;
     dispose_all(): void;
+    /**
+     * Drops every process and stops anything still running in the background (e.g. the IPC cleanup). The manager must not be used after this.
+     */
+    dispose(): void;
     create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd?: string): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
-    mark_terminated(pid: number): void;
+    mark_terminated(pid: number, terminated?: Promise<void>): void;
+    wait_for_terminations(): Promise<void>;
     kill(pid: number, exit_code?: number): boolean;
     create_userspace_proxy(process_pid: number): UserspaceProcessManager;
 }

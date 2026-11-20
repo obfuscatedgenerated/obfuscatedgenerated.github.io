@@ -26,6 +26,16 @@ export declare abstract class AbstractIsoThreadManager {
      * @param loopback Whether the process was allowed to connect to services on this device, which its threads share.
      */
     run_thread(found: FoundProgram, source: string, pid: number, thread_name: string, input: unknown, data: ThreadData, loopback?: boolean): Promise<unknown>;
+    /**
+     * Terminates every thread and releases anything the manager holds (e.g. a host frame). The manager must not be used after this.
+     * A manager can instead be reused for another kernel once that kernel's run has ended, as all of its threads have been terminated by then.
+     */
+    dispose(): void;
+    /**
+     * Creates a new manager of the same kind that shares nothing with this one (its own threads, pids and hosts), e.g. for a guest kernel.
+     * Returns null for a kind that can't, in which case the guest runs its programs without isolation.
+     */
+    create_sibling(): AbstractIsoThreadManager | null;
     terminate_all(): void;
     /**
      * Runs a program's completion generator in a warm thread for that program. Never throws: a failing, hanging or crashed completion just gives no completions.
