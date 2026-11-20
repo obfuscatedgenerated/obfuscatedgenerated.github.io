@@ -180,7 +180,7 @@ export declare class ProcessContext<T extends ThreadFuncs = ThreadFuncs> impleme
     set cwd(path: string);
     get terminal(): AbstractTerminal;
     get source_command(): ParsedCommandLine;
-    get program_path(): string | null;
+    get program_path(): string;
     get created_at(): Date;
     get shell(): AbstractShell | undefined;
     get is_detached(): boolean;
