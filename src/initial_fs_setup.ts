@@ -570,19 +570,37 @@ const setup_bin = async (fs: AbstractFileSystem, builtin_programs: Record<string
     }
 };
 
-export const initial_fs_setup = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
-    // TODO: parallelise these if they are independent (check first)
-
+/**
+ * Sets up what any OllieOS system needs to boot and run its programs: /boot/init, /etc/boot_target, program icons, and /bin from the given builtins.
+ * @param builtin_programs The builtins to describe in /bin, or null to leave /bin alone (e.g. when its files are copied from elsewhere, as for a guest).
+ */
+export const base_fs_setup = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program> | null) => {
     await setup_boot(fs);
-    await setup_bin(fs, builtin_programs);
 
-    await setup_motd(fs);
+    if (builtin_programs) {
+        await setup_bin(fs, builtin_programs);
+    }
+
     await migrate_rc_profile(fs);
-    await setup_credits(fs);
+    await setup_program_icons(fs);
+};
 
+/**
+ * Sets up the content of the portfolio site: the motd, credits, and the projects from the data repository (which needs the network).
+ */
+export const portfolio_fs_setup = async (fs: AbstractFileSystem) => {
+    await setup_motd(fs);
+    await setup_credits(fs);
 
     const latest_rev = await setup_data_repo(fs);
     await setup_projects(fs, latest_rev);
+};
 
-    await setup_program_icons(fs);
+/**
+ * Sets up the whole system as the site runs it: the base system, then the portfolio content.
+ */
+export const initial_fs_setup = async (fs: AbstractFileSystem, builtin_programs: Record<string, Program>) => {
+    // TODO: parallelise these if they are independent (check first)
+    await base_fs_setup(fs, builtin_programs);
+    await portfolio_fs_setup(fs);
 };

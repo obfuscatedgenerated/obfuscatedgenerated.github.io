@@ -28,6 +28,7 @@
     "Shells",
     "Networking",
     "Platform",
+    "Hypervisor",
 
     "Completions"
   ],

@@ -44,3 +44,11 @@ export {AbstractPlatformAPI} from "../kernel/platform";
 
 
 // TODO: figure out why groups/categories dont always descend properly (manually defined groups on kernel etc) or just define it everywhere on each interface
+
+/**
+ * @group Kernel (Privileged)
+ * @category Hypervisor
+ */
+export {Hypervisor, Guest, GuestDrivers} from "../kernel/hypervisor";
+export {EndReason, EndReasonPower, EndReasonPanic} from "../kernel";
+export {BridgedTerminal, BridgedTerminalOptions} from "../term_impl/bridged";

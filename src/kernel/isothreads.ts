@@ -216,6 +216,14 @@ export abstract class AbstractIsoThreadManager {
         this.terminate_all();
     }
 
+    /**
+     * Creates a new manager of the same kind that shares nothing with this one (its own threads, pids and hosts), e.g. for a guest kernel.
+     * Returns null for a kind that can't, in which case the guest runs its programs without isolation.
+     */
+    create_sibling(): AbstractIsoThreadManager | null {
+        return null;
+    }
+
     terminate_all() {
         for (const thread of this.#threads.values()) {
             thread.terminate();

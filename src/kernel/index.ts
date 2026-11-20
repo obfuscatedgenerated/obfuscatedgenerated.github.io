@@ -38,6 +38,7 @@ import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from ".
 import {AbstractIsoThreadManager} from "./isothreads";
 import {import_module_source} from "../lib/module_source";
 import {LoopbackIsoThreadManager} from "../isothread_impl/loopback";
+import {type GuestSpec, Hypervisor, type UserspaceGuest} from "./hypervisor";
 
 const CURRENT_API_COMPAT = "3.0.0";
 
@@ -202,6 +203,12 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
     complete(name: string, data: CompletionRequest): Promise<string[] | null>;
 
     /**
+     * Creates a guest kernel (a virtual machine) owned by the calling program, with its disk in a directory of the host's filesystem. It is powered off when the program exits.
+     * Rejects with a "NotAllowedError" if the disk is or holds a protected directory, or is outside the user's home and the user doesn't allow it.
+     */
+    create_guest(spec: GuestSpec): Promise<UserspaceGuest>;
+
+    /**
      * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
      */
     request_kernel_func: RequestKernelFunc<F>;
@@ -361,6 +368,8 @@ export class Kernel {
 
     #disposed = false;
 
+    readonly #hypervisor: Hypervisor;
+
     #panicked = false;
 
     #mark_ended: (reason: EndReason) => void;
@@ -457,6 +466,13 @@ export class Kernel {
      */
     get_ipc(): IPCManager {
         return this.#process_manager.ipc_manager;
+    }
+
+    /**
+     * Access the {@link Hypervisor}, which runs guest kernels for processes.
+     */
+    get_hypervisor(): Hypervisor {
+        return this.#hypervisor;
     }
 
     get_isothread_manager(): AbstractIsoThreadManager | null {
@@ -1338,6 +1354,9 @@ export class Kernel {
 
         this.#disposed = true;
 
+        // guests normally go with the processes that own them, this catches any left over
+        this.#hypervisor.dispose();
+
         this.#process_manager.dispose();
 
         // only the fallback was made here, a real one was passed in
@@ -1373,6 +1392,8 @@ export class Kernel {
             this.#isothread_manager = opts.isothread_manager;
             this.#isothread_manager_is_real = true;
         }
+
+        this.#hypervisor = new Hypervisor(this, (guest_opts) => new Kernel(guest_opts));
     }
 
     /**
@@ -1421,6 +1442,11 @@ export class Kernel {
 
             request_kernel_func: {
                 value: (name: string, reason: string, input?: unknown) => self.request_kernel_func(process, name, reason, input),
+                enumerable: true
+            },
+
+            create_guest: {
+                value: async (spec: GuestSpec) => (await self.#hypervisor.create(process, spec)).create_userspace_proxy(),
                 enumerable: true
             },
 

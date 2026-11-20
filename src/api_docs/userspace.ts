@@ -72,3 +72,9 @@ export {UserspaceNetworkManager, UserspaceClientSocket, UserspaceServerSocket, P
  * @category Platform
  */
 export {UserspacePlatformAPI, PlatformCapability} from "../kernel/platform";
+
+/**
+ * @group Userspace
+ * @category Hypervisor
+ */
+export {GuestSpec, GuestInstall, GuestRunOptions, UserspaceGuest} from "../kernel/hypervisor";

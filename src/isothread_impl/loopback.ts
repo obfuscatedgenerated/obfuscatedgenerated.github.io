@@ -17,6 +17,10 @@ export class LoopbackIsoThreadManager extends AbstractIsoThreadManager {
         return "loopback";
     }
 
+    create_sibling(): AbstractIsoThreadManager {
+        return new LoopbackIsoThreadManager();
+    }
+
     _start(source: string, found: FoundProgram, entry: ThreadEntry): {endpoint: KernelEndpoint, terminate(): void} {
         console.warn("Security warning: Loopback isothread manager runs in kernelspace, and is only for testing purposes.")
 

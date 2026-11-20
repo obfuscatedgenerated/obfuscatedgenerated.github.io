@@ -68,6 +68,22 @@ export class ProtectedFileReadError extends Error {
  * @group Userspace
  * @category Filesystem
  */
+/**
+ * Kernel only. Directories userspace can't change (each one and everything under it), as only the kernel or a kernel function the user allows may.
+ */
+export const WRITE_PROTECTED_PATHS: readonly string[] = ["/sys", "/boot", "/etc/services/privileged", "/etc/ssh", "/bin", "/usr/bin"];
+
+/**
+ * Kernel only. Whether userspace is refused changing an absolute path.
+ */
+export const is_write_protected = (absolute_path: string): boolean =>
+    WRITE_PROTECTED_PATHS.some((protected_path) => absolute_path === protected_path || absolute_path.startsWith(`${protected_path}/`));
+
+/**
+ * Kernel only. Whether userspace is refused reading an absolute path. Listing /etc/ssh is allowed, reading the files in it isn't.
+ */
+export const is_read_protected = (absolute_path: string): boolean => absolute_path.startsWith("/etc/ssh/");
+
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
@@ -402,21 +418,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
             const absolute_path = self.absolute(path, process.cwd);
 
             // TODO: allow priv programs to add to protection
-            const is_protected =
-                absolute_path === "/sys" ||
-                absolute_path.startsWith("/sys/") ||
-                absolute_path === "/boot" ||
-                absolute_path.startsWith("/boot/") ||
-                absolute_path === "/etc/services/privileged/" ||
-                absolute_path.startsWith("/etc/services/privileged/") ||
-                absolute_path === "/etc/ssh/" ||
-                absolute_path.startsWith("/etc/ssh/") ||
-                absolute_path === "/bin" ||
-                absolute_path.startsWith("/bin/") ||
-                absolute_path === "/usr/bin" ||
-                absolute_path.startsWith("/usr/bin/");
-
-            if (is_protected) {
+            if (is_write_protected(absolute_path)) {
                 throw new ReadOnlyError(absolute_path);
             }
 
@@ -427,10 +429,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
         const check_path_for_reading = (path: string): string => {
             const absolute_path = self.absolute(path, process.cwd);
 
-            const is_protected =
-                (absolute_path.startsWith("/etc/ssh/") && absolute_path !== "/etc/ssh/"); // allow listing /etc/ssh but not reading files in it
-
-            if (is_protected) {
+            if (is_read_protected(absolute_path)) {
                 throw new ProtectedFileReadError(absolute_path);
             }
 

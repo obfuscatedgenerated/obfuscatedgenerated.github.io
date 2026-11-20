@@ -13,6 +13,7 @@ export class WebIsoThreadManager extends AbstractIsoThreadManager {
         return "web";
     }
 
+    readonly #entry_url: string;
     readonly #workers: WebWorkerIsoThreadManager;
     readonly #frames: WebFrameIsoThreadManager;
 
@@ -21,6 +22,7 @@ export class WebIsoThreadManager extends AbstractIsoThreadManager {
      */
     constructor(entry_url: string) {
         super();
+        this.#entry_url = entry_url;
         this.#workers = new WebWorkerIsoThreadManager(entry_url);
         this.#frames = new WebFrameIsoThreadManager(entry_url);
     }
@@ -30,6 +32,11 @@ export class WebIsoThreadManager extends AbstractIsoThreadManager {
         super.dispose();
         this.#workers.dispose();
         this.#frames.dispose();
+    }
+
+    create_sibling(): AbstractIsoThreadManager {
+        // its own host frame, so its workers share nothing with this manager's
+        return new WebIsoThreadManager(this.#entry_url);
     }
 
     _start(source: string, found: FoundProgram, entry: ThreadEntry, process: ProcessContext | null, loopback = false): {endpoint: KernelEndpoint, terminate(): void} {
