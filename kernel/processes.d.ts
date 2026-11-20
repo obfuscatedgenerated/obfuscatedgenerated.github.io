@@ -66,6 +66,7 @@ export declare const USERSPACE_OTHER_PROCESS_ANNOTATIONS: {
     readonly pid: "constant";
     readonly created_at: "constant";
     readonly source_command: "constant";
+    readonly program_path: "constant";
     readonly is_detached: "mirrored";
     readonly is_background: "mirrored";
     readonly is_foreground: "mirrored";
@@ -81,6 +82,11 @@ export interface UserspaceOtherProcessContext {
     readonly is_foreground: boolean;
     readonly attachment: ProcessAttachment;
     readonly source_command: ParsedCommandLine;
+    /**
+     * The absolute path of the code the process is running, as the kernel found it (e.g. /usr/bin/vm), however it was run. Unlike {@link source_command}, this doesn't depend on what was typed or where from.
+     * Programs can use it to find files that ship beside them, wherever they are run from. A builtin without a code file (on platforms that don't provide one) still reports its place in /bin.
+     */
+    readonly program_path: string;
 }
 /**
  * How the RPC layer accesses the userspace proxy of a spawned process: these members read synchronously, everything else goes to the kernel.
@@ -91,6 +97,7 @@ export declare const USERSPACE_SPAWNED_PROCESS_ANNOTATIONS: {
     readonly pid: "constant";
     readonly created_at: "constant";
     readonly source_command: "constant";
+    readonly program_path: "constant";
     readonly is_detached: "mirrored";
     readonly is_background: "mirrored";
     readonly is_foreground: "mirrored";
@@ -117,6 +124,7 @@ export declare const USERSPACE_PROCESS_ANNOTATIONS: {
     readonly pid: "constant";
     readonly created_at: "constant";
     readonly source_command: "constant";
+    readonly program_path: "constant";
     readonly terminal: "eager_handle";
     readonly cwd: "mirrored";
     readonly is_detached: "mirrored";
@@ -166,12 +174,13 @@ export declare class ProcessContext<T extends ThreadFuncs = ThreadFuncs> impleme
      * The killed flag is set immediately, the terminated flag is set once the process is fully cleaned up.
      */
     get terminated(): Promise<void>;
-    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd?: string);
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, program_path: string, shell?: AbstractShell, initial_cwd?: string);
     get pid(): number;
     get cwd(): string;
     set cwd(path: string);
     get terminal(): AbstractTerminal;
     get source_command(): ParsedCommandLine;
+    get program_path(): string | null;
     get created_at(): Date;
     get shell(): AbstractShell | undefined;
     get is_detached(): boolean;
@@ -246,7 +255,7 @@ export declare class ProcessManager implements MirrorSource {
      * Drops every process and stops anything still running in the background (e.g. the IPC cleanup). The manager must not be used after this.
      */
     dispose(): void;
-    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd?: string): ProcessContext;
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, program_path: string, shell?: AbstractShell, initial_cwd?: string): ProcessContext;
     get_process(pid: number): ProcessContext | undefined;
     list_pids(): number[];
     mark_terminated(pid: number, terminated?: Promise<void>): void;
