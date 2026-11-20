@@ -38,7 +38,7 @@ import {LEGACY_PACKAGE_BACKUP_ROOT, MIGRATION_PATH, type MigrationState} from ".
 import {AbstractIsoThreadManager} from "./isothreads";
 import {import_module_source} from "../lib/module_source";
 import {LoopbackIsoThreadManager} from "../isothread_impl/loopback";
-import {type GuestSpec, Hypervisor, type UserspaceGuest} from "./hypervisor";
+import {type DiskInfo, type GuestSpec, Hypervisor, type UserspaceGuest} from "./hypervisor";
 
 const CURRENT_API_COMPAT = "3.0.0";
 
@@ -207,6 +207,19 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
      * Rejects with a "NotAllowedError" for a program without private storage (one run from outside /bin and /usr/bin).
      */
     create_guest(spec: GuestSpec): Promise<UserspaceGuest>;
+
+    /**
+     * Lists the calling program's disks, made by {@link create_guest}.
+     * Rejects with a "NotAllowedError" for a program without private storage.
+     */
+    list_disks(): Promise<DiskInfo[]>;
+
+    /**
+     * Deletes one of the calling program's disks and everything on it.
+     * Rejects with a "NotAllowedError" for a program without private storage, or an "InUseError" if a guest is running on the disk.
+     * @returns Whether there was a disk of that name to delete.
+     */
+    delete_disk(name: string): Promise<boolean>;
 
     /**
      * Requests that one of the calling program's own kernel functions runs in kernel space. Rejects with a "NotAllowedError" if not granted, or a "KernelFuncNotFoundError" if the function is not defined in the program's kernel_funcs object.
@@ -1483,6 +1496,8 @@ export class Kernel {
                 value: async (spec: GuestSpec) => (await self.#hypervisor.create(process, spec)).create_userspace_proxy(),
                 enumerable: true
             },
+            list_disks: { value: () => self.#hypervisor.list_disks(process), enumerable: true },
+            delete_disk: { value: (name: string) => self.#hypervisor.delete_disk(process, name), enumerable: true },
 
             find_program: { value: (name: string) => self.find_program(name, process.cwd), enumerable: true },
             list_programs: { value: () => self.list_programs(), enumerable: true },

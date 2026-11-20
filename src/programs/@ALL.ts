@@ -38,14 +38,13 @@ export * as kill from "./kill";
 export * as spark from "./spark";
 export * as hello_http from "./hello_http";
 export * as finger from "./finger";
+export * as vm from "./vm";
 
 export * as telnetd from "./services/telnetd";
 export * as fingerd from "./services/fingerd";
 export * as sshd from "./services/sshd";
 
 // shhhhh!
-export * as vm_test from "./vm_test";
-
 export * as ipc_bg_test from "./ipc_bg_test";
 export * as ipc_fg_test from "./ipc_fg_test";
 

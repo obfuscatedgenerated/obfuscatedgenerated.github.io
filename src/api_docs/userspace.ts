@@ -77,4 +77,4 @@ export {UserspacePlatformAPI, PlatformCapability} from "../kernel/platform";
  * @group Userspace
  * @category Hypervisor
  */
-export {GuestSpec, GuestInstall, GuestRunOptions, UserspaceGuest} from "../kernel/hypervisor";
+export {GuestSpec, GuestInstall, GuestRunOptions, UserspaceGuest, DiskInfo} from "../kernel/hypervisor";

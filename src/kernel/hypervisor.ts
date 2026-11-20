@@ -99,6 +99,23 @@ export interface UserspaceGuest {
 }
 
 /**
+ * One of a program's disks, as listed by {@link UserspaceKernel.list_disks}.
+ *
+ * @group Userspace
+ * @category Hypervisor
+ */
+export interface DiskInfo {
+    name: string;
+    /** ISO timestamps. */
+    created_at: string;
+    last_booted_at: string | null;
+    /** The host's OS version when the disk was last booted. */
+    os_version: string | null;
+    /** Whether a guest is running on the disk right now. */
+    running: boolean;
+}
+
+/**
  * Implementations to run a guest on instead of the defaults, for kernelspace callers (e.g. to test an implementation in a guest). Not available from userspace, as implementations can't cross into the kernel.
  * The factories are called for every boot, as a kernel only lives for one. Instances belong to the caller, who disposes them, and are reused across reboots.
  *
@@ -200,6 +217,15 @@ const read_disk_metadata = async (host_fs: AbstractFileSystem, metadata_path: st
     }
 
     return {created_at: new Date().toISOString(), last_booted_at: null, os_version: null};
+};
+
+// a name is one path segment, so it can't leave the program's disks. names come from userspace, so nothing about them is assumed
+const check_disk_name = (name: unknown): string => {
+    if (typeof name !== "string" || name === "" || name === "." || name === ".." || name.includes("/")) {
+        throw new TypeError("A disk must be a name, without any slashes");
+    }
+
+    return name;
 };
 
 // what a guest's disk gets before each boot, resolved when the guest is created
@@ -452,7 +478,8 @@ export class Guest {
 export class Hypervisor {
     readonly #host: Kernel;
     readonly #create_kernel: CreateKernel;
-    readonly #guests = new Set<Guest>();
+    // each guest with the disk it runs on
+    readonly #guests = new Map<Guest, DiskPaths>();
 
     /**
      * Kernel only: the kernel makes its own.
@@ -464,17 +491,82 @@ export class Hypervisor {
         this.#create_kernel = create_kernel;
     }
 
-    /**
-     * The paths of a program's named disk: <private storage>/disks/<name>/root for the guest's filesystem, with disk.json beside it.
-     */
-    #disk_paths(process: ProcessContext, name: string): DiskPaths {
+    // where a program's disks are kept: <private storage>/disks
+    #disks_dir(process: ProcessContext): string {
         const storage = this.#host.get_private_storage_path(process);
         if (storage === null) {
             throw new NotAllowedError("only programs in /bin or /usr/bin have private storage to keep disks in");
         }
 
-        const disk_dir = `${storage}/disks/${name}`;
+        return `${storage}/disks`;
+    }
+
+    /**
+     * The paths of a program's named disk: <private storage>/disks/<name>/root for the guest's filesystem, with disk.json beside it.
+     */
+    #disk_paths(process: ProcessContext, name: string): DiskPaths {
+        const disk_dir = `${this.#disks_dir(process)}/${name}`;
         return {root: `${disk_dir}/root`, metadata: `${disk_dir}/disk.json`};
+    }
+
+    #is_running(disk: DiskPaths): boolean {
+        return [...this.#guests.values()].some((guest_disk) => guest_disk.root === disk.root);
+    }
+
+    /**
+     * Lists a process's disks, by name.
+     * Rejects with a "NotAllowedError" for a process without private storage (see {@link Kernel.get_private_storage_path}).
+     */
+    async list_disks(process: ProcessContext): Promise<DiskInfo[]> {
+        const fs = this.#host.get_fs();
+        const disks_dir = this.#disks_dir(process);
+
+        if (!(await fs.dir_exists(disks_dir))) {
+            return [];
+        }
+
+        const disks: DiskInfo[] = [];
+        for (const name of await fs.list_dir(disks_dir)) {
+            const disk = this.#disk_paths(process, name);
+            if (!(await fs.dir_exists(disk.root))) {
+                continue;
+            }
+
+            const metadata = await read_disk_metadata(fs, disk.metadata);
+            disks.push({
+                name,
+                created_at: metadata.created_at,
+                last_booted_at: metadata.last_booted_at,
+                os_version: metadata.os_version,
+                running: this.#is_running(disk),
+            });
+        }
+
+        return disks;
+    }
+
+    /**
+     * Deletes one of a process's disks and everything on it.
+     * Rejects with a "NotAllowedError" for a process without private storage, or an "InUseError" if a guest is running on the disk.
+     * @returns Whether there was a disk of that name to delete.
+     */
+    async delete_disk(process: ProcessContext, name: string): Promise<boolean> {
+        const fs = this.#host.get_fs();
+        const disk = this.#disk_paths(process, check_disk_name(name));
+
+        if (this.#is_running(disk)) {
+            const error = new Error(`a guest is running on the disk ${name}`);
+            error.name = "InUseError";
+            throw error;
+        }
+
+        const disk_dir = `${this.#disks_dir(process)}/${name}`;
+        if (!(await fs.dir_exists(disk_dir))) {
+            return false;
+        }
+
+        await fs.delete_dir(disk_dir, true);
+        return true;
     }
 
     /**
@@ -483,11 +575,8 @@ export class Hypervisor {
      * @param drivers Implementations to use instead of the defaults. Only for kernelspace callers.
      */
     async create(process: ProcessContext, spec: GuestSpec, drivers: GuestDrivers = {}): Promise<Guest> {
-        // spec comes from userspace, so nothing about it is assumed. a name is one path segment, so it can't leave the program's disks
-        const name = spec?.disk;
-        if (typeof name !== "string" || name === "" || name === "." || name === ".." || name.includes("/")) {
-            throw new TypeError("A guest's disk must be a name, without any slashes");
-        }
+        // spec comes from userspace, so nothing about it is assumed
+        const name = check_disk_name(spec?.disk);
 
         if (spec.own_kernel !== undefined && spec.own_kernel !== true) {
             throw new TypeError("Guests sharing the host's kernel aren't supported yet");
@@ -508,7 +597,7 @@ export class Hypervisor {
             on_finished: () => this.#guests.delete(guest),
         });
 
-        this.#guests.add(guest);
+        this.#guests.set(guest, disk);
 
         // the guest belongs to the process, so it goes when the process does
         process.add_teardown(() => {
@@ -539,7 +628,7 @@ export class Hypervisor {
      * Powers off every guest, e.g. when the host kernel is disposed.
      */
     dispose(): void {
-        for (const guest of [...this.#guests]) {
+        for (const guest of [...this.#guests.keys()]) {
             void guest.power_off();
         }
     }
