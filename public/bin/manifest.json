@@ -39,6 +39,8 @@
   "hello_http": "e50eb760bfc8dbc9",
   "finger": "a33d97fb80f68783",
   "vm": "c19a37d5cdde3563",
+  "zip": "8c37eed3d578e0ec",
+  "unzip": "70a6d78052ce22f0",
   "telnetd": "f16d0969f1e6f027",
   "fingerd": "4729171e3f9fc794",
   "sshd": "7484ea8747247792",
