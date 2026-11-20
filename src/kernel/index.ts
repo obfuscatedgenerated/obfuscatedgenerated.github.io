@@ -823,7 +823,7 @@ export class Kernel {
         const term = term_override || this.#term;
 
         // create new process context, inheriting cwd from spawning process (or root if spawned by kernel)
-        const process = this.#process_manager.create_process(term, parsed_line, shell, spawning_process ? spawning_process.cwd : "/");
+        const process = this.#process_manager.create_process(term, parsed_line, program_search.code_path ?? `/bin/${program_metadata.name}.js`, shell, spawning_process ? spawning_process.cwd : "/");
 
         // only kernelspace programs ever get the real kernel. start_privileged means the spawner is trusted, so it skips prompts rather than elevating:
         // a kernelspace program skips the prompt to run, and a userspace program's kernel funcs run without asking

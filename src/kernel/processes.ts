@@ -353,6 +353,7 @@ export const USERSPACE_OTHER_PROCESS_ANNOTATIONS = {
     pid: "constant",
     created_at: "constant",
     source_command: "constant",
+    program_path: "constant",
     is_detached: "mirrored",
     is_background: "mirrored",
     is_foreground: "mirrored",
@@ -369,6 +370,12 @@ export interface UserspaceOtherProcessContext {
     readonly is_foreground: boolean;
     readonly attachment: ProcessAttachment;
     readonly source_command: ParsedCommandLine;
+
+    /**
+     * The absolute path of the code the process is running, as the kernel found it (e.g. /usr/bin/vm), however it was run. Unlike {@link source_command}, this doesn't depend on what was typed or where from.
+     * Programs can use it to find files that ship beside them, wherever they are run from. A builtin without a code file (on platforms that don't provide one) still reports its place in /bin.
+     */
+    readonly program_path: string;
 }
 
 /**
@@ -402,6 +409,7 @@ export const USERSPACE_PROCESS_ANNOTATIONS = {
     pid: "constant",
     created_at: "constant",
     source_command: "constant",
+    program_path: "constant",
     terminal: "eager_handle",
     cwd: "mirrored",
     is_detached: "mirrored",
@@ -454,6 +462,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
 
     readonly #terminal: AbstractTerminal;
     readonly #source_command: ParsedCommandLine;
+    readonly #program_path: string | null;
     readonly #created_at: Date = new Date();
     readonly #shell: AbstractShell | undefined;
 
@@ -485,10 +494,11 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
 
     #cwd = "/";
 
-    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, shell?: AbstractShell, initial_cwd = "/") {
+    constructor(pid: number, terminal: AbstractTerminal, source_command: ParsedCommandLine, registry: ProcessManager, program_path: string, shell?: AbstractShell, initial_cwd = "/") {
         this.#pid = pid;
         this.#terminal = terminal;
         this.#source_command = source_command;
+        this.#program_path = program_path;
         this.#manager = registry;
         this.#cwd = initial_cwd;
 
@@ -531,6 +541,10 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
 
     get source_command(): ParsedCommandLine {
         return this.#source_command;
+    }
+
+    get program_path(): string | null {
+        return this.#program_path;
     }
 
     get created_at(): Date {
@@ -795,6 +809,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
             is_foreground: { get: () => this.is_foreground, enumerable: true },
             attachment: { get: () => this.attachment, enumerable: true },
             source_command: { get: () => this.source_command, enumerable: true },
+            program_path: { get: () => this.program_path, enumerable: true },
         };
     }
 
@@ -835,6 +850,7 @@ export class ProcessContext<T extends ThreadFuncs = ThreadFuncs> implements Mirr
             is_foreground: { get: () => self.is_foreground, enumerable: true },
             attachment: { get: () => self.attachment, enumerable: true },
             source_command: { get: () => self.source_command, enumerable: true },
+            program_path: { get: () => self.program_path, enumerable: true },
             detach: { value: (silently = false) => { self.detach(silently); }, enumerable: true },
             kill: { value: (exit_code = 0) => { self.kill(exit_code); }, enumerable: true },
             add_exit_listener: { value: (listener: (exit_code: number) => Promise<void> | void) => { self.add_exit_listener(listener); }, enumerable: true },
@@ -952,9 +968,9 @@ export class ProcessManager implements MirrorSource {
         this.#ipc_manager.dispose();
     }
 
-    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, shell?: AbstractShell, initial_cwd = "/"): ProcessContext {
+    create_process(terminal: AbstractTerminal, source_command: ParsedCommandLine, program_path: string, shell?: AbstractShell, initial_cwd = "/"): ProcessContext {
         const pid = this.#next_pid++;
-        const context = new ProcessContext(pid, terminal, source_command, this, shell, initial_cwd);
+        const context = new ProcessContext(pid, terminal, source_command, this, program_path, shell, initial_cwd);
         this.#processes.set(pid, context);
         notify_mirror_change(this);
         return context;
