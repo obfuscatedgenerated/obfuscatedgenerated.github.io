@@ -2,6 +2,14 @@
 
 Major versions and the minor versions that added something worth mentioning. Patch releases and anything not listed are in the tags and git history.
 
+## 3.5.0: Virtualisation
+
+The kernel now has a hypervisor subsystem which uses isothreads to run a fully isolated OllieOS instance.
+
+Tweaked the return type of `Kernel.boot()`.
+
+Added per-program protection to /usr/lib and a special /var/lib/private directory.
+
 ## 3.4.0: fsedit removed
 
 ## 3.3.0: Built in programs now use isothreads
