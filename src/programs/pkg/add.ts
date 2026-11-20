@@ -1,4 +1,4 @@
-import {graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, LIB_DIR, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
+import {graph_query, is_valid_pkg_file_path, is_valid_pkg_name, is_valid_pkg_version, json_convert_dep_sets_to_arrs, PROGRAMS_MANIFEST, repo_query, triggers} from ".";
 
 import {ANSI, NEWLINE} from "../../lib/ansi";
 import {ProgramMainData} from "../../types"
@@ -96,8 +96,6 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             term.writeln(`${FG.yellow}Skipping package ${pkg_name}...${STYLE.reset_all}`);
             continue;
         }
-
-        const pkg_dir = `${LIB_DIR}/${pkg_name}`;
 
         // check version file if already installed
         // TODO: switch to pkg graph?
@@ -322,18 +320,18 @@ export const add_subcommand = async (data: ProgramMainData, depended_by?: string
             batch.install.set(program_name, {js: file_map.get(`${program_name}.js`)!, json: file_map.get(`${program_name}.json`)!});
         }
 
-        // everything else goes to the package dir afterwards, followed by triggers as they may use the programs
-        batch.steps.push(async () => {
-            await fs.make_dir(pkg_dir);
-
-            for (const [file, value] of file_map) {
-                if (program_names.includes(file.replace(/\.(js|json)$/, ""))) {
-                    continue;
-                }
-
-                await fs.write_file(`${pkg_dir}/${file}`, value, true);
+        // everything else goes to the package dir in LIB_DIR at the same time
+        const package_files: Record<string, Uint8Array> = Object.create(null);
+        for (const [file, value] of file_map) {
+            if (!program_names.includes(file.replace(/\.(js|json)$/, ""))) {
+                package_files[file] = value;
             }
+        }
 
+        batch.install_packages.set(pkg_name, package_files);
+
+        // triggers run afterwards, as they may use the programs and package files
+        batch.steps.push(async () => {
             term.writeln(`${FG.green}Package ${pkg_name}@${pkg_version} installed.${STYLE.reset_all}`);
 
             // check for any triggers

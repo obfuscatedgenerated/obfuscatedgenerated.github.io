@@ -63,27 +63,54 @@ export class ProtectedFileReadError extends Error {
 }
 
 /**
+ * Where programs keep state of their own, in a directory per program named after the program's identity (see {@link Kernel.get_private_storage_path}).
+ * Userspace can neither read nor change it, apart from each program's own directory.
+ */
+export const PRIVATE_STORAGE_ROOT = "/var/lib/private";
+
+/**
+ * Kernel only. Directories userspace can't change (each one and everything under it), as only the kernel or a kernel function the user allows may.
+ * /usr/lib holds what installed packages ship, which their programs in /usr/bin trust.
+ */
+export const WRITE_PROTECTED_PATHS: readonly string[] = ["/sys", "/boot", "/etc/services/privileged", "/etc/ssh", "/bin", "/usr/bin", "/usr/lib", PRIVATE_STORAGE_ROOT];
+
+/**
+ * Kernel only. Directories whose contents userspace can't read. Listing each directory itself is allowed (e.g. which programs have private storage), reading anything under it isn't.
+ */
+export const READ_PROTECTED_PATHS: readonly string[] = ["/etc/ssh", PRIVATE_STORAGE_ROOT];
+
+const is_within = (absolute_path: string, dir: string): boolean => absolute_path === dir || absolute_path.startsWith(`${dir}/`);
+
+/**
+ * Kernel only. Whether userspace is refused changing an absolute path.
+ * @param private_storage The process's own private storage (see {@link Kernel.get_private_storage_path}), which it may change.
+ */
+export const is_write_protected = (absolute_path: string, private_storage: string | null = null): boolean => {
+    if (private_storage !== null && is_within(absolute_path, private_storage)) {
+        return false;
+    }
+
+    return WRITE_PROTECTED_PATHS.some((protected_path) => is_within(absolute_path, protected_path));
+};
+
+/**
+ * Kernel only. Whether userspace is refused reading an absolute path.
+ * @param private_storage The process's own private storage (see {@link Kernel.get_private_storage_path}), which it may read.
+ */
+export const is_read_protected = (absolute_path: string, private_storage: string | null = null): boolean => {
+    if (private_storage !== null && is_within(absolute_path, private_storage)) {
+        return false;
+    }
+
+    return READ_PROTECTED_PATHS.some((protected_path) => absolute_path.startsWith(`${protected_path}/`));
+};
+
+/**
  * Event types emitted after filesystem operations.
  *
  * @group Userspace
  * @category Filesystem
  */
-/**
- * Kernel only. Directories userspace can't change (each one and everything under it), as only the kernel or a kernel function the user allows may.
- */
-export const WRITE_PROTECTED_PATHS: readonly string[] = ["/sys", "/boot", "/etc/services/privileged", "/etc/ssh", "/bin", "/usr/bin"];
-
-/**
- * Kernel only. Whether userspace is refused changing an absolute path.
- */
-export const is_write_protected = (absolute_path: string): boolean =>
-    WRITE_PROTECTED_PATHS.some((protected_path) => absolute_path === protected_path || absolute_path.startsWith(`${protected_path}/`));
-
-/**
- * Kernel only. Whether userspace is refused reading an absolute path. Listing /etc/ssh is allowed, reading the files in it isn't.
- */
-export const is_read_protected = (absolute_path: string): boolean => absolute_path.startsWith("/etc/ssh/");
-
 export enum FSEventType {
     READING_FILE,
     WROTE_FILE,
@@ -158,8 +185,8 @@ export interface UserspaceFileSystem {
     set_readonly(path: string, readonly: boolean): Promise<void>;
     is_readonly(path: string): Promise<boolean>;
     /**
-     * Whether the kernel protects a path from userspace, so changing it (or reading it, with access "read") needs a kernel func the user allows.
-     * Unlike {@link is_readonly}, this is about the path itself rather than a file's read-only flag.
+     * Whether the kernel protects a path from this program, so changing it (or reading it, with access "read") needs a kernel func the user allows.
+     * Unlike {@link is_readonly}, this is about the path itself rather than a file's read-only flag. A program's own private storage is never protected from it.
      */
     is_protected(path: string, access?: "write" | "read"): Promise<boolean>;
     exists(path: string): Promise<boolean>;
@@ -409,7 +436,10 @@ export abstract class AbstractFileSystem implements MirrorSource {
         return join_path(base_dir, ...paths);
     }
 
-    static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext): UserspaceFileSystem {
+    /**
+     * @param get_private_storage Gives the process's own private storage, which it may read and change. Asked on each check, as the kernel may only know who the process is once its program is found.
+     */
+    static create_userspace_proxy(fs: AbstractFileSystem, process: ProcessContext, get_private_storage: () => string | null = () => null): UserspaceFileSystem {
         const self = fs;
         const proxy = Object.create(null);
 
@@ -418,7 +448,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
             const absolute_path = self.absolute(path, process.cwd);
 
             // TODO: allow priv programs to add to protection
-            if (is_write_protected(absolute_path)) {
+            if (is_write_protected(absolute_path, get_private_storage())) {
                 throw new ReadOnlyError(absolute_path);
             }
 
@@ -429,7 +459,7 @@ export abstract class AbstractFileSystem implements MirrorSource {
         const check_path_for_reading = (path: string): string => {
             const absolute_path = self.absolute(path, process.cwd);
 
-            if (is_read_protected(absolute_path)) {
+            if (is_read_protected(absolute_path, get_private_storage())) {
                 throw new ProtectedFileReadError(absolute_path);
             }
 

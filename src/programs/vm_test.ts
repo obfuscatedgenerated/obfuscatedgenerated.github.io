@@ -15,7 +15,7 @@ export default {
 
         let guest;
         try {
-            guest = await kernel.create_guest({disk: "~/vms/test", install: "host"});
+            guest = await kernel.create_guest({disk: "test", install: "host"});
         } catch (e) {
             if (e instanceof Error && e.name === "NotAllowedError") {
                 term.writeln(`${ANSI.PREFABS.error}Permission denied.${ANSI.STYLE.reset_all}`);

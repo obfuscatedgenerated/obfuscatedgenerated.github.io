@@ -1,5 +1,5 @@
 import type {EndReason, Kernel} from "./index";
-import {AbstractFileSystem, is_write_protected, type UserspaceFileSystem, WRITE_PROTECTED_PATHS} from "./filesystem";
+import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
 import type {AbstractIsoThreadManager} from "./isothreads";
 import type {ProcessContext} from "./processes";
 import type {AbstractTerminal} from "./term_ctl";
@@ -30,8 +30,7 @@ export type GuestInstall = "host" | "none" | {image: string, host_programs?: boo
  */
 export interface GuestSpec {
     /**
-     * The directory on the host holding the guest's disk, created if it doesn't exist. Relative paths and ~ resolve from the creating process.
-     * A disk outside the user's home asks for permission first, as the guest can read and write everything under it. A disk that is or holds a protected directory (e.g. /bin) is refused.
+     * The name of the guest's disk, created if it doesn't exist. Disks are kept in the creating program's private storage, so each program has its own names, and the same name gives back the same disk next time.
      */
     disk: string;
 
@@ -179,6 +178,30 @@ const copy_image = async (source: Pick<UserspaceFileSystem, "list_dir" | "dir_ex
     }
 };
 
+// how a disk is laid out in a program's private storage: the guest only ever sees root, so it can't touch the metadata beside it
+interface DiskPaths {
+    root: string;
+    metadata: string;
+}
+
+interface DiskMetadata {
+    created_at: string;
+    last_booted_at: string | null;
+    os_version: string | null;
+}
+
+const read_disk_metadata = async (host_fs: AbstractFileSystem, metadata_path: string): Promise<DiskMetadata> => {
+    if (await host_fs.exists(metadata_path)) {
+        try {
+            return JSON.parse(await host_fs.read_file(metadata_path) as string) as DiskMetadata;
+        } catch (e) {
+            console.warn(`Failed to read disk metadata at ${metadata_path}, starting it again:`, e);
+        }
+    }
+
+    return {created_at: new Date().toISOString(), last_booted_at: null, os_version: null};
+};
+
 // what a guest's disk gets before each boot, resolved when the guest is created
 type ResolvedInstall =
     | {kind: "host"}
@@ -186,7 +209,7 @@ type ResolvedInstall =
     | {kind: "image", image: string, host_programs: boolean, reader: UserspaceFileSystem};
 
 interface GuestOptions {
-    disk: string;
+    disk: DiskPaths;
     install: ResolvedInstall;
     console: AbstractTerminal;
     drivers: GuestDrivers;
@@ -301,8 +324,10 @@ export class Guest {
             void this.power_off();
         };
 
+        await this.#record_boot(host_fs);
+
         // what is made here (rather than given by the caller) is disposed here
-        const disk = drivers.fs ? await drivers.fs(host_fs, this.#options.disk) : await ScopedFileSystem.create(host_fs, {root: this.#options.disk});
+        const disk = drivers.fs ? await drivers.fs(host_fs, this.#options.disk.root) : await ScopedFileSystem.create(host_fs, {root: this.#options.disk.root});
         const term = drivers.term ? drivers.term(guest_console, power_off) : new BridgedTerminal(guest_console, {on_escape: power_off});
 
         try {
@@ -348,6 +373,17 @@ export class Guest {
                 console.warn("Failed to reset a guest's console:", e);
             }
         }
+    }
+
+    // kept beside the disk's root, where the guest can't see it
+    async #record_boot(host_fs: AbstractFileSystem) {
+        const metadata_path = this.#options.disk.metadata;
+        const metadata = await read_disk_metadata(host_fs, metadata_path);
+
+        metadata.last_booted_at = new Date().toISOString();
+        metadata.os_version = this.#host.get_env_info().version;
+
+        await host_fs.write_file(metadata_path, JSON.stringify(metadata, null, 2), true);
     }
 
     #finish(reason: EndReason): EndReason {
@@ -429,40 +465,36 @@ export class Hypervisor {
     }
 
     /**
+     * The paths of a program's named disk: <private storage>/disks/<name>/root for the guest's filesystem, with disk.json beside it.
+     */
+    #disk_paths(process: ProcessContext, name: string): DiskPaths {
+        const storage = this.#host.get_private_storage_path(process);
+        if (storage === null) {
+            throw new NotAllowedError("only programs in /bin or /usr/bin have private storage to keep disks in");
+        }
+
+        const disk_dir = `${storage}/disks/${name}`;
+        return {root: `${disk_dir}/root`, metadata: `${disk_dir}/disk.json`};
+    }
+
+    /**
      * Creates a guest for a process. It doesn't start until {@link Guest.run} is called.
-     * Rejects with a "NotAllowedError" if the disk holds a protected directory, or is outside the user's home and the user doesn't allow it.
+     * Rejects with a "NotAllowedError" for a process without private storage to keep the disk in (see {@link Kernel.get_private_storage_path}).
      * @param drivers Implementations to use instead of the defaults. Only for kernelspace callers.
      */
     async create(process: ProcessContext, spec: GuestSpec, drivers: GuestDrivers = {}): Promise<Guest> {
-        // spec comes from userspace, so nothing about it is assumed
-        if (typeof spec?.disk !== "string" || spec.disk === "") {
-            throw new TypeError("A guest needs a disk directory");
+        // spec comes from userspace, so nothing about it is assumed. a name is one path segment, so it can't leave the program's disks
+        const name = spec?.disk;
+        if (typeof name !== "string" || name === "" || name === "." || name === ".." || name.includes("/")) {
+            throw new TypeError("A guest's disk must be a name, without any slashes");
         }
 
         if (spec.own_kernel !== undefined && spec.own_kernel !== true) {
             throw new TypeError("Guests sharing the host's kernel aren't supported yet");
         }
 
-        const fs = this.#host.get_fs();
-        const disk = fs.absolute(spec.disk, process.cwd);
-
-        // the guest can write anything on its disk, so it can't be (or hold) a directory only the kernel may change
-        const holds_protected = disk === "/" || WRITE_PROTECTED_PATHS.some((protected_path) => protected_path.startsWith(`${disk}/`));
-        if (is_write_protected(disk) || holds_protected) {
-            throw new NotAllowedError(`a guest's disk can't be or hold a protected directory: ${disk}`);
-        }
-
+        const disk = this.#disk_paths(process, name);
         const install = this.#resolve_install(spec.install, process);
-
-        // a disk inside the user's home is theirs to give. anywhere else asks first, as the guest can read and write everything under it
-        const home = fs.get_home();
-        const inside_home = disk === home || disk.startsWith(`${home}/`);
-        if (!inside_home) {
-            const allowed = await this.#host.request_privilege(`${process.source_command.command} wants to run a virtual machine with its disk at ${disk}, which gives the machine full access to everything there.`, process, "confirm");
-            if (!allowed) {
-                throw new NotAllowedError("rejected by user");
-            }
-        }
 
         // isothreads of its own, so the guest's programs are as isolated as the host's and their pids can't collide with the host's
         const owned_isothread_manager = drivers.isothread_manager ? undefined : (this.#host.get_isothread_manager()?.create_sibling() ?? undefined);

@@ -129,9 +129,10 @@ export const remove_subcommand = async (data: ProgramMainData, parent_batch?: Pk
 
         term.writeln(`${FG.yellow}Queued ${pkg} for removal.${STYLE.reset_all}`);
 
-        // the package dir goes afterwards, followed by triggers
+        // the package dir goes from LIB_DIR at the same time, then triggers run
+        batch.remove_packages.add(pkg);
+
         batch.steps.push(async () => {
-            await fs.delete_dir(pkg_dir, true);
             fs.purge_cache();
 
             term.writeln(`${FG.green}Package '${pkg}' removed.${STYLE.reset_all}`);

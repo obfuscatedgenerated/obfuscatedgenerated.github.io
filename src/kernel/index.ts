@@ -1,4 +1,4 @@
-import {AbstractFileSystem, type UserspaceFileSystem} from "./filesystem";
+import {AbstractFileSystem, PRIVATE_STORAGE_ROOT, type UserspaceFileSystem} from "./filesystem";
 
 import {AbstractWindowManager, UserspaceWindowManager} from "./windowing";
 import {AbstractNetworkManager, UserspaceNetworkManager} from "./network";
@@ -203,8 +203,8 @@ export interface UserspaceKernel<F extends KernelFuncs = KernelFuncs> {
     complete(name: string, data: CompletionRequest): Promise<string[] | null>;
 
     /**
-     * Creates a guest kernel (a virtual machine) owned by the calling program, with its disk in a directory of the host's filesystem. It is powered off when the program exits.
-     * Rejects with a "NotAllowedError" if the disk is or holds a protected directory, or is outside the user's home and the user doesn't allow it.
+     * Creates a guest kernel (a virtual machine) owned by the calling program, with a named disk kept in the program's private storage. It is powered off when the program exits.
+     * Rejects with a "NotAllowedError" for a program without private storage (one run from outside /bin and /usr/bin).
      */
     create_guest(spec: GuestSpec): Promise<UserspaceGuest>;
 
@@ -466,6 +466,40 @@ export class Kernel {
      */
     get_ipc(): IPCManager {
         return this.#process_manager.ipc_manager;
+    }
+
+    /**
+     * Who a process's program is, as far as the kernel can vouch: the path it was loaded from, relative to the root and without .js (e.g. "usr/bin/vm"), for programs in a directory userspace can't write (/bin and /usr/bin).
+     * Null for anything else (e.g. a program run from the user's files), as anything able to rewrite it could pose as it. The program never says who it is itself, so this can't be claimed.
+     */
+    get_program_identity(process: ProcessContext): string | null {
+        const spawned = this.#spawned_code.get(process.pid);
+        if (!spawned) {
+            return null;
+        }
+
+        const {code_path, metadata} = spawned.found;
+
+        // a builtin only the kernel holds (e.g. on platforms without builtin files) still has its place in /bin
+        if (code_path === null) {
+            return `bin/${metadata.name}`;
+        }
+
+        for (const { dir } of PROGRAM_SEARCH_DIRS) {
+            if (code_path.startsWith(`${dir}/`) && code_path.endsWith(".js")) {
+                return code_path.slice(1, -".js".length);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The directory of a process's private storage, named after its program's identity (e.g. /var/lib/private/usr/bin/vm). Null for a program the kernel can't vouch for (see {@link Kernel.get_program_identity}).
+     */
+    get_private_storage_path(process: ProcessContext): string | null {
+        const identity = this.get_program_identity(process);
+        return identity === null ? null : `${PRIVATE_STORAGE_ROOT}/${identity}`;
     }
 
     /**
@@ -1409,7 +1443,7 @@ export class Kernel {
         const kernel_fs = self.get_fs();
 
         const proc_mgr_proxy = self.get_process_manager().create_userspace_proxy(process.pid);
-        const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs, process);
+        const fs_proxy = AbstractFileSystem.create_userspace_proxy(kernel_fs, process, () => self.get_private_storage_path(process));
 
         // managers are fixed at construction, so each proxy is built once and the same one is always returned
         const wm = self.get_window_manager();

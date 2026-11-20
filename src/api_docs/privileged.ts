@@ -11,6 +11,7 @@ export { Kernel, SpawnResult } from "../kernel";
  * @category Filesystem
  */
 export { AbstractFileSystem } from "../kernel/filesystem";
+export { ScopedFileSystem, ScopedFileSystemOptions, ScopedFileSystemTarget } from "../fs_impl/scoped";
 
 /**
  * @group Kernel (Privileged)
