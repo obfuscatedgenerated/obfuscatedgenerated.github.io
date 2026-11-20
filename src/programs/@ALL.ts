@@ -40,6 +40,9 @@ export * as hello_http from "./hello_http";
 export * as finger from "./finger";
 export * as vm from "./vm";
 
+export * as zip from "./zip";
+export * as unzip from "./unzip";
+
 export * as telnetd from "./services/telnetd";
 export * as fingerd from "./services/fingerd";
 export * as sshd from "./services/sshd";
